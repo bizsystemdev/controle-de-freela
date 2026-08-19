@@ -4,7 +4,7 @@ export interface GeoCoords {
 }
 
 /** Tolerance radius (meters) for matching a company location on check-in. */
-export const LOCATION_RADIUS_METERS = 200
+export const LOCATION_RADIUS_METERS = 500
 
 export function isGeolocationAvailable(): boolean {
   return typeof navigator !== 'undefined' && !!navigator.geolocation
