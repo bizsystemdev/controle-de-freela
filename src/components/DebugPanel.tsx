@@ -9,8 +9,8 @@ import { getLogs, clearLogs, type LogEntry } from '@/lib/logger'
 // taps 5 times (quickly) in the top-left corner of the screen. Once open it
 // occupies the bottom half of the viewport with a dark, semi-transparent
 // background and shows the live in-memory log stream plus the last known
-// device coordinates (extracted from the most recent `geo` log carrying
-// lat/lng data).
+// device coordinates (extracted from the most recent `geo` or `checkin` log
+// carrying coordinates in any supported shape — direct, nested or fallback).
 // ---------------------------------------------------------------------------
 
 const TAP_ZONE_SIZE = 56 // px — invisible trigger in the top-left corner
@@ -46,26 +46,67 @@ function shortTime(iso: string): string {
   })
 }
 
-/** Scan the log stream for the most recent geo entry carrying coordinates. */
+const isCoordNumber = (v: unknown): v is number => typeof v === 'number' && !Number.isNaN(v)
+
+/**
+ * Try to pull a coordinate pair (plus optional accuracy) out of a log entry's
+ * structured payload, accepting every coordinate shape the app actually logs:
+ *   - { latitude, longitude, accuracy }   → getCurrentPosition success log
+ *   - { device: { lat, lng } }             → isWithinRadius / performCheckIn logs
+ *   - { lat, lng }                         → direct fallback
+ */
+function extractCoordsFromData(
+  data: Record<string, unknown>,
+): { lat: number; lng: number; accuracy?: number } | null {
+  // 1) Direct latitude/longitude (getCurrentPosition).
+  if (isCoordNumber(data.latitude) && isCoordNumber(data.longitude)) {
+    return {
+      lat: data.latitude,
+      lng: data.longitude,
+      accuracy: isCoordNumber(data.accuracy) ? data.accuracy : undefined,
+    }
+  }
+
+  // 2) Direct lat/lng fallback.
+  if (isCoordNumber(data.lat) && isCoordNumber(data.lng)) {
+    return {
+      lat: data.lat,
+      lng: data.lng,
+      accuracy: isCoordNumber(data.accuracy) ? data.accuracy : undefined,
+    }
+  }
+
+  // 3) Nested device coordinates (isWithinRadius / performCheckIn logs).
+  const { device } = data
+  if (device && typeof device === 'object' && !Array.isArray(device)) {
+    const dev = device as Record<string, unknown>
+    if (isCoordNumber(dev.lat) && isCoordNumber(dev.lng)) {
+      return {
+        lat: dev.lat,
+        lng: dev.lng,
+        accuracy: isCoordNumber(dev.accuracy) ? dev.accuracy : undefined,
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Scan the log stream newest-first and return the first coordinate pair found
+ * in any supported format. Both `geo` logs (getCurrentPosition + isWithinRadius)
+ * and `checkin` logs (performCheckIn) carry device coordinates, so both tags
+ * are considered.
+ */
 function findLastKnownLocation(
   logs: LogEntry[],
 ): { lat: number; lng: number; accuracy?: number } | null {
   for (let i = logs.length - 1; i >= 0; i -= 1) {
     const entry = logs[i]
-    if (entry.tag !== 'geo' || !entry.data) continue
-    const { latitude, longitude, accuracy } = entry.data
-    if (
-      typeof latitude === 'number' &&
-      typeof longitude === 'number' &&
-      !Number.isNaN(latitude) &&
-      !Number.isNaN(longitude)
-    ) {
-      return {
-        lat: latitude,
-        lng: longitude,
-        accuracy: typeof accuracy === 'number' ? accuracy : undefined,
-      }
-    }
+    if (!entry.data) continue
+    if (entry.tag !== 'geo' && entry.tag !== 'checkin') continue
+    const coords = extractCoordsFromData(entry.data)
+    if (coords) return coords
   }
   return null
 }
