@@ -1,4 +1,34 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
+import {
+  validatePhone,
+  registerDevice,
+  authenticateUser,
+  getAttendanceStatus,
+  registerAttendance,
+  getCompany,
+  type MockUser,
+  type MockCompany as ApiMockCompany,
+  type MockLocation,
+  type MockAttendanceStatus,
+} from '@/lib/mockApi'
+import { storage, STORAGE_KEYS } from '@/lib/storage'
+import {
+  registerCredential,
+  authenticateCredential,
+  saveCredential,
+  getStoredCredentialId,
+  saveDeviceId,
+  getLocalDeviceId,
+  isPlatformAuthenticatorAvailable,
+  isWebAuthnSupported,
+  WebAuthnError,
+} from '@/lib/webauthn'
+import { getCurrentPosition, isWithinRadius, isGeolocationAvailable } from '@/lib/geolocation'
+
+export interface CompanyLocation {
+  lat: number
+  lng: number
+}
 
 export interface Company {
   id: string
@@ -6,12 +36,14 @@ export interface Company {
   city: string
   state: string
   address: string
+  location: CompanyLocation
   initial: string
   gradient: string
   colorTheme: 'indigo' | 'emerald'
 }
 
 export interface UserProfile {
+  id: string
   name: string
   phone: string
   maskedPhone: string
@@ -26,152 +58,487 @@ export interface AttendanceRecord {
   formattedCheckIn?: string
   formattedCheckOut?: string
   durationFormatted?: string
+  empresaId?: string
 }
 
+export type AuthState =
+  | 'loading'
+  | 'unauthenticated'
+  | 'needs-phone'
+  | 'needs-biometric'
+  | 'authenticated'
+
+export type CheckInResult =
+  | { ok: true; time: string }
+  | { ok: false; reason: 'location' | 'geo-unavailable' | 'network'; message: string }
+
+export type CheckOutResult =
+  | { ok: true; checkOutTime: string; duration: string }
+  | { ok: false; reason: 'network'; message: string }
+
 interface AppContextType {
-  user: UserProfile
+  user: UserProfile | null
   companies: Company[]
   selectedCompany: Company | null
   presenceStatus: PresenceStatus
   currentRecord: AttendanceRecord | null
   history: AttendanceRecord[]
-  showEmptyCompaniesDemo: boolean
+  authState: AuthState
+  authMessage: string
+  authError: string
+  isAuthBusy: boolean
+  hasStoredCredential: boolean
+  webauthnSupported: boolean
+  pendingPhone: string
   setSelectedCompany: (company: Company | null) => void
-  performCheckIn: () => { time: string }
-  performCheckOut: () => { checkOutTime: string; duration: string }
+  resetAuthError: () => void
+  submitPhone: (phone: string) => Promise<void>
+  startBiometricFlow: () => Promise<void>
+  restoreSession: () => Promise<void>
+  performCheckIn: (company: Company) => Promise<CheckInResult>
+  performCheckOut: () => Promise<CheckOutResult>
   logout: () => void
-  resetToDefault: () => void
-  setShowEmptyCompaniesDemo: (val: boolean) => void
-  phoneNumber: string
-  setPhoneNumber: (val: string) => void
-}
-
-const DEFAULT_COMPANIES: Company[] = [
-  {
-    id: 'empresa-abc',
-    name: 'Empresa ABC',
-    city: 'Florianópolis',
-    state: 'SC',
-    address: 'Rod. SC-401, 4100 - Saco Grande, Florianópolis - SC',
-    initial: 'A',
-    gradient: 'from-indigo-600 to-indigo-500',
-    colorTheme: 'indigo',
-  },
-  {
-    id: 'empresa-xyz',
-    name: 'Empresa XYZ',
-    city: 'São José',
-    state: 'SC',
-    address: 'Av. Pres. Kennedy, 1333 - Campinas, São José - SC',
-    initial: 'X',
-    gradient: 'from-emerald-600 to-emerald-500',
-    colorTheme: 'emerald',
-  },
-]
-
-const DEFAULT_USER: UserProfile = {
-  name: 'Fabricio Capelini',
-  phone: '(11) 98765-4321',
-  maskedPhone: '(11) *****-4321',
-  initials: 'FC',
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const COMPANY_THEMES: Record<string, { gradient: string; colorTheme: 'indigo' | 'emerald' }> = {
+  'comp-001': { gradient: 'from-indigo-600 to-indigo-500', colorTheme: 'indigo' },
+  'comp-002': { gradient: 'from-emerald-600 to-emerald-500', colorTheme: 'emerald' },
+}
+const FALLBACK_THEME = { gradient: 'from-indigo-600 to-indigo-500', colorTheme: 'indigo' as const }
+
+function companyInitial(name: string): string {
+  return name.trim().charAt(0).toUpperCase() || '?'
+}
+
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length >= 11) {
+    return `(${digits.slice(0, 2)}) *****-${digits.slice(-4)}`
+  }
+  if (digits.length >= 10) {
+    return `(${digits.slice(0, 2)}) ****-${digits.slice(-4)}`
+  }
+  return phone
+}
+
+function toUserProfile(apiUser: MockUser): UserProfile {
+  const parts = apiUser.name.trim().split(/\s+/)
+  const initials =
+    parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : parts[0]?.[0]?.toUpperCase() || 'U'
+  return {
+    id: apiUser.id,
+    name: apiUser.name,
+    phone: apiUser.phone,
+    maskedPhone: maskPhone(apiUser.phone),
+    initials,
+  }
+}
+
+function mapCompany(api: ApiMockCompany): Company {
+  const theme = COMPANY_THEMES[api.id] ?? FALLBACK_THEME
+  return {
+    id: api.id,
+    name: api.name,
+    city: api.cidade,
+    state: api.estado,
+    address: api.endereco,
+    location: { lat: api.location.lat, lng: api.location.lng },
+    initial: companyInitial(api.name),
+    gradient: theme.gradient,
+    colorTheme: theme.colorTheme,
+  }
+}
+
+const formatTimeString = (date: Date) =>
+  date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+const formatDurationString = (startDate: Date, endDate: Date) => {
+  const diffMs = endDate.getTime() - startDate.getTime()
+  const diffMins = Math.max(1, Math.floor(diffMs / (1000 * 60)))
+  const hours = Math.floor(diffMins / 60)
+  const mins = diffMins % 60
+  if (hours > 0) {
+    return `${hours}h${mins < 10 ? '0' : ''}${mins}`
+  }
+  return `${mins} min`
+}
+
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user] = useState<UserProfile>(DEFAULT_USER)
-  const [phoneNumber, setPhoneNumber] = useState<string>('(11) 98765-4321')
-  const [companies] = useState<Company[]>(DEFAULT_COMPANIES)
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(DEFAULT_COMPANIES[0])
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [apiUser, setApiUser] = useState<MockUser | null>(null)
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const [presenceStatus, setPresenceStatus] = useState<PresenceStatus>('awaiting')
   const [currentRecord, setCurrentRecord] = useState<AttendanceRecord | null>(null)
   const [history, setHistory] = useState<AttendanceRecord[]>([])
-  const [showEmptyCompaniesDemo, setShowEmptyCompaniesDemo] = useState(false)
 
-  const formatTimeString = (date: Date) => {
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  }
+  const [authState, setAuthState] = useState<AuthState>('loading')
+  const [authMessage, setAuthMessage] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [isAuthBusy, setIsAuthBusy] = useState(false)
+  const [hasStoredCredential, setHasStoredCredential] = useState(false)
+  const [pendingPhone, setPendingPhone] = useState('')
 
-  const formatDurationString = (startDate: Date, endDate: Date) => {
-    const diffMs = endDate.getTime() - startDate.getTime()
-    const diffMins = Math.max(1, Math.floor(diffMs / (1000 * 60)))
-    const hours = Math.floor(diffMins / 60)
-    const mins = diffMins % 60
-    if (hours > 0) {
-      return `${hours}h${mins < 10 ? '0' : ''}${mins}`
+  const webauthnSupported = isWebAuthnSupported()
+  const initializedRef = useRef(false)
+
+  const refreshStoredCredential = useCallback(() => {
+    setHasStoredCredential(!!getStoredCredentialId())
+  }, [])
+
+  // ----- Session bootstrap --------------------------------------------------
+  const restoreSession = useCallback(async () => {
+    setIsAuthBusy(true)
+    setAuthError('')
+    try {
+      const storedCredId = getStoredCredentialId()
+      const storedUserId = storage.get(STORAGE_KEYS.userId)
+      const storedUserName = storage.get(STORAGE_KEYS.userName)
+
+      if (!storedCredId || !storedUserId || !storedUserName) {
+        refreshStoredCredential()
+        setAuthState(storedCredId ? 'needs-biometric' : 'needs-phone')
+        return
+      }
+
+      // We have a local credential + persisted user: go straight to biometric
+      // re-authentication. The actual navigator.credentials.get() call is a
+      // user gesture and MUST be triggered by the Autenticar page button,
+      // so we only stage the state here.
+      setUser({
+        id: storedUserId,
+        name: storedUserName,
+        phone: storage.get(STORAGE_KEYS.userPhone) || '',
+        maskedPhone: maskPhone(storage.get(STORAGE_KEYS.userPhone) || ''),
+        initials:
+          storedUserName
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((p) => p[0])
+            .join('')
+            .toUpperCase() || 'U',
+      })
+      setHasStoredCredential(true)
+      setAuthState('needs-biometric')
+    } finally {
+      setIsAuthBusy(false)
     }
-    return `${mins} min`
+  }, [refreshStoredCredential])
+
+  // First-mount bootstrap
+  if (!initializedRef.current) {
+    initializedRef.current = true
+    // Kick off async restore without blocking render.
+    void restoreSession()
   }
 
-  const performCheckIn = () => {
-    const now = new Date()
-    const formatted = formatTimeString(now)
-    const record: AttendanceRecord = {
-      checkInTime: now,
-      formattedCheckIn: formatted,
+  // ----- Phone validation ---------------------------------------------------
+  const submitPhone = useCallback(async (phone: string) => {
+    setIsAuthBusy(true)
+    setAuthError('')
+    setAuthMessage('')
+    try {
+      const res = await validatePhone(phone)
+      setApiUser(res.user)
+      setUser(toUserProfile(res.user))
+      setCompanies(res.companies.map(mapCompany))
+
+      if (res.companies.length === 0) {
+        setAuthMessage(
+          'Nenhuma empresa vinculada ao seu telefone. Verifique com a empresa contratante.',
+        )
+      }
+
+      storage.set(STORAGE_KEYS.userId, res.user.id)
+      storage.set(STORAGE_KEYS.userName, res.user.name)
+      storage.set(STORAGE_KEYS.userPhone, res.user.phone)
+
+      if (res.user.deviceId === null) {
+        // First access on this account — must register a platform credential.
+        if (!isWebAuthnSupported()) {
+          setAuthError(
+            'Seu dispositivo não suporta autenticação biométrica. Tente usar outro dispositivo.',
+          )
+          setAuthState('needs-biometric')
+          return
+        }
+        setPendingPhone(phone)
+        setAuthState('needs-biometric')
+      } else {
+        // Device already registered server-side. If the local credential id
+        // does not match the server deviceId, flag a mismatch.
+        const localDevice = getLocalDeviceId()
+        if (localDevice && localDevice !== res.user.deviceId) {
+          setAuthError(
+            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar um novo registro.',
+          )
+          setAuthState('needs-biometric')
+          return
+        }
+        setPendingPhone(phone)
+        setAuthState('needs-biometric')
+      }
+    } catch (err) {
+      setAuthError(
+        err instanceof Error ? err.message : 'Falha ao validar telefone. Tente novamente.',
+      )
+    } finally {
+      setIsAuthBusy(false)
     }
-    setCurrentRecord(record)
-    setPresenceStatus('checked-in')
-    return { time: formatted }
-  }
+  }, [])
 
-  const performCheckOut = () => {
+  // ----- Biometric register / login ---------------------------------------
+  const startBiometricFlow = useCallback(async () => {
+    setAuthError('')
+    setAuthMessage('')
+    setIsAuthBusy(true)
+    try {
+      const platformAvailable = await isPlatformAuthenticatorAvailable()
+      if (!platformAvailable) {
+        setAuthError(
+          'Seu dispositivo não suporta autenticação biométrica. Tente usar outro dispositivo.',
+        )
+        return
+      }
+
+      const localCredId = getStoredCredentialId()
+      const needsRegister = !apiUser?.deviceId && !localCredId
+
+      if (needsRegister) {
+        // ----- Register flow ------------------------------------------------
+        const cred = await registerCredential()
+        saveCredential(cred)
+        refreshStoredCredential()
+        const reg = await registerDevice(apiUser?.id || 'unknown', cred.rawId)
+        saveDeviceId(reg.deviceId)
+        setApiUser((prev) => (prev ? { ...prev, deviceId: reg.deviceId } : prev))
+      } else {
+        // ----- Login flow ---------------------------------------------------
+        if (!localCredId) {
+          setAuthError(
+            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar um novo registro.',
+          )
+          return
+        }
+        // Mismatch check between local credential and server deviceId.
+        if (apiUser?.deviceId && apiUser.deviceId !== getLocalDeviceId()) {
+          setAuthError(
+            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar um novo registro.',
+          )
+          return
+        }
+        await authenticateCredential(localCredId)
+      }
+
+      // Post-auth: restore any open check-in session.
+      const userId = apiUser?.id || storage.get(STORAGE_KEYS.userId) || ''
+      const status = await getAttendanceStatus(userId)
+      await applyAttendanceStatus(status)
+
+      setAuthState('authenticated')
+    } catch (err) {
+      if (err instanceof WebAuthnError) {
+        setAuthError(err.userMessage)
+      } else {
+        setAuthError(err instanceof Error ? err.message : 'Falha na autenticação. Tente novamente.')
+      }
+    } finally {
+      setIsAuthBusy(false)
+    }
+  }, [apiUser, refreshStoredCredential])
+
+  // ----- Apply attendance status (after auth or on restore) ---------------
+  const applyAttendanceStatus = useCallback(async (status: MockAttendanceStatus) => {
+    if (status.hasOpenCheckIn && status.empresaId && status.checkInTime) {
+      try {
+        const compApi = await getCompany(status.empresaId)
+        const comp = mapCompany(compApi)
+        setSelectedCompany(comp)
+        const checkInDate = new Date(status.checkInTime)
+        setCurrentRecord({
+          checkInTime: checkInDate,
+          formattedCheckIn: formatTimeString(checkInDate),
+          empresaId: status.empresaId,
+        })
+        setPresenceStatus('checked-in')
+      } catch {
+        // If company fetch fails, still mark as checked-in with what we have.
+        const checkInDate = new Date(status.checkInTime)
+        setCurrentRecord({
+          checkInTime: checkInDate,
+          formattedCheckIn: formatTimeString(checkInDate),
+          empresaId: status.empresaId,
+        })
+        setPresenceStatus('checked-in')
+      }
+    } else {
+      setPresenceStatus('awaiting')
+      setCurrentRecord(null)
+    }
+  }, [])
+
+  const resetAuthError = useCallback(() => {
+    setAuthError('')
+    setAuthMessage('')
+  }, [])
+
+  // ----- Check-in (with geolocation) --------------------------------------
+  const performCheckIn = useCallback(
+    async (company: Company): Promise<CheckInResult> => {
+      if (!isGeolocationAvailable()) {
+        return {
+          ok: false,
+          reason: 'geo-unavailable',
+          message: 'Permita o acesso à localização para registrar o ponto.',
+        }
+      }
+      let coords
+      try {
+        coords = await getCurrentPosition()
+      } catch {
+        return {
+          ok: false,
+          reason: 'geo-unavailable',
+          message: 'Permita o acesso à localização para registrar o ponto.',
+        }
+      }
+      const within = isWithinRadius(
+        coords.latitude,
+        coords.longitude,
+        company.location.lat,
+        company.location.lng,
+      )
+      if (!within) {
+        return {
+          ok: false,
+          reason: 'location',
+          message:
+            'Você não está no local da empresa. Aproxime-se do endereço para registrar o ponto.',
+        }
+      }
+      const userId = user?.id || storage.get(STORAGE_KEYS.userId) || ''
+      const now = new Date()
+      const formatted = formatTimeString(now)
+      try {
+        await registerAttendance({
+          userId,
+          empresaId: company.id,
+          status: 'check-in',
+          timestamp: now.toISOString(),
+          location: { lat: coords.latitude, lng: coords.longitude },
+        })
+      } catch (err) {
+        return {
+          ok: false,
+          reason: 'network',
+          message:
+            err instanceof Error ? err.message : 'Falha ao registrar ponto. Tente novamente.',
+        }
+      }
+      const record: AttendanceRecord = {
+        checkInTime: now,
+        formattedCheckIn: formatted,
+        empresaId: company.id,
+      }
+      setCurrentRecord(record)
+      setPresenceStatus('checked-in')
+      return { ok: true, time: formatted }
+    },
+    [user],
+  )
+
+  // ----- Check-out ---------------------------------------------------------
+  const performCheckOut = useCallback(async (): Promise<CheckOutResult> => {
     const now = new Date()
     const formattedOut = formatTimeString(now)
     const checkIn =
       currentRecord?.checkInTime || new Date(now.getTime() - 8 * 3600 * 1000 - 53 * 60 * 1000)
     const duration = formatDurationString(checkIn, now)
-
+    const userId = user?.id || storage.get(STORAGE_KEYS.userId) || ''
+    const empresaId = currentRecord?.empresaId || selectedCompany?.id || ''
+    try {
+      await registerAttendance({
+        userId,
+        empresaId,
+        status: 'check-out',
+        timestamp: now.toISOString(),
+      })
+    } catch (err) {
+      return {
+        ok: false,
+        reason: 'network',
+        message: err instanceof Error ? err.message : 'Falha ao registrar saída. Tente novamente.',
+      }
+    }
     const updatedRecord: AttendanceRecord = {
       ...currentRecord,
       checkOutTime: now,
       formattedCheckOut: formattedOut,
       durationFormatted: duration,
     }
-
     setHistory((prev) => [updatedRecord, ...prev])
     setCurrentRecord(null)
     setPresenceStatus('awaiting')
+    return { ok: true, checkOutTime: formattedOut, duration }
+  }, [currentRecord, selectedCompany, user])
 
-    return {
-      checkOutTime: formattedOut,
-      duration: duration || '8h53',
-    }
-  }
-
-  const logout = () => {
+  // ----- Logout ------------------------------------------------------------
+  const logout = useCallback(() => {
+    setUser(null)
+    setApiUser(null)
+    setCompanies([])
+    setSelectedCompany(null)
     setPresenceStatus('awaiting')
     setCurrentRecord(null)
-    setSelectedCompany(DEFAULT_COMPANIES[0])
-    setPhoneNumber('')
-  }
-
-  const resetToDefault = () => {
-    setPresenceStatus('awaiting')
-    setCurrentRecord(null)
-    setSelectedCompany(DEFAULT_COMPANIES[0])
-    setPhoneNumber('(11) 98765-4321')
-    setShowEmptyCompaniesDemo(false)
-  }
+    setHistory([])
+    setAuthError('')
+    setAuthMessage('')
+    setPendingPhone('')
+    setHasStoredCredential(false)
+    storage.remove(STORAGE_KEYS.userId)
+    storage.remove(STORAGE_KEYS.userName)
+    storage.remove(STORAGE_KEYS.userPhone)
+    storage.remove(STORAGE_KEYS.mockOpenCheckIn)
+    setAuthState('needs-phone')
+  }, [])
 
   return (
     <AppContext.Provider
       value={{
         user,
-        companies: showEmptyCompaniesDemo ? [] : companies,
+        companies,
         selectedCompany,
         presenceStatus,
         currentRecord,
         history,
-        showEmptyCompaniesDemo,
+        authState,
+        authMessage,
+        authError,
+        isAuthBusy,
+        hasStoredCredential,
+        webauthnSupported,
+        pendingPhone,
         setSelectedCompany,
+        resetAuthError,
+        submitPhone,
+        startBiometricFlow,
+        restoreSession,
         performCheckIn,
         performCheckOut,
         logout,
-        resetToDefault,
-        setShowEmptyCompaniesDemo,
-        phoneNumber,
-        setPhoneNumber,
       }}
     >
       {children}

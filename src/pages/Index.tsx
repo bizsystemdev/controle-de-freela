@@ -1,26 +1,33 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppLogo } from '@/components/AppLogo'
+import { useApp } from '@/context/AppContext'
 
 export default function Index() {
   const navigate = useNavigate()
+  const { authState } = useApp()
   const [isFading, setIsFading] = useState(false)
 
   useEffect(() => {
-    // Navigate automatically to /acesso after ~1.8s
-    const fadeTimer = setTimeout(() => {
-      setIsFading(true)
-    }, 1500)
+    const fadeTimer = setTimeout(() => setIsFading(true), 1500)
 
-    const navTimer = setTimeout(() => {
-      navigate('/acesso')
-    }, 1800)
+    const route = () => {
+      if (authState === 'authenticated') {
+        navigate('/inicio')
+      } else if (authState === 'needs-biometric') {
+        navigate('/autenticar')
+      } else {
+        navigate('/acesso')
+      }
+    }
+
+    const navTimer = setTimeout(route, 1800)
 
     return () => {
       clearTimeout(fadeTimer)
       clearTimeout(navTimer)
     }
-  }, [navigate])
+  }, [authState, navigate])
 
   return (
     <div
@@ -29,11 +36,9 @@ export default function Index() {
       }`}
     >
       <div className="w-full flex justify-end">
-        {/* Invisible spacer to balance top */}
         <span className="text-xs text-transparent select-none">v1.0</span>
       </div>
 
-      {/* Main Brand presentation */}
       <div className="flex flex-col items-center text-center -mt-8">
         <div className="relative mb-6">
           <div className="absolute -inset-4 bg-indigo-500/15 rounded-3xl blur-xl animate-pulse" />
@@ -46,7 +51,6 @@ export default function Index() {
         </p>
       </div>
 
-      {/* Loading indicator */}
       <div className="w-full flex flex-col items-center gap-3 pb-6">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-bounce [animation-delay:-0.3s]" />

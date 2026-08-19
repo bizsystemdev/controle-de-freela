@@ -7,71 +7,68 @@ import { Check, Phone, Loader2, Sparkles, AlertCircle } from 'lucide-react'
 
 export default function Acesso() {
   const navigate = useNavigate()
-  const { phoneNumber, setPhoneNumber, resetToDefault } = useApp()
-  const [phone, setPhone] = useState(phoneNumber || '(11) 98765-4321')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [hasError, setHasError] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
+  const { submitPhone, isAuthBusy, authError, resetAuthError, authState } = useApp()
+  const [phone, setPhone] = useState('(11) 98765-4321')
+  const [localError, setLocalError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const isSubmitting = isAuthBusy
   const isValid = isValidBrazilianPhone(phone)
   const isEmpty = phone.trim().length === 0
+  const hasError = !!localError
 
   useEffect(() => {
-    // Focus input softly on load
     if (inputRef.current) {
       inputRef.current.focus()
     }
   }, [])
 
+  // Redirect to biometric screen once phone is validated.
+  useEffect(() => {
+    if (authState === 'needs-biometric') {
+      navigate('/autenticar')
+    }
+  }, [authState, navigate])
+
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value
     const masked = maskBrazilianPhone(rawVal)
     setPhone(masked)
-    setPhoneNumber(masked)
-
-    if (hasError) {
-      setHasError(false)
-      setErrorMessage('')
+    if (localError) {
+      setLocalError('')
+    }
+    if (authError) {
+      resetAuthError()
     }
   }
 
   const handleFillDemo = (demoPhone = '(11) 98765-4321') => {
-    resetToDefault()
     setPhone(demoPhone)
-    setPhoneNumber(demoPhone)
-    setHasError(false)
-    setErrorMessage('')
+    setLocalError('')
+    resetAuthError()
     if (inputRef.current) {
       inputRef.current.focus()
     }
   }
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (isSubmitting) return
 
     if (isEmpty) {
-      setHasError(true)
-      setErrorMessage('Informe seu número de telefone.')
+      setLocalError('Informe seu número de telefone.')
       return
     }
-
     if (!isValid) {
-      setHasError(true)
-      setErrorMessage('Informe um número de telefone válido.')
+      setLocalError('Informe um número de telefone válido.')
       return
     }
 
-    // Valid submit simulation (~700ms)
-    setIsSubmitting(true)
-    setHasError(false)
-
-    setTimeout(() => {
-      setIsSubmitting(false)
-      navigate('/empresas')
-    }, 700)
+    setLocalError('')
+    await submitPhone(phone)
   }
+
+  const errorMessage = localError || authError
 
   return (
     <div className="flex-1 flex flex-col justify-between p-6 sm:p-7 bg-white">
@@ -107,7 +104,7 @@ export default function Acesso() {
 
           <div
             className={`relative flex items-center rounded-2xl border-2 bg-slate-50/50 transition-all duration-200 ${
-              hasError
+              hasError || authError
                 ? 'border-rose-500 bg-rose-50/30 animate-shake ring-4 ring-rose-500/10'
                 : isValid
                   ? 'border-indigo-600 bg-white ring-4 ring-indigo-600/10'
@@ -117,7 +114,11 @@ export default function Acesso() {
             <div className="pl-4 pr-2 text-slate-400 flex items-center justify-center pointer-events-none">
               <Phone
                 className={`w-5 h-5 transition-colors ${
-                  hasError ? 'text-rose-500' : isValid ? 'text-indigo-600' : 'text-slate-400'
+                  hasError || authError
+                    ? 'text-rose-500'
+                    : isValid
+                      ? 'text-indigo-600'
+                      : 'text-slate-400'
                 }`}
               />
             </div>
@@ -134,7 +135,7 @@ export default function Acesso() {
               className="w-full h-14 bg-transparent text-lg sm:text-xl font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none pr-12 tracking-wide tabular-nums"
             />
 
-            {isValid && (
+            {isValid && !hasError && !authError && (
               <div className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center animate-fade-in shadow-sm shadow-emerald-500/30">
                 <Check className="w-3.5 h-3.5 stroke-[3]" />
               </div>
@@ -142,7 +143,7 @@ export default function Acesso() {
           </div>
 
           {/* Validation Feedback */}
-          {hasError ? (
+          {errorMessage ? (
             <p className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-rose-600 pt-1 animate-fade-in">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>

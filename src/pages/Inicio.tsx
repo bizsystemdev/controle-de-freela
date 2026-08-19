@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '@/context/AppContext'
 import { CheckInModal } from '@/components/CheckInModal'
 import { CheckOutModal } from '@/components/CheckOutModal'
+import { LocationMismatchModal } from '@/components/LocationMismatchModal'
 import {
   ArrowRightLeft,
   CheckCircle,
@@ -10,12 +11,22 @@ import {
   Clock,
   Sparkles,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react'
 
 export default function Inicio() {
   const navigate = useNavigate()
-  const { user, selectedCompany, presenceStatus, currentRecord, performCheckIn, performCheckOut } =
-    useApp()
+  const {
+    user,
+    selectedCompany,
+    setSelectedCompany,
+    companies,
+    presenceStatus,
+    currentRecord,
+    performCheckIn,
+    performCheckOut,
+    authState,
+  } = useApp()
 
   // Live time and date state
   const [currentDateString, setCurrentDateString] = useState('')
@@ -25,23 +36,40 @@ export default function Inicio() {
   // Modals state
   const [showCheckInModal, setShowCheckInModal] = useState(false)
   const [showCheckOutModal, setShowCheckOutModal] = useState(false)
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [locationMessage, setLocationMessage] = useState('')
   const [modalCheckInTime, setModalCheckInTime] = useState('')
   const [modalCheckOutData, setModalCheckOutData] = useState({ time: '', duration: '' })
   const [isButtonPressing, setIsButtonPressing] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
 
-  // Redirect if no company selected
+  // If single company, auto-select it.
   useEffect(() => {
-    if (!selectedCompany) {
+    if (companies.length === 1 && !selectedCompany) {
+      setSelectedCompany(companies[0])
+    }
+  }, [companies, selectedCompany, setSelectedCompany])
+
+  // Redirect if no company selected (multi-company case)
+  useEffect(() => {
+    if (companies.length > 1 && !selectedCompany) {
       navigate('/empresas')
     }
-  }, [selectedCompany, navigate])
+  }, [companies, selectedCompany, navigate])
+
+  // Guard: if not authenticated, go back to access flow.
+  useEffect(() => {
+    if (authState !== 'authenticated') {
+      navigate('/acesso')
+    }
+  }, [authState, navigate])
 
   // Clock updater
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date()
 
-      // Format date in PT-BR (e.g. Quarta-feira, 12 de março)
       const rawWeekday = now.toLocaleDateString('pt-BR', { weekday: 'long' })
       const capitalizedWeekday = rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1)
       const day = now.getDate()
@@ -52,7 +80,6 @@ export default function Inicio() {
         now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       )
 
-      // Elapsed time calculation if checked-in
       if (presenceStatus === 'checked-in' && currentRecord?.checkInTime) {
         const diffMs = now.getTime() - new Date(currentRecord.checkInTime).getTime()
         const totalSecs = Math.max(0, Math.floor(diffMs / 1000))
@@ -75,19 +102,49 @@ export default function Inicio() {
     return () => clearInterval(interval)
   }, [presenceStatus, currentRecord])
 
-  const handleAction = () => {
+  // Auto-hide inline toast
+  useEffect(() => {
+    if (!toastMessage) return
+    const t = setTimeout(() => setToastMessage(''), 4000)
+    return () => clearTimeout(t)
+  }, [toastMessage])
+
+  const handleAction = async () => {
     setIsButtonPressing(true)
     setTimeout(() => setIsButtonPressing(false), 250)
 
-    if (presenceStatus === 'awaiting') {
-      const { time } = performCheckIn()
-      setModalCheckInTime(time)
-      setShowCheckInModal(true)
-    } else {
-      const { checkOutTime, duration } = performCheckOut()
-      setModalCheckOutData({ time: checkOutTime, duration })
-      setShowCheckOutModal(true)
+    if (!selectedCompany) {
+      navigate('/empresas')
+      return
     }
+
+    setIsProcessing(true)
+    if (presenceStatus === 'awaiting') {
+      const result = await performCheckIn(selectedCompany)
+      if (result.ok === true) {
+        setModalCheckInTime(result.time)
+        setShowCheckInModal(true)
+      } else if (result.reason === 'location' || result.reason === 'geo-unavailable') {
+        setLocationMessage(result.message)
+        setShowLocationModal(true)
+      } else {
+        setToastMessage(result.message)
+      }
+    } else {
+      const result = await performCheckOut()
+      if (result.ok === true) {
+        setModalCheckOutData({ time: result.checkOutTime, duration: result.duration })
+        setShowCheckOutModal(true)
+      } else {
+        setToastMessage(result.message)
+      }
+    }
+    setIsProcessing(false)
+  }
+
+  const handleLocationRetry = () => {
+    setShowLocationModal(false)
+    void handleAction()
   }
 
   const isCheckedIn = presenceStatus === 'checked-in'
@@ -102,7 +159,7 @@ export default function Inicio() {
               Controle de Presença
             </span>
             <h1 className="text-2xl sm:text-[26px] font-extrabold tracking-tight text-slate-900">
-              Olá, {user.name.split(' ')[0]}!
+              Olá, {user?.name.split(' ')[0] || 'Usuário'}!
             </h1>
           </div>
 
@@ -113,7 +170,7 @@ export default function Inicio() {
             title="Abrir perfil"
             aria-label="Perfil do usuário"
           >
-            {user.initials}
+            {user?.initials || 'U'}
           </button>
         </div>
 
@@ -136,15 +193,17 @@ export default function Inicio() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate('/empresas')}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100/80 px-2.5 py-1.5 rounded-xl transition-colors shrink-0 active:scale-95"
-              title="Trocar de empresa"
-            >
-              <ArrowRightLeft className="w-3.5 h-3.5" />
-              <span>Trocar</span>
-            </button>
+            {companies.length > 1 && (
+              <button
+                type="button"
+                onClick={() => navigate('/empresas')}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100/80 px-2.5 py-1.5 rounded-xl transition-colors shrink-0 active:scale-95"
+                title="Trocar de empresa"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>Trocar</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -184,18 +243,25 @@ export default function Inicio() {
           <button
             type="button"
             onClick={handleAction}
+            disabled={isProcessing}
             className={`w-48 h-48 sm:w-52 sm:h-52 rounded-full flex flex-col items-center justify-center text-white transition-all duration-300 cursor-pointer active:scale-95 ${
               isButtonPressing ? 'scale-95' : ''
             } ${
-              !isCheckedIn
-                ? 'bg-gradient-to-tr from-indigo-700 via-indigo-600 to-indigo-500 animate-breathing-indigo shadow-2xl'
-                : 'bg-gradient-to-tr from-emerald-700 via-emerald-600 to-emerald-500 animate-breathing-emerald shadow-2xl'
+              isProcessing
+                ? 'bg-gradient-to-tr from-slate-400 to-slate-400 shadow-xl'
+                : !isCheckedIn
+                  ? 'bg-gradient-to-tr from-indigo-700 via-indigo-600 to-indigo-500 animate-breathing-indigo shadow-2xl'
+                  : 'bg-gradient-to-tr from-emerald-700 via-emerald-600 to-emerald-500 animate-breathing-emerald shadow-2xl'
             }`}
             aria-label={!isCheckedIn ? 'Fazer Check-in' : 'Fazer Check-out'}
           >
             {/* Primary Icon inside circle */}
             <div className="mb-2 transition-transform">
-              {!isCheckedIn ? (
+              {isProcessing ? (
+                <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-inner">
+                  <Loader2 className="w-8 h-8 stroke-[2.5] animate-spin" />
+                </div>
+              ) : !isCheckedIn ? (
                 <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-inner">
                   <CheckCircle className="w-8 h-8 stroke-[2.5]" />
                 </div>
@@ -207,7 +273,11 @@ export default function Inicio() {
             </div>
 
             <span className="text-lg sm:text-xl font-black tracking-wider uppercase">
-              {!isCheckedIn ? 'FAZER CHECK-IN' : 'FAZER CHECK-OUT'}
+              {isProcessing
+                ? 'PROCESSANDO...'
+                : !isCheckedIn
+                  ? 'FAZER CHECK-IN'
+                  : 'FAZER CHECK-OUT'}
             </span>
 
             <span className="text-[11px] text-white/80 font-medium mt-1">
@@ -231,7 +301,12 @@ export default function Inicio() {
 
       {/* Bottom Info / Card section */}
       <div className="w-full pb-2">
-        {isCheckedIn ? (
+        {toastMessage ? (
+          <div className="w-full bg-amber-50 rounded-2xl border border-amber-200 p-3 flex items-center gap-2 text-left animate-fade-in">
+            <Clock className="w-5 h-5 text-amber-600 shrink-0" />
+            <p className="text-xs font-medium text-amber-800">{toastMessage}</p>
+          </div>
+        ) : isCheckedIn ? (
           <div className="w-full bg-white rounded-2xl border border-emerald-100 p-3.5 shadow-sm flex items-center justify-between text-left animate-fade-in">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
@@ -239,7 +314,7 @@ export default function Inicio() {
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-800">
-                  Entrada registrada às {currentRecord?.formattedCheckIn || '08:42'}
+                  Entrada registrada às {currentRecord?.formattedCheckIn || '--:--'}
                 </p>
                 <p className="text-[11px] text-slate-500 tabular-nums">
                   Tempo decorrido:{' '}
@@ -264,7 +339,7 @@ export default function Inicio() {
       <CheckInModal
         isOpen={showCheckInModal}
         time={modalCheckInTime}
-        companyName={selectedCompany?.name || 'Empresa ABC'}
+        companyName={selectedCompany?.name || 'Empresa'}
         onClose={() => setShowCheckInModal(false)}
       />
 
@@ -272,8 +347,15 @@ export default function Inicio() {
         isOpen={showCheckOutModal}
         time={modalCheckOutData.time}
         duration={modalCheckOutData.duration}
-        companyName={selectedCompany?.name || 'Empresa ABC'}
+        companyName={selectedCompany?.name || 'Empresa'}
         onClose={() => setShowCheckOutModal(false)}
+      />
+
+      <LocationMismatchModal
+        isOpen={showLocationModal}
+        message={locationMessage}
+        onRetry={handleLocationRetry}
+        onCancel={() => setShowLocationModal(false)}
       />
     </div>
   )

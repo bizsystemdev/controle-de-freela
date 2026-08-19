@@ -2,7 +2,16 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '@/context/AppContext'
 import { toast } from '@/hooks/use-toast'
-import { ArrowLeft, LogOut, Building2, Check, ChevronRight, Shield, Phone } from 'lucide-react'
+import {
+  ArrowLeft,
+  LogOut,
+  Building2,
+  Check,
+  ChevronRight,
+  Shield,
+  Phone,
+  Fingerprint,
+} from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -14,8 +23,13 @@ import {
 
 export default function Perfil() {
   const navigate = useNavigate()
-  const { user, companies, selectedCompany, setSelectedCompany, logout } = useApp()
+  const { user, companies, selectedCompany, setSelectedCompany, logout, authState } = useApp()
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
+
+  // Guard: bounce to access if not authenticated.
+  if (authState !== 'authenticated') {
+    navigate('/acesso')
+  }
 
   const handleLogoutConfirm = () => {
     logout()
@@ -58,13 +72,13 @@ export default function Perfil() {
         {/* User Card */}
         <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm flex items-center gap-4 mb-6">
           <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-700 to-indigo-500 text-white font-extrabold text-xl flex items-center justify-center shadow-md shadow-indigo-600/20 shrink-0">
-            {user.initials}
+            {user?.initials || 'U'}
           </div>
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-slate-900 truncate">{user.name}</h2>
+            <h2 className="text-lg font-bold text-slate-900 truncate">{user?.name || 'Usuário'}</h2>
             <p className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mt-0.5">
               <Phone className="w-3.5 h-3.5 text-slate-400" />
-              <span className="tabular-nums font-mono">{user.maskedPhone}</span>
+              <span className="tabular-nums font-mono">{user?.maskedPhone || ''}</span>
             </p>
             <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
               <Shield className="w-3 h-3" />
@@ -146,6 +160,19 @@ export default function Perfil() {
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </button>
+
+          {/* Device security info */}
+          <div className="w-full p-4 flex items-center justify-between text-left border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Fingerprint className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-semibold text-slate-800">Biometria ativa</span>
+            </div>
+            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+              Registrada
+            </span>
+          </div>
 
           {/* Logout Option */}
           <button
