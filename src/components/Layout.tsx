@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { StatusBar } from './StatusBar'
+import { DebugPanel } from './DebugPanel'
 
 export default function Layout() {
   const location = useLocation()
@@ -29,6 +30,9 @@ export default function Layout() {
           <div className="w-32 h-1 bg-slate-300/80 rounded-full" />
         </div>
       </div>
+
+      {/* Floating debug panel — always mounted, invisible until 5 taps top-left */}
+      <DebugPanel />
     </div>
   )
 }

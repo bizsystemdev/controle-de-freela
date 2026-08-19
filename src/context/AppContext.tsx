@@ -24,6 +24,7 @@ import {
   WebAuthnError,
 } from '@/lib/webauthn'
 import { getCurrentPosition, isWithinRadius, isGeolocationAvailable } from '@/lib/geolocation'
+import { logInfo, logWarn, logError } from '@/lib/logger'
 
 export interface CompanyLocation {
   lat: number
@@ -398,7 +399,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ----- Check-in (with geolocation) --------------------------------------
   const performCheckIn = useCallback(
     async (company: Company): Promise<CheckInResult> => {
+      logInfo('checkin', 'Iniciando check-in', {
+        company: {
+          id: company.id,
+          name: company.name,
+          address: company.address,
+          location: company.location,
+        },
+        locationValid:
+          Number.isFinite(company.location?.lat) && Number.isFinite(company.location?.lng),
+      })
+
       if (!isGeolocationAvailable()) {
+        logWarn('checkin', 'Geolocalização indisponível no dispositivo', {
+          reason: 'geo-unavailable',
+        })
         return {
           ok: false,
           reason: 'geo-unavailable',
@@ -408,20 +423,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let coords
       try {
         coords = await getCurrentPosition()
-      } catch {
+      } catch (err) {
+        logError('checkin', 'Falha ao obter localização do dispositivo', {
+          error: err instanceof Error ? err.message : String(err),
+          reason: 'geo-unavailable',
+        })
         return {
           ok: false,
           reason: 'geo-unavailable',
           message: 'Permita o acesso à localização para registrar o ponto.',
         }
       }
-      const within = isWithinRadius(
-        coords.latitude,
-        coords.longitude,
-        company.location.lat,
-        company.location.lng,
-      )
+
+      // Defensive guard: never pass undefined/NaN company coordinates into the
+      // radius check — they would otherwise silently pass or fail.
+      const companyLat = company.location?.lat
+      const companyLng = company.location?.lng
+      if (
+        companyLat === undefined ||
+        companyLng === undefined ||
+        Number.isNaN(companyLat) ||
+        Number.isNaN(companyLng)
+      ) {
+        logError('checkin', 'Coordenadas da empresa inválidas', {
+          companyId: company.id,
+          companyName: company.name,
+          location: company.location,
+        })
+        return {
+          ok: false,
+          reason: 'location',
+          message: 'Não foi possível validar sua localização. Tente novamente em instantes.',
+        }
+      }
+
+      const within = isWithinRadius(coords.latitude, coords.longitude, companyLat, companyLng)
       if (!within) {
+        logWarn('checkin', 'Check-in bloqueado: dispositivo fora do raio', {
+          device: { lat: coords.latitude, lng: coords.longitude },
+          company: { lat: companyLat, lng: companyLng },
+          reason: 'location',
+        })
         return {
           ok: false,
           reason: 'location',
@@ -429,6 +471,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             'Você não está no local da empresa. Aproxime-se do endereço para registrar o ponto.',
         }
       }
+
+      logInfo('checkin', 'Verificação de localização aprovada', {
+        device: { lat: coords.latitude, lng: coords.longitude },
+        company: { lat: companyLat, lng: companyLng },
+      })
+
       const userId = user?.id || storage.get(STORAGE_KEYS.userId) || ''
       const now = new Date()
       const formatted = formatTimeString(now)
@@ -441,6 +489,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           location: { lat: coords.latitude, lng: coords.longitude },
         })
       } catch (err) {
+        logError('checkin', 'Falha ao registrar ponto (rede/servidor)', {
+          error: err instanceof Error ? err.message : String(err),
+          userId,
+          empresaId: company.id,
+          reason: 'network',
+        })
         return {
           ok: false,
           reason: 'network',
@@ -448,6 +502,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             err instanceof Error ? err.message : 'Falha ao registrar ponto. Tente novamente.',
         }
       }
+      logInfo('checkin', 'Ponto registrado com sucesso', {
+        userId,
+        empresaId: company.id,
+        checkInTime: formatted,
+      })
       const record: AttendanceRecord = {
         checkInTime: now,
         formattedCheckIn: formatted,

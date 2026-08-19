@@ -1,3 +1,5 @@
+import { logError, logInfo, logWarn } from './logger'
+
 export interface GeoCoords {
   latitude: number
   longitude: number
@@ -14,13 +16,41 @@ export function isGeolocationAvailable(): boolean {
 export function getCurrentPosition(): Promise<GeoCoords> {
   return new Promise<GeoCoords>((resolve, reject) => {
     if (!isGeolocationAvailable()) {
+      logError('geo', 'Geolocalização não suportada pelo navegador', {
+        hasGeolocation: false,
+      })
       reject(new Error('unsupported'))
       return
     }
+
+    logInfo('geo', 'Iniciando captura de localização do dispositivo', {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    })
+
     navigator.geolocation.getCurrentPosition(
-      (position) =>
-        resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
-      (error) => reject(error),
+      (position) => {
+        const latitude = position.coords.latitude
+        const longitude = position.coords.longitude
+        const accuracy = position.coords.accuracy
+        logInfo('geo', 'Localização capturada com sucesso', {
+          latitude,
+          longitude,
+          accuracy,
+        })
+        resolve({ latitude, longitude })
+      },
+      (error) => {
+        logError('geo', 'Falha ao capturar localização', {
+          code: error.code,
+          message: error.message,
+          PERMISSION_DENIED: error.code === error.PERMISSION_DENIED,
+          POSITION_UNAVAILABLE: error.code === error.POSITION_UNAVAILABLE,
+          TIMEOUT: error.code === error.TIMEOUT,
+        })
+        reject(error)
+      },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     )
   })
@@ -45,5 +75,40 @@ export function isWithinRadius(
   lng2: number,
   radius = LOCATION_RADIUS_METERS,
 ): boolean {
-  return haversineMeters(lat1, lng1, lat2, lng2) <= radius
+  const distance = haversineMeters(lat1, lng1, lat2, lng2)
+  const within = distance <= radius
+
+  // Detect malformed coordinates so a silent NaN never silently "fails inside"
+  // or "passes outside" the radius.
+  const coordsValid =
+    Number.isFinite(lat1) && Number.isFinite(lng1) && Number.isFinite(lat2) && Number.isFinite(lng2)
+
+  if (!coordsValid) {
+    logError('geo', 'Coordenadas inválidas recebidas em isWithinRadius', {
+      lat1,
+      lng1,
+      lat2,
+      lng2,
+      distance,
+      radius,
+      within,
+    })
+  } else {
+    logInfo('geo', `Verificação de raio: ${within ? 'DENTRO' : 'FORA'}`, {
+      device: { lat: lat1, lng: lng1 },
+      company: { lat: lat2, lng: lng2 },
+      distanceMeters: Math.round(distance),
+      radiusMeters: radius,
+      within,
+    })
+    if (!within) {
+      logWarn('geo', 'Dispositivo fora do raio de tolerância', {
+        distanceMeters: Math.round(distance),
+        radiusMeters: radius,
+        excessMeters: Math.round(distance - radius),
+      })
+    }
+  }
+
+  return within
 }
