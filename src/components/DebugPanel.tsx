@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MapPin, Trash2, X, Bug } from 'lucide-react'
+import { MapPin, Building2, Trash2, X, Bug, Compass } from 'lucide-react'
 import { getLogs, clearLogs, type LogEntry } from '@/lib/logger'
+import { SIMULATE_COMPANY_LOCATION_KEY } from '@/lib/geolocation'
 
 // ---------------------------------------------------------------------------
 // DebugPanel
@@ -111,6 +112,47 @@ function findLastKnownLocation(
   return null
 }
 
+/**
+ * Extract company information (location + name) from the most recent `checkin`
+ * log entry that carries a company object in its payload (e.g. "Iniciando check-in").
+ */
+function findCompanyLocationFromLogs(
+  logs: LogEntry[],
+): { lat: number; lng: number; name?: string } | null {
+  for (let i = logs.length - 1; i >= 0; i -= 1) {
+    const entry = logs[i]
+    if (entry.tag !== 'checkin' || !entry.data) continue
+
+    // 1) Direct company object in data
+    const comp = entry.data.company as Record<string, unknown> | undefined
+    if (comp && typeof comp === 'object') {
+      const name = typeof comp.name === 'string' ? comp.name : undefined
+      const loc = comp.location as Record<string, unknown> | undefined
+      if (loc && typeof loc === 'object') {
+        if (isCoordNumber(loc.lat) && isCoordNumber(loc.lng)) {
+          return { lat: loc.lat, lng: loc.lng, name }
+        }
+        if (isCoordNumber(loc.latitude) && isCoordNumber(loc.longitude)) {
+          return { lat: loc.latitude, lng: loc.longitude, name }
+        }
+      }
+      if (isCoordNumber(comp.lat) && isCoordNumber(comp.lng)) {
+        return { lat: comp.lat, lng: comp.lng, name }
+      }
+    }
+
+    // 2) Direct company location in data
+    if (isCoordNumber(entry.data.companyLat) && isCoordNumber(entry.data.companyLng)) {
+      return {
+        lat: entry.data.companyLat,
+        lng: entry.data.companyLng,
+        name: typeof entry.data.companyName === 'string' ? entry.data.companyName : undefined,
+      }
+    }
+  }
+  return null
+}
+
 export const DebugPanel: React.FC = () => {
   const [open, setOpen] = useState(false)
   const [logs, setLogs] = useState<LogEntry[]>([])
@@ -119,6 +161,21 @@ export const DebugPanel: React.FC = () => {
     lng: number
     accuracy?: number
   } | null>(null)
+  const [companyLocation, setCompanyLocation] = useState<{
+    lat: number
+    lng: number
+    name?: string
+  } | null>(null)
+  const [isSimulating, setIsSimulating] = useState<boolean>(() => {
+    try {
+      return (
+        !!sessionStorage.getItem(SIMULATE_COMPANY_LOCATION_KEY) ||
+        !!localStorage.getItem(SIMULATE_COMPANY_LOCATION_KEY)
+      )
+    } catch {
+      return false
+    }
+  })
 
   const tapTimesRef = useRef<number[]>([])
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -142,6 +199,7 @@ export const DebugPanel: React.FC = () => {
       const next = getLogs()
       setLogs(next)
       setLastLocation(findLastKnownLocation(next))
+      setCompanyLocation(findCompanyLocationFromLogs(next))
     }
     tick()
     const id = setInterval(tick, 500)
@@ -159,7 +217,33 @@ export const DebugPanel: React.FC = () => {
     clearLogs()
     setLogs([])
     setLastLocation(null)
+    setCompanyLocation(null)
   }, [])
+
+  const toggleSimulation = useCallback(() => {
+    if (isSimulating) {
+      try {
+        sessionStorage.removeItem(SIMULATE_COMPANY_LOCATION_KEY)
+        localStorage.removeItem(SIMULATE_COMPANY_LOCATION_KEY)
+      } catch {
+        /* ignore */
+      }
+      setIsSimulating(false)
+    } else {
+      if (!companyLocation) return
+      const payload = JSON.stringify({
+        latitude: companyLocation.lat,
+        longitude: companyLocation.lng,
+      })
+      try {
+        sessionStorage.setItem(SIMULATE_COMPANY_LOCATION_KEY, payload)
+        localStorage.setItem(SIMULATE_COMPANY_LOCATION_KEY, payload)
+      } catch {
+        /* ignore */
+      }
+      setIsSimulating(true)
+    }
+  }, [isSimulating, companyLocation])
 
   return (
     <>
@@ -202,23 +286,68 @@ export const DebugPanel: React.FC = () => {
               </div>
             </div>
 
-            {/* Last known location indicator */}
-            <div className="px-4 py-2 border-b border-slate-700/60 text-xs">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="text-slate-400 font-medium">Última localização:</span>
-                {lastLocation ? (
-                  <span className="text-emerald-300 font-mono tabular-nums truncate">
-                    {lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}
-                    {typeof lastLocation.accuracy === 'number' && (
-                      <span className="text-slate-500 ml-2">
-                        ±{Math.round(lastLocation.accuracy)}m
-                      </span>
-                    )}
+            {/* Location Indicators */}
+            <div className="px-4 py-2 border-b border-slate-700/60 text-xs flex flex-col gap-1.5">
+              {/* GPS Dispositivo */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="text-slate-400 font-medium shrink-0">GPS Dispositivo:</span>
+                  {lastLocation ? (
+                    <span className="text-emerald-300 font-mono tabular-nums truncate">
+                      {lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}
+                      {typeof lastLocation.accuracy === 'number' && (
+                        <span className="text-slate-500 ml-1.5">
+                          (±{Math.round(lastLocation.accuracy)}m)
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500 italic">indisponível</span>
+                  )}
+                </div>
+
+                {isSimulating && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                    SIMULAÇÃO ATIVA
                   </span>
-                ) : (
-                  <span className="text-slate-500 italic">indisponível</span>
                 )}
+              </div>
+
+              {/* Local da Empresa */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Building2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <span className="text-slate-400 font-medium shrink-0">Local da Empresa:</span>
+                  {companyLocation ? (
+                    <span className="text-sky-300 font-mono tabular-nums truncate">
+                      {companyLocation.lat.toFixed(6)}, {companyLocation.lng.toFixed(6)}
+                      {companyLocation.name && (
+                        <span className="text-slate-400 ml-1.5 font-sans not-italic">
+                          ({companyLocation.name})
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500 italic">não identificado nos logs</span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!companyLocation && !isSimulating}
+                  onClick={toggleSimulation}
+                  className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded transition-colors shrink-0 ${
+                    isSimulating
+                      ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
+                      : companyLocation
+                        ? 'bg-sky-600/80 hover:bg-sky-500 text-white'
+                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  }`}
+                >
+                  <Compass className="w-3 h-3" />
+                  {isSimulating ? 'Desativar Simulação' : 'Simular Local da Empresa'}
+                </button>
               </div>
             </div>
 
