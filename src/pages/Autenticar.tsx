@@ -106,12 +106,12 @@ export default function Autenticar() {
         </div>
 
         <h1 className="text-2xl sm:text-[26px] font-extrabold tracking-tight text-slate-900 mb-2">
-          {isRegisterFlow ? 'Cadastro biométrico' : 'Autentique-se'}
+          {isRegisterFlow ? 'Cadastro de autenticação' : 'Autentique-se'}
         </h1>
         <p className="text-base text-slate-500 max-w-[280px] leading-relaxed font-normal mb-1">
           {isRegisterFlow
-            ? 'Cadastre sua biometria para acessar o app sem senha.'
-            : 'Autentique-se com biometria para continuar'}
+            ? 'Cadastre a autenticação do dispositivo para acessar o app sem senha.'
+            : 'Autentique-se com seu dispositivo para continuar'}
         </p>
         {user?.name && <p className="text-sm font-semibold text-indigo-600 mb-1">{user.name}</p>}
         {pendingPhone && (
@@ -161,7 +161,9 @@ export default function Autenticar() {
           ) : (
             <>
               <Fingerprint className="w-5 h-5" />
-              <span>{isRegisterFlow ? 'Cadastrar biometria' : 'Autenticar com biometria'}</span>
+              <span>
+                {isRegisterFlow ? 'Cadastrar autenticação' : 'Autenticar com dispositivo'}
+              </span>
             </>
           )}
         </button>
@@ -169,7 +171,7 @@ export default function Autenticar() {
         <p className="text-center text-[12px] text-slate-400">
           {needsCompanySelection
             ? 'Após autenticar, selecione a empresa de trabalho.'
-            : 'Seus dados biométricos ficam apenas neste dispositivo.'}
+            : 'Seus dados de autenticação ficam apenas neste dispositivo.'}
         </p>
       </div>
 
@@ -184,7 +186,7 @@ export default function Autenticar() {
               Dispositivo incompatível
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-slate-500 text-center pt-1">
-              Seu dispositivo não suporta autenticação biométrica. Tente usar outro dispositivo.
+              Seu dispositivo não suporta autenticação do dispositivo. Tente usar outro dispositivo.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-4">

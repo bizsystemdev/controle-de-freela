@@ -270,7 +270,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // First access on this account — must register a platform credential.
         if (!isWebAuthnSupported()) {
           setAuthError(
-            'Seu dispositivo não suporta autenticação biométrica. Tente usar outro dispositivo.',
+            'Seu dispositivo não suporta autenticação do dispositivo. Tente usar outro dispositivo.',
           )
           setAuthState('needs-biometric')
           return

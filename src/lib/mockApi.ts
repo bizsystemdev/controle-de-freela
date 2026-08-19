@@ -74,8 +74,8 @@ const MOCK_COMPANIES: MockCompany[] = [
     name: 'Empresa ABC',
     cidade: 'Florianópolis',
     estado: 'SC',
-    endereco: 'Rua Felipe Schmidt, 500 - Centro',
-    location: { lat: -27.5954, lng: -48.548 },
+    endereco: 'Rua Laura Duarte Prazeres 787, Campeche - Florianópolis',
+    location: { lat: -27.6836, lng: -48.4887 },
   },
   {
     id: 'comp-002',
@@ -83,7 +83,7 @@ const MOCK_COMPANIES: MockCompany[] = [
     cidade: 'São José',
     estado: 'SC',
     endereco: 'Av. Presidente Kennedy, 1000 - Campinas',
-    location: { lat: -27.6137, lng: -48.635 },
+    location: { lat: -27.6137, lng: -48.6356 },
   },
 ]
 

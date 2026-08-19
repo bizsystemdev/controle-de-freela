@@ -167,7 +167,7 @@ export default function Perfil() {
               <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <Fingerprint className="w-4 h-4" />
               </div>
-              <span className="text-sm font-semibold text-slate-800">Biometria ativa</span>
+              <span className="text-sm font-semibold text-slate-800">Autenticação ativa</span>
             </div>
             <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
               Registrada
