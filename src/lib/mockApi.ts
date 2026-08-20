@@ -75,7 +75,7 @@ const MOCK_COMPANIES: MockCompany[] = [
     cidade: 'Florianópolis',
     estado: 'SC',
     endereco: 'Rua Laura Duarte Prazeres 787, Campeche - Florianópolis',
-    location: { lat: -27.6836, lng: -48.4887 },
+    location: { lat: -27.683, lng: -48.5045 },
   },
   {
     id: 'comp-002',
