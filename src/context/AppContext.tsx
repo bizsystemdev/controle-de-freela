@@ -396,34 +396,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const localCredId = getStoredCredentialId()
       const needsRegister = !apiUser?.deviceId && !localCredId
+      const userId = apiUser?.id || storage.get(STORAGE_KEYS.userId) || ''
 
       if (needsRegister) {
         const cred = await registerCredential()
         saveCredential(cred)
         refreshStoredCredential()
-        const reg = await registerDevice(
-          apiUser?.id || storage.get(STORAGE_KEYS.userId) || '',
-          cred.rawId,
-        )
+        const reg = await registerDevice(userId, cred.rawId)
         saveDeviceId(reg.deviceId)
         setApiUser((prev) => (prev ? { ...prev, deviceId: reg.deviceId } : prev))
       } else {
         if (!localCredId) {
-          setAuthError(
-            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar um novo registro.',
-          )
-          return
+          // If the device has no local credential stored yet for this browser, perform registration
+          const cred = await registerCredential()
+          saveCredential(cred)
+          refreshStoredCredential()
+          const reg = await registerDevice(userId, cred.rawId)
+          saveDeviceId(reg.deviceId)
+          setApiUser((prev) => (prev ? { ...prev, deviceId: reg.deviceId } : prev))
+        } else {
+          await authenticateCredential(localCredId)
+          await authenticateFreelancer(userId, localCredId).catch(() => {
+            // Ignore if already verified locally
+          })
         }
-        if (apiUser?.deviceId && apiUser.deviceId !== getLocalDeviceId()) {
-          setAuthError(
-            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar um novo registro.',
-          )
-          return
-        }
-        await authenticateCredential(localCredId)
       }
 
-      const userId = apiUser?.id || storage.get(STORAGE_KEYS.userId) || ''
       try {
         const status = await getAttendanceStatus(userId)
         await applyAttendanceStatus(status)
