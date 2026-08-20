@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { AppLogo } from '@/components/AppLogo'
 import { useApp } from '@/context/AppContext'
 import { maskBrazilianPhone, isValidBrazilianPhone } from '@/lib/phoneMask'
-import { Check, Phone, Loader2, Sparkles, AlertCircle } from 'lucide-react'
+import { Check, Phone, Loader2, Sparkles, AlertCircle, ShieldCheck } from 'lucide-react'
 
 export default function Acesso() {
   const navigate = useNavigate()
@@ -75,23 +75,23 @@ export default function Acesso() {
       {/* Top Header Section */}
       <div className="flex flex-col items-center sm:items-start pt-2">
         <div className="mb-6 flex items-center justify-between w-full">
-          <AppLogo size="sm" />
+          <AppLogo size="sm" showText />
           <button
             type="button"
             onClick={() => handleFillDemo('(11) 98765-4321')}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors active:scale-95"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors active:scale-95"
             title="Preencher com dados de teste"
           >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Modo demonstração</span>
+            <Sparkles className="w-3.5 h-3.5 text-red-600" />
+            <span>Modo demo</span>
           </button>
         </div>
 
-        <h1 className="text-3xl sm:text-[32px] font-extrabold tracking-tight text-slate-900 mb-2">
+        <h1 className="text-3xl sm:text-[32px] font-black tracking-tight text-slate-900 mb-2">
           Bem-vindo
         </h1>
         <p className="text-base text-slate-500 font-normal leading-relaxed">
-          Informe seu telefone para acessar
+          Informe seu telefone cadastrado para acessar
         </p>
       </div>
 
@@ -103,21 +103,21 @@ export default function Acesso() {
           </label>
 
           <div
-            className={`relative flex items-center rounded-2xl border-2 bg-slate-50/50 transition-all duration-200 ${
+            className={`relative flex items-center rounded-2xl border-2 bg-slate-50/60 transition-all duration-200 ${
               hasError || authError
-                ? 'border-rose-500 bg-rose-50/30 animate-shake ring-4 ring-rose-500/10'
+                ? 'border-red-500 bg-red-50/30 animate-shake ring-4 ring-red-500/10'
                 : isValid
-                  ? 'border-indigo-600 bg-white ring-4 ring-indigo-600/10'
-                  : 'border-slate-200 focus-within:border-indigo-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-600/10'
+                  ? 'border-red-600 bg-white ring-4 ring-red-600/10'
+                  : 'border-slate-200 focus-within:border-red-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-red-600/10'
             }`}
           >
             <div className="pl-4 pr-2 text-slate-400 flex items-center justify-center pointer-events-none">
               <Phone
                 className={`w-5 h-5 transition-colors ${
                   hasError || authError
-                    ? 'text-rose-500'
+                    ? 'text-red-500'
                     : isValid
-                      ? 'text-indigo-600'
+                      ? 'text-red-600'
                       : 'text-slate-400'
                 }`}
               />
@@ -147,7 +147,7 @@ export default function Acesso() {
 
           {/* Validation Feedback */}
           {errorMessage ? (
-            <p className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-rose-600 pt-1 animate-fade-in">
+            <p className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-red-600 pt-1 animate-fade-in">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>
             </p>
@@ -166,7 +166,7 @@ export default function Acesso() {
           className={`w-full h-14 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white shadow-lg transition-all duration-200 active:scale-[0.98] ${
             isEmpty
               ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none opacity-50'
-              : 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 shadow-indigo-600/30 hover:shadow-indigo-600/40 cursor-pointer'
+              : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-red-600/30 hover:shadow-red-600/40 cursor-pointer'
           }`}
         >
           {isSubmitting ? (
@@ -178,6 +178,17 @@ export default function Acesso() {
             <span>Continuar</span>
           )}
         </button>
+
+        {/* Link for Managers */}
+        <div className="flex items-center justify-center pt-2">
+          <Link
+            to="/admin/login"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-red-600 transition-colors p-2 rounded-xl hover:bg-slate-50"
+          >
+            <ShieldCheck className="w-4 h-4 text-slate-400" />
+            <span>Sou gestor / Acessar painel administrativo</span>
+          </Link>
+        </div>
 
         <p className="text-center text-[12px] text-slate-400">
           Acesso seguro sem senha. Controle de presença instantâneo.

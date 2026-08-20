@@ -1,16 +1,20 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
 import {
   validatePhone,
   registerDevice,
-  authenticateUser,
+  authenticateFreelancer,
+  loginManager,
+  logoutManager,
+  type ApiUser,
+  type ApiCompany,
+  type ManagerUser,
+} from '@/services/auth'
+import {
   getAttendanceStatus,
   registerAttendance,
-  getCompany,
-  type MockUser,
-  type MockCompany as ApiMockCompany,
-  type MockLocation,
-  type MockAttendanceStatus,
-} from '@/lib/mockApi'
+  type AttendanceStatusResponse,
+} from '@/services/attendance'
+import { getCompany } from '@/services/companies'
 import { storage, STORAGE_KEYS } from '@/lib/storage'
 import {
   registerCredential,
@@ -25,6 +29,7 @@ import {
 } from '@/lib/webauthn'
 import { getCurrentPosition, isWithinRadius, isGeolocationAvailable } from '@/lib/geolocation'
 import { logInfo, logWarn, logError } from '@/lib/logger'
+import pb from '@/lib/pocketbase/client'
 
 export interface CompanyLocation {
   lat: number
@@ -40,7 +45,7 @@ export interface Company {
   location: CompanyLocation
   initial: string
   gradient: string
-  colorTheme: 'indigo' | 'emerald'
+  colorTheme: 'red' | 'dark'
 }
 
 export interface UserProfile {
@@ -54,6 +59,7 @@ export interface UserProfile {
 export type PresenceStatus = 'awaiting' | 'checked-in'
 
 export interface AttendanceRecord {
+  id?: string
   checkInTime?: Date
   checkOutTime?: Date
   formattedCheckIn?: string
@@ -61,6 +67,8 @@ export interface AttendanceRecord {
   durationFormatted?: string
   empresaId?: string
 }
+
+export type UserRole = 'freelancer' | 'manager' | null
 
 export type AuthState =
   | 'loading'
@@ -78,6 +86,9 @@ export type CheckOutResult =
   | { ok: false; reason: 'network'; message: string }
 
 interface AppContextType {
+  // Common & Roles
+  role: UserRole
+  manager: ManagerUser | null
   user: UserProfile | null
   companies: Company[]
   selectedCompany: Company | null
@@ -91,6 +102,8 @@ interface AppContextType {
   hasStoredCredential: boolean
   webauthnSupported: boolean
   pendingPhone: string
+
+  // Actions
   setSelectedCompany: (company: Company | null) => void
   resetAuthError: () => void
   submitPhone: (phone: string) => Promise<void>
@@ -98,6 +111,7 @@ interface AppContextType {
   restoreSession: () => Promise<void>
   performCheckIn: (company: Company) => Promise<CheckInResult>
   performCheckOut: () => Promise<CheckOutResult>
+  loginAsManager: (email: string, pass: string) => Promise<void>
   logout: () => void
 }
 
@@ -107,14 +121,24 @@ const AppContext = createContext<AppContextType | undefined>(undefined)
 // Helpers
 // ---------------------------------------------------------------------------
 
-const COMPANY_THEMES: Record<string, { gradient: string; colorTheme: 'indigo' | 'emerald' }> = {
-  'comp-001': { gradient: 'from-indigo-600 to-indigo-500', colorTheme: 'indigo' },
-  'comp-002': { gradient: 'from-emerald-600 to-emerald-500', colorTheme: 'emerald' },
+const COMPANY_GRADIENTS = [
+  'from-red-600 via-red-700 to-slate-900',
+  'from-slate-900 via-slate-800 to-red-800',
+  'from-red-700 to-red-500',
+  'from-zinc-900 to-red-600',
+]
+
+function getCompanyGradient(id: string): string {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const index = Math.abs(hash) % COMPANY_GRADIENTS.length
+  return COMPANY_GRADIENTS[index]
 }
-const FALLBACK_THEME = { gradient: 'from-indigo-600 to-indigo-500', colorTheme: 'indigo' as const }
 
 function companyInitial(name: string): string {
-  return name.trim().charAt(0).toUpperCase() || '?'
+  return name.trim().charAt(0).toUpperCase() || 'B'
 }
 
 function maskPhone(phone: string): string {
@@ -128,7 +152,7 @@ function maskPhone(phone: string): string {
   return phone
 }
 
-function toUserProfile(apiUser: MockUser): UserProfile {
+function toUserProfile(apiUser: ApiUser): UserProfile {
   const parts = apiUser.name.trim().split(/\s+/)
   const initials =
     parts.length >= 2
@@ -143,18 +167,17 @@ function toUserProfile(apiUser: MockUser): UserProfile {
   }
 }
 
-function mapCompany(api: ApiMockCompany): Company {
-  const theme = COMPANY_THEMES[api.id] ?? FALLBACK_THEME
+function mapCompany(api: ApiCompany): Company {
   return {
     id: api.id,
     name: api.name,
     city: api.cidade,
     state: api.estado,
     address: api.endereco,
-    location: { lat: api.location.lat, lng: api.location.lng },
+    location: { lat: api.location?.lat || 0, lng: api.location?.lng || 0 },
     initial: companyInitial(api.name),
-    gradient: theme.gradient,
-    colorTheme: theme.colorTheme,
+    gradient: getCompanyGradient(api.id),
+    colorTheme: 'red',
   }
 }
 
@@ -177,8 +200,10 @@ const formatDurationString = (startDate: Date, endDate: Date) => {
 // ---------------------------------------------------------------------------
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [role, setRole] = useState<UserRole>(null)
+  const [manager, setManager] = useState<ManagerUser | null>(null)
   const [user, setUser] = useState<UserProfile | null>(null)
-  const [apiUser, setApiUser] = useState<MockUser | null>(null)
+  const [apiUser, setApiUser] = useState<ApiUser | null>(null)
   const [companies, setCompanies] = useState<Company[]>([])
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const [presenceStatus, setPresenceStatus] = useState<PresenceStatus>('awaiting')
@@ -199,25 +224,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setHasStoredCredential(!!getStoredCredentialId())
   }, [])
 
+  // ----- Apply attendance status (after auth or on restore) ---------------
+  const applyAttendanceStatus = useCallback(async (status: AttendanceStatusResponse) => {
+    if (status.active && status.empresaId && status.checkInTime) {
+      try {
+        const compApi = await getCompany(status.empresaId)
+        const comp: Company = {
+          id: compApi.id,
+          name: compApi.name,
+          city: compApi.cidade,
+          state: compApi.estado,
+          address: compApi.endereco,
+          location: compApi.location,
+          initial: companyInitial(compApi.name),
+          gradient: getCompanyGradient(compApi.id),
+          colorTheme: 'red',
+        }
+        setSelectedCompany(comp)
+        const checkInDate = new Date(status.checkInTime)
+        setCurrentRecord({
+          id: status.record?.id,
+          checkInTime: checkInDate,
+          formattedCheckIn: formatTimeString(checkInDate),
+          empresaId: status.empresaId,
+        })
+        setPresenceStatus('checked-in')
+      } catch {
+        const checkInDate = new Date(status.checkInTime)
+        setCurrentRecord({
+          id: status.record?.id,
+          checkInTime: checkInDate,
+          formattedCheckIn: formatTimeString(checkInDate),
+          empresaId: status.empresaId,
+        })
+        setPresenceStatus('checked-in')
+      }
+    } else {
+      setPresenceStatus('awaiting')
+      setCurrentRecord(null)
+    }
+  }, [])
+
   // ----- Session bootstrap --------------------------------------------------
   const restoreSession = useCallback(async () => {
     setIsAuthBusy(true)
     setAuthError('')
     try {
+      // Check PocketBase manager auth store first
+      if (pb.authStore.isValid && pb.authStore.record) {
+        const rec = pb.authStore.record
+        const storedMgr: ManagerUser = {
+          id: rec.id,
+          name: rec.name || 'Gestor',
+          email: rec.email,
+          role: 'admin',
+        }
+        setManager(storedMgr)
+        setRole('manager')
+        setAuthState('authenticated')
+        return
+      }
+
+      // Check Freelancer session
       const storedCredId = getStoredCredentialId()
       const storedUserId = storage.get(STORAGE_KEYS.userId)
       const storedUserName = storage.get(STORAGE_KEYS.userName)
 
       if (!storedCredId || !storedUserId || !storedUserName) {
         refreshStoredCredential()
+        setRole('freelancer')
         setAuthState(storedCredId ? 'needs-biometric' : 'needs-phone')
         return
       }
 
-      // We have a local credential + persisted user: go straight to biometric
-      // re-authentication. The actual navigator.credentials.get() call is a
-      // user gesture and MUST be triggered by the Autenticar page button,
-      // so we only stage the state here.
       setUser({
         id: storedUserId,
         name: storedUserName,
@@ -233,6 +312,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             .toUpperCase() || 'U',
       })
       setHasStoredCredential(true)
+      setRole('freelancer')
       setAuthState('needs-biometric')
     } finally {
       setIsAuthBusy(false)
@@ -240,13 +320,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [refreshStoredCredential])
 
   // First-mount bootstrap
-  if (!initializedRef.current) {
-    initializedRef.current = true
-    // Kick off async restore without blocking render.
-    void restoreSession()
-  }
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true
+      void restoreSession()
+    }
+  }, [restoreSession])
 
-  // ----- Phone validation ---------------------------------------------------
+  // ----- Phone validation (Freelancer) --------------------------------------
   const submitPhone = useCallback(async (phone: string) => {
     setIsAuthBusy(true)
     setAuthError('')
@@ -256,6 +337,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setApiUser(res.user)
       setUser(toUserProfile(res.user))
       setCompanies(res.companies.map(mapCompany))
+      setRole('freelancer')
 
       if (res.companies.length === 0) {
         setAuthMessage(
@@ -267,11 +349,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       storage.set(STORAGE_KEYS.userName, res.user.name)
       storage.set(STORAGE_KEYS.userPhone, res.user.phone)
 
-      if (res.user.deviceId === null) {
-        // First access on this account — must register a platform credential.
+      if (!res.user.deviceId) {
         if (!isWebAuthnSupported()) {
           setAuthError(
-            'Seu dispositivo não suporta autenticação do dispositivo. Tente usar outro dispositivo.',
+            'Seu dispositivo não suporta autenticação biométrica/chave de segurança. Tente usar outro aparelho.',
           )
           setAuthState('needs-biometric')
           return
@@ -279,8 +360,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPendingPhone(phone)
         setAuthState('needs-biometric')
       } else {
-        // Device already registered server-side. If the local credential id
-        // does not match the server deviceId, flag a mismatch.
         const localDevice = getLocalDeviceId()
         if (localDevice && localDevice !== res.user.deviceId) {
           setAuthError(
@@ -301,7 +380,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [])
 
-  // ----- Biometric register / login ---------------------------------------
+  // ----- Biometric register / login (Freelancer) ----------------------------
   const startBiometricFlow = useCallback(async () => {
     setAuthError('')
     setAuthMessage('')
@@ -319,22 +398,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const needsRegister = !apiUser?.deviceId && !localCredId
 
       if (needsRegister) {
-        // ----- Register flow ------------------------------------------------
         const cred = await registerCredential()
         saveCredential(cred)
         refreshStoredCredential()
-        const reg = await registerDevice(apiUser?.id || 'unknown', cred.rawId)
+        const reg = await registerDevice(
+          apiUser?.id || storage.get(STORAGE_KEYS.userId) || '',
+          cred.rawId,
+        )
         saveDeviceId(reg.deviceId)
         setApiUser((prev) => (prev ? { ...prev, deviceId: reg.deviceId } : prev))
       } else {
-        // ----- Login flow ---------------------------------------------------
         if (!localCredId) {
           setAuthError(
             'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar um novo registro.',
           )
           return
         }
-        // Mismatch check between local credential and server deviceId.
         if (apiUser?.deviceId && apiUser.deviceId !== getLocalDeviceId()) {
           setAuthError(
             'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar um novo registro.',
@@ -344,11 +423,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await authenticateCredential(localCredId)
       }
 
-      // Post-auth: restore any open check-in session.
       const userId = apiUser?.id || storage.get(STORAGE_KEYS.userId) || ''
       const status = await getAttendanceStatus(userId)
       await applyAttendanceStatus(status)
 
+      setRole('freelancer')
       setAuthState('authenticated')
     } catch (err) {
       if (err instanceof WebAuthnError) {
@@ -359,35 +438,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsAuthBusy(false)
     }
-  }, [apiUser, refreshStoredCredential])
+  }, [apiUser, applyAttendanceStatus, refreshStoredCredential])
 
-  // ----- Apply attendance status (after auth or on restore) ---------------
-  const applyAttendanceStatus = useCallback(async (status: MockAttendanceStatus) => {
-    if (status.hasOpenCheckIn && status.empresaId && status.checkInTime) {
-      try {
-        const compApi = await getCompany(status.empresaId)
-        const comp = mapCompany(compApi)
-        setSelectedCompany(comp)
-        const checkInDate = new Date(status.checkInTime)
-        setCurrentRecord({
-          checkInTime: checkInDate,
-          formattedCheckIn: formatTimeString(checkInDate),
-          empresaId: status.empresaId,
-        })
-        setPresenceStatus('checked-in')
-      } catch {
-        // If company fetch fails, still mark as checked-in with what we have.
-        const checkInDate = new Date(status.checkInTime)
-        setCurrentRecord({
-          checkInTime: checkInDate,
-          formattedCheckIn: formatTimeString(checkInDate),
-          empresaId: status.empresaId,
-        })
-        setPresenceStatus('checked-in')
-      }
-    } else {
-      setPresenceStatus('awaiting')
-      setCurrentRecord(null)
+  // ----- Manager login -----------------------------------------------------
+  const loginAsManager = useCallback(async (email: string, pass: string) => {
+    setIsAuthBusy(true)
+    setAuthError('')
+    try {
+      const res = await loginManager(email, pass)
+      setManager(res.user)
+      setRole('manager')
+      setAuthState('authenticated')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Falha ao autenticar gestor.'
+      setAuthError(msg)
+      throw new Error(msg)
+    } finally {
+      setIsAuthBusy(false)
     }
   }, [])
 
@@ -399,15 +466,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ----- Check-in (with geolocation) --------------------------------------
   const performCheckIn = useCallback(
     async (company: Company): Promise<CheckInResult> => {
-      logInfo('checkin', 'Iniciando check-in', {
+      logInfo('checkin', 'Iniciando check-in Biz Check', {
         company: {
           id: company.id,
           name: company.name,
           address: company.address,
           location: company.location,
         },
-        locationValid:
-          Number.isFinite(company.location?.lat) && Number.isFinite(company.location?.lng),
       })
 
       if (!isGeolocationAvailable()) {
@@ -420,6 +485,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           message: 'Permita o acesso à localização para registrar o ponto.',
         }
       }
+
       let coords
       try {
         coords = await getCurrentPosition()
@@ -435,8 +501,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // Defensive guard: never pass undefined/NaN company coordinates into the
-      // radius check — they would otherwise silently pass or fail.
       const companyLat = company.location?.lat
       const companyLng = company.location?.lng
       if (
@@ -445,11 +509,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         Number.isNaN(companyLat) ||
         Number.isNaN(companyLng)
       ) {
-        logError('checkin', 'Coordenadas da empresa inválidas', {
-          companyId: company.id,
-          companyName: company.name,
-          location: company.location,
-        })
         return {
           ok: false,
           reason: 'location',
@@ -472,28 +531,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      logInfo('checkin', 'Verificação de localização aprovada', {
-        device: { lat: coords.latitude, lng: coords.longitude },
-        company: { lat: companyLat, lng: companyLng },
-      })
-
       const userId = user?.id || storage.get(STORAGE_KEYS.userId) || ''
       const now = new Date()
       const formatted = formatTimeString(now)
+
       try {
         await registerAttendance({
-          userId,
-          empresaId: company.id,
-          status: 'check-in',
+          freelancerId: userId,
+          companyId: company.id,
+          type: 'check_in',
           timestamp: now.toISOString(),
-          location: { lat: coords.latitude, lng: coords.longitude },
+          lat: coords.latitude,
+          lng: coords.longitude,
         })
       } catch (err) {
-        logError('checkin', 'Falha ao registrar ponto (rede/servidor)', {
+        logError('checkin', 'Falha ao registrar ponto no backend', {
           error: err instanceof Error ? err.message : String(err),
           userId,
           empresaId: company.id,
-          reason: 'network',
         })
         return {
           ok: false,
@@ -502,11 +557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             err instanceof Error ? err.message : 'Falha ao registrar ponto. Tente novamente.',
         }
       }
-      logInfo('checkin', 'Ponto registrado com sucesso', {
-        userId,
-        empresaId: company.id,
-        checkInTime: formatted,
-      })
+
       const record: AttendanceRecord = {
         checkInTime: now,
         formattedCheckIn: formatted,
@@ -523,18 +574,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const performCheckOut = useCallback(async (): Promise<CheckOutResult> => {
     const now = new Date()
     const formattedOut = formatTimeString(now)
-    const checkIn =
-      currentRecord?.checkInTime || new Date(now.getTime() - 8 * 3600 * 1000 - 53 * 60 * 1000)
+    const checkIn = currentRecord?.checkInTime || new Date(now.getTime() - 8 * 3600 * 1000)
     const duration = formatDurationString(checkIn, now)
     const userId = user?.id || storage.get(STORAGE_KEYS.userId) || ''
     const empresaId = currentRecord?.empresaId || selectedCompany?.id || ''
+
     try {
-      await registerAttendance({
-        userId,
-        empresaId,
-        status: 'check-out',
+      const res = await registerAttendance({
+        freelancerId: userId,
+        companyId: empresaId,
+        type: 'check_out',
         timestamp: now.toISOString(),
       })
+      const finalDuration = res.durationFormatted || duration
+
+      const updatedRecord: AttendanceRecord = {
+        ...currentRecord,
+        checkOutTime: now,
+        formattedCheckOut: formattedOut,
+        durationFormatted: finalDuration,
+      }
+      setHistory((prev) => [updatedRecord, ...prev])
+      setCurrentRecord(null)
+      setPresenceStatus('awaiting')
+      return { ok: true, checkOutTime: formattedOut, duration: finalDuration }
     } catch (err) {
       return {
         ok: false,
@@ -542,20 +605,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         message: err instanceof Error ? err.message : 'Falha ao registrar saída. Tente novamente.',
       }
     }
-    const updatedRecord: AttendanceRecord = {
-      ...currentRecord,
-      checkOutTime: now,
-      formattedCheckOut: formattedOut,
-      durationFormatted: duration,
-    }
-    setHistory((prev) => [updatedRecord, ...prev])
-    setCurrentRecord(null)
-    setPresenceStatus('awaiting')
-    return { ok: true, checkOutTime: formattedOut, duration }
   }, [currentRecord, selectedCompany, user])
 
   // ----- Logout ------------------------------------------------------------
   const logout = useCallback(() => {
+    logoutManager()
+    setRole(null)
+    setManager(null)
     setUser(null)
     setApiUser(null)
     setCompanies([])
@@ -577,6 +633,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
+        role,
+        manager,
         user,
         companies,
         selectedCompany,
@@ -597,6 +655,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         restoreSession,
         performCheckIn,
         performCheckOut,
+        loginAsManager,
         logout,
       }}
     >

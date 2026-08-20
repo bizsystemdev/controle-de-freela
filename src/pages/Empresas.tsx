@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useApp, type Company } from '@/context/AppContext'
-import { ChevronRight, CheckCircle2, Building2, AlertTriangle } from 'lucide-react'
+import { ChevronRight, CheckCircle2, Building2, AlertTriangle, ArrowLeft } from 'lucide-react'
 
 export default function Empresas() {
   const navigate = useNavigate()
@@ -12,24 +12,25 @@ export default function Empresas() {
   }
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-6 sm:p-7 bg-slate-50/50">
+    <div className="flex-1 flex flex-col justify-between p-6 sm:p-7 bg-slate-50/70">
       {/* Top Section */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <button
             type="button"
-            onClick={() => navigate('/autenticar')}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1 active:scale-95"
+            onClick={() => navigate('/inicio')}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1.5 active:scale-95 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm"
           >
-            ← Voltar
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Voltar</span>
           </button>
         </div>
 
-        <h1 className="text-3xl sm:text-[32px] font-extrabold tracking-tight text-slate-900 mb-2">
-          Selecione uma empresa
+        <h1 className="text-3xl sm:text-[32px] font-black tracking-tight text-slate-900 mb-2">
+          Selecione a empresa
         </h1>
         <p className="text-base text-slate-500 font-normal leading-relaxed mb-6">
-          Escolha onde deseja realizar seu acesso.
+          Escolha a unidade onde você realizará o registro de ponto.
         </p>
 
         {/* Company Cards List */}
@@ -45,14 +46,14 @@ export default function Empresas() {
                   onClick={() => handleSelectCompany(comp)}
                   className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between group active:scale-[0.98] ${
                     isCurrent
-                      ? 'border-indigo-600 bg-indigo-50/70 shadow-md shadow-indigo-600/10 ring-2 ring-indigo-600/20'
-                      : 'border-slate-200/80 bg-white hover:border-slate-300 shadow-sm shadow-slate-200/50 hover:shadow-md'
+                      ? 'border-red-600 bg-red-50/60 shadow-md shadow-red-600/10 ring-2 ring-red-600/20'
+                      : 'border-slate-200/80 bg-white hover:border-slate-300 shadow-sm hover:shadow-md'
                   }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
                     {/* Company Avatar */}
                     <div
-                      className={`w-12 h-12 rounded-full bg-gradient-to-tr ${comp.gradient} flex items-center justify-center text-white font-extrabold text-lg shadow-sm shrink-0 transition-transform group-hover:scale-105`}
+                      className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${comp.gradient} flex items-center justify-center text-white font-black text-lg shadow-sm shrink-0 transition-transform group-hover:scale-105`}
                     >
                       {comp.initial}
                     </div>
@@ -70,7 +71,7 @@ export default function Empresas() {
                   {/* Right Icon */}
                   <div className="shrink-0 pl-2">
                     {isCurrent ? (
-                      <CheckCircle2 className="w-6 h-6 text-indigo-600 fill-indigo-100 animate-fade-in" />
+                      <CheckCircle2 className="w-6 h-6 text-red-600 fill-red-100 animate-fade-in" />
                     ) : (
                       <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
                     )}
@@ -88,7 +89,7 @@ export default function Empresas() {
             <h3 className="text-lg font-bold text-slate-900 mb-1">Nenhuma empresa vinculada</h3>
             <p className="text-sm text-slate-500 max-w-xs mb-6 font-normal">
               {authMessage ||
-                'Nenhuma empresa vinculada ao seu telefone. Verifique com a empresa contratante.'}
+                'Nenhuma empresa ativa vinculada ao seu cadastro. Verifique com a empresa contratante.'}
             </p>
             <div className="flex flex-col w-full gap-2">
               <button
@@ -107,7 +108,7 @@ export default function Empresas() {
       <div className="pt-6 pb-2 text-center">
         <div className="inline-flex items-center gap-1.5 text-xs text-slate-400">
           <Building2 className="w-3.5 h-3.5" />
-          <span>Vínculos ativos sincronizados</span>
+          <span>Biz Check • Vínculos sincronizados</span>
         </div>
       </div>
     </div>

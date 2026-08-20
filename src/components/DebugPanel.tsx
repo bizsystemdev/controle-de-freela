@@ -1,387 +1,348 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { MapPin, Building2, Trash2, X, Bug, Compass } from 'lucide-react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useApp } from '@/context/AppContext'
+import {
+  clearStoredCredential,
+  clearDeviceId,
+  saveDeviceId,
+  getLocalDeviceId,
+  getStoredCredentialId,
+} from '@/lib/webauthn'
 import { getLogs, clearLogs, type LogEntry } from '@/lib/logger'
-import { SIMULATE_COMPANY_LOCATION_KEY } from '@/lib/geolocation'
-
-// ---------------------------------------------------------------------------
-// DebugPanel
-// ---------------------------------------------------------------------------
-// A floating, always-mounted debug drawer that is invisible until a developer
-// taps 5 times (quickly) in the top-left corner of the screen. Once open it
-// occupies the bottom half of the viewport with a dark, semi-transparent
-// background and shows the live in-memory log stream plus the last known
-// device coordinates (extracted from the most recent `geo` or `checkin` log
-// carrying coordinates in any supported shape — direct, nested or fallback).
-// ---------------------------------------------------------------------------
-
-const TAP_ZONE_SIZE = 56 // px — invisible trigger in the top-left corner
-const TAP_REQUIRED = 5 // taps to toggle
-const TAP_WINDOW_MS = 2500 // all taps must land within this window
-
-const LEVEL_COLOR: Record<LogEntry['level'], string> = {
-  debug: 'text-slate-400',
-  info: 'text-sky-300',
-  warn: 'text-amber-300',
-  error: 'text-rose-400',
-}
-
-// Per-tag accent color so different subsystems are visually distinct.
-const TAG_COLOR: Record<string, string> = {
-  geo: 'text-emerald-300',
-  auth: 'text-indigo-300',
-  api: 'text-sky-300',
-  webauthn: 'text-fuchsia-300',
-}
-
-function tagColor(tag: string): string {
-  return TAG_COLOR[tag] ?? 'text-slate-300'
-}
-
-function shortTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '??:??:??'
-  return d.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-}
-
-const isCoordNumber = (v: unknown): v is number => typeof v === 'number' && !Number.isNaN(v)
-
-/**
- * Try to pull a coordinate pair (plus optional accuracy) out of a log entry's
- * structured payload, accepting every coordinate shape the app actually logs:
- *   - { latitude, longitude, accuracy }   → getCurrentPosition success log
- *   - { device: { lat, lng } }             → isWithinRadius / performCheckIn logs
- *   - { lat, lng }                         → direct fallback
- */
-function extractCoordsFromData(
-  data: Record<string, unknown>,
-): { lat: number; lng: number; accuracy?: number } | null {
-  // 1) Direct latitude/longitude (getCurrentPosition).
-  if (isCoordNumber(data.latitude) && isCoordNumber(data.longitude)) {
-    return {
-      lat: data.latitude,
-      lng: data.longitude,
-      accuracy: isCoordNumber(data.accuracy) ? data.accuracy : undefined,
-    }
-  }
-
-  // 2) Direct lat/lng fallback.
-  if (isCoordNumber(data.lat) && isCoordNumber(data.lng)) {
-    return {
-      lat: data.lat,
-      lng: data.lng,
-      accuracy: isCoordNumber(data.accuracy) ? data.accuracy : undefined,
-    }
-  }
-
-  // 3) Nested device coordinates (isWithinRadius / performCheckIn logs).
-  const { device } = data
-  if (device && typeof device === 'object' && !Array.isArray(device)) {
-    const dev = device as Record<string, unknown>
-    if (isCoordNumber(dev.lat) && isCoordNumber(dev.lng)) {
-      return {
-        lat: dev.lat,
-        lng: dev.lng,
-        accuracy: isCoordNumber(dev.accuracy) ? dev.accuracy : undefined,
-      }
-    }
-  }
-
-  return null
-}
-
-/**
- * Scan the log stream newest-first and return the first coordinate pair found
- * in any supported format. Both `geo` logs (getCurrentPosition + isWithinRadius)
- * and `checkin` logs (performCheckIn) carry device coordinates, so both tags
- * are considered.
- */
-function findLastKnownLocation(
-  logs: LogEntry[],
-): { lat: number; lng: number; accuracy?: number } | null {
-  for (let i = logs.length - 1; i >= 0; i -= 1) {
-    const entry = logs[i]
-    if (!entry.data) continue
-    if (entry.tag !== 'geo' && entry.tag !== 'checkin') continue
-    const coords = extractCoordsFromData(entry.data)
-    if (coords) return coords
-  }
-  return null
-}
-
-/**
- * Extract company information (location + name) from the most recent `checkin`
- * log entry that carries a company object in its payload (e.g. "Iniciando check-in").
- */
-function findCompanyLocationFromLogs(
-  logs: LogEntry[],
-): { lat: number; lng: number; name?: string } | null {
-  for (let i = logs.length - 1; i >= 0; i -= 1) {
-    const entry = logs[i]
-    if (entry.tag !== 'checkin' || !entry.data) continue
-
-    // 1) Direct company object in data
-    const comp = entry.data.company as Record<string, unknown> | undefined
-    if (comp && typeof comp === 'object') {
-      const name = typeof comp.name === 'string' ? comp.name : undefined
-      const loc = comp.location as Record<string, unknown> | undefined
-      if (loc && typeof loc === 'object') {
-        if (isCoordNumber(loc.lat) && isCoordNumber(loc.lng)) {
-          return { lat: loc.lat, lng: loc.lng, name }
-        }
-        if (isCoordNumber(loc.latitude) && isCoordNumber(loc.longitude)) {
-          return { lat: loc.latitude, lng: loc.longitude, name }
-        }
-      }
-      if (isCoordNumber(comp.lat) && isCoordNumber(comp.lng)) {
-        return { lat: comp.lat, lng: comp.lng, name }
-      }
-    }
-
-    // 2) Direct company location in data
-    if (isCoordNumber(entry.data.companyLat) && isCoordNumber(entry.data.companyLng)) {
-      return {
-        lat: entry.data.companyLat,
-        lng: entry.data.companyLng,
-        name: typeof entry.data.companyName === 'string' ? entry.data.companyName : undefined,
-      }
-    }
-  }
-  return null
-}
+import {
+  Bug,
+  X,
+  Trash2,
+  RefreshCw,
+  Clock,
+  Building2,
+  Fingerprint,
+  Phone,
+  RotateCcw,
+  ShieldCheck,
+  ChevronRight,
+  ExternalLink,
+} from 'lucide-react'
 
 export const DebugPanel: React.FC = () => {
-  const [open, setOpen] = useState(false)
+  const navigate = useNavigate()
+  const {
+    presenceStatus,
+    selectedCompany,
+    user,
+    role,
+    manager,
+    authState,
+    hasStoredCredential,
+    logout,
+  } = useApp()
+
+  const [isOpen, setIsOpen] = useState(false)
   const [logs, setLogs] = useState<LogEntry[]>([])
-  const [lastLocation, setLastLocation] = useState<{
-    lat: number
-    lng: number
-    accuracy?: number
-  } | null>(null)
-  const [companyLocation, setCompanyLocation] = useState<{
-    lat: number
-    lng: number
-    name?: string
-  } | null>(null)
-  const [isSimulating, setIsSimulating] = useState<boolean>(() => {
-    try {
-      return (
-        !!sessionStorage.getItem(SIMULATE_COMPANY_LOCATION_KEY) ||
-        !!localStorage.getItem(SIMULATE_COMPANY_LOCATION_KEY)
-      )
-    } catch {
-      return false
-    }
-  })
+  const [activeTab, setActiveTab] = useState<'info' | 'actions' | 'logs'>('info')
+  const [localDevId, setLocalDevId] = useState<string | null>(null)
+  const [localCredId, setLocalCredId] = useState<string | null>(null)
 
-  const tapTimesRef = useRef<number[]>([])
-  const scrollRef = useRef<HTMLDivElement | null>(null)
+  // 5-tap detection inside top-left 60x60px
+  const tapCountRef = useRef(0)
+  const lastTapRef = useRef(0)
 
-  // Easter-egg trigger: 5 quick taps in the top-left corner.
-  const handleTriggerTap = useCallback(() => {
-    const now = Date.now()
-    const recent = tapTimesRef.current.filter((t) => now - t < TAP_WINDOW_MS)
-    recent.push(now)
-    tapTimesRef.current = recent
-    if (recent.length >= TAP_REQUIRED) {
-      tapTimesRef.current = []
-      setOpen((prev) => !prev)
+  const handleGlobalClick = useCallback((e: MouseEvent) => {
+    if (e.clientX < 80 && e.clientY < 80) {
+      const now = Date.now()
+      if (now - lastTapRef.current < 600) {
+        tapCountRef.current += 1
+      } else {
+        tapCountRef.current = 1
+      }
+      lastTapRef.current = now
+
+      if (tapCountRef.current >= 5) {
+        tapCountRef.current = 0
+        setIsOpen((prev) => !prev)
+      }
     }
   }, [])
 
-  // Live log polling (500ms) while the panel is open.
   useEffect(() => {
-    if (!open) return
-    const tick = () => {
-      const next = getLogs()
-      setLogs(next)
-      setLastLocation(findLastKnownLocation(next))
-      setCompanyLocation(findCompanyLocationFromLogs(next))
-    }
-    tick()
-    const id = setInterval(tick, 500)
-    return () => clearInterval(id)
-  }, [open])
+    window.addEventListener('click', handleGlobalClick)
+    return () => window.removeEventListener('click', handleGlobalClick)
+  }, [handleGlobalClick])
 
-  // Auto-scroll to the bottom whenever the log list changes.
   useEffect(() => {
-    if (!open) return
-    const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [logs, open])
-
-  const handleClear = useCallback(() => {
-    clearLogs()
-    setLogs([])
-    setLastLocation(null)
-    setCompanyLocation(null)
-  }, [])
-
-  const toggleSimulation = useCallback(() => {
-    if (isSimulating) {
-      try {
-        sessionStorage.removeItem(SIMULATE_COMPANY_LOCATION_KEY)
-        localStorage.removeItem(SIMULATE_COMPANY_LOCATION_KEY)
-      } catch {
-        /* ignore */
-      }
-      setIsSimulating(false)
-    } else {
-      if (!companyLocation) return
-      const payload = JSON.stringify({
-        latitude: companyLocation.lat,
-        longitude: companyLocation.lng,
-      })
-      try {
-        sessionStorage.setItem(SIMULATE_COMPANY_LOCATION_KEY, payload)
-        localStorage.setItem(SIMULATE_COMPANY_LOCATION_KEY, payload)
-      } catch {
-        /* ignore */
-      }
-      setIsSimulating(true)
+    if (isOpen) {
+      setLogs(getLogs())
+      setLocalDevId(getLocalDeviceId())
+      setLocalCredId(getStoredCredentialId())
     }
-  }, [isSimulating, companyLocation])
+  }, [isOpen])
+
+  if (!isOpen) return null
+
+  const handleClearAuthData = () => {
+    clearStoredCredential()
+    clearDeviceId()
+    logout()
+    setLogs(getLogs())
+    setLocalDevId(null)
+    setLocalCredId(null)
+    navigate('/acesso')
+  }
+
+  const handleSimulateDeviceMismatch = () => {
+    saveDeviceId('mismatch_device_' + Date.now().toString(36))
+    setLocalDevId(getLocalDeviceId())
+  }
 
   return (
-    <>
-      {/* Invisible activation zone — top-left corner, above everything. */}
-      <button
-        type="button"
-        aria-label="Ativar painel de debug"
-        onClick={handleTriggerTap}
-        style={{ width: TAP_ZONE_SIZE, height: TAP_ZONE_SIZE, top: 0, left: 0 }}
-        className="fixed z-[70] cursor-default"
-        tabIndex={-1}
-      />
-
-      {open && (
-        <div className="fixed inset-0 z-[60] flex flex-col justify-end pointer-events-none">
-          <div className="h-1/2 w-full bg-slate-950/90 backdrop-blur-md border-t border-slate-700/60 rounded-t-2xl flex flex-col pointer-events-auto shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/60">
-              <div className="flex items-center gap-2 text-slate-200">
-                <Bug className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm font-bold tracking-wide">DEBUG</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 bg-slate-700/60 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Limpar logs
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-200 bg-slate-700/60 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  Fechar
-                </button>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in font-sans">
+      <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden text-white">
+        {/* Header */}
+        <div className="p-4 px-5 bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center">
+              <Bug className="w-4 h-4" />
             </div>
-
-            {/* Location Indicators */}
-            <div className="px-4 py-2 border-b border-slate-700/60 text-xs flex flex-col gap-1.5">
-              {/* GPS Dispositivo */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="text-slate-400 font-medium shrink-0">GPS Dispositivo:</span>
-                  {lastLocation ? (
-                    <span className="text-emerald-300 font-mono tabular-nums truncate">
-                      {lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}
-                      {typeof lastLocation.accuracy === 'number' && (
-                        <span className="text-slate-500 ml-1.5">
-                          (±{Math.round(lastLocation.accuracy)}m)
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="text-slate-500 italic">indisponível</span>
-                  )}
-                </div>
-
-                {isSimulating && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
-                    SIMULAÇÃO ATIVA
-                  </span>
-                )}
-              </div>
-
-              {/* Local da Empresa */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Building2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span className="text-slate-400 font-medium shrink-0">Local da Empresa:</span>
-                  {companyLocation ? (
-                    <span className="text-sky-300 font-mono tabular-nums truncate">
-                      {companyLocation.lat.toFixed(6)}, {companyLocation.lng.toFixed(6)}
-                      {companyLocation.name && (
-                        <span className="text-slate-400 ml-1.5 font-sans not-italic">
-                          ({companyLocation.name})
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="text-slate-500 italic">não identificado nos logs</span>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  disabled={!companyLocation && !isSimulating}
-                  onClick={toggleSimulation}
-                  className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded transition-colors shrink-0 ${
-                    isSimulating
-                      ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                      : companyLocation
-                        ? 'bg-sky-600/80 hover:bg-sky-500 text-white'
-                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  }`}
-                >
-                  <Compass className="w-3 h-3" />
-                  {isSimulating ? 'Desativar Simulação' : 'Simular Local da Empresa'}
-                </button>
-              </div>
-            </div>
-
-            {/* Log stream */}
-            <div
-              ref={scrollRef}
-              className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed"
-            >
-              {logs.length === 0 ? (
-                <div className="text-slate-500 italic text-center py-6">Nenhum log registrado.</div>
-              ) : (
-                logs.map((entry, idx) => (
-                  <div
-                    key={`${entry.timestamp}-${idx}`}
-                    className="flex gap-2 py-0.5 hover:bg-slate-800/40 rounded px-1"
-                  >
-                    <span className="text-slate-500 tabular-nums shrink-0">
-                      {shortTime(entry.timestamp)}
-                    </span>
-                    <span className={`shrink-0 font-bold ${tagColor(entry.tag)}`}>
-                      [{entry.tag}]
-                    </span>
-                    <span className={`flex-1 break-words ${LEVEL_COLOR[entry.level]}`}>
-                      {entry.message}
-                    </span>
-                  </div>
-                ))
-              )}
+            <div>
+              <h2 className="text-sm font-bold text-white leading-tight">
+                Biz Check • Painel Debug
+              </h2>
+              <p className="text-[10px] text-slate-400">
+                Diagnóstico & Testes em tempo de execução
+              </p>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="w-8 h-8 rounded-full bg-slate-700/60 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-      )}
-    </>
+
+        {/* Tab Navigation */}
+        <div className="flex border-b border-slate-800 bg-slate-900/50 p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('info')}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-colors ${
+              activeTab === 'info'
+                ? 'bg-slate-800 text-red-400 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Estado Atual
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('actions')}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-colors ${
+              activeTab === 'actions'
+                ? 'bg-slate-800 text-red-400 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Ações Rápidas
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('logs')
+              setLogs(getLogs())
+            }}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-colors ${
+              activeTab === 'logs'
+                ? 'bg-slate-800 text-red-400 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Logs ({logs.length})
+          </button>
+        </div>
+
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+          {activeTab === 'info' && (
+            <div className="space-y-3">
+              <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Autenticação & Papel
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-400">Papel Ativo:</span>{' '}
+                    <strong className="text-red-400">{role || 'Nenhum'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Estado Auth:</span>{' '}
+                    <strong className="text-white">{authState}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Usuário:</span>{' '}
+                    <strong className="text-white">{user?.name || manager?.name || '--'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Presença:</span>{' '}
+                    <strong
+                      className={
+                        presenceStatus === 'checked-in' ? 'text-emerald-400' : 'text-amber-400'
+                      }
+                    >
+                      {presenceStatus}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-1 text-[11px]">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Dispositivo WebAuthn
+                </p>
+                <p>
+                  <span className="text-slate-400">Credential ID:</span>{' '}
+                  <span className="font-mono text-[10px] text-slate-300">
+                    {localCredId ? localCredId.slice(0, 20) + '...' : 'Nenhum'}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-slate-400">Device ID:</span>{' '}
+                  <span className="font-mono text-[10px] text-slate-300">
+                    {localDevId || 'Nenhum'}
+                  </span>
+                </p>
+              </div>
+
+              {selectedCompany && (
+                <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-1 text-[11px]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                    Empresa Selecionada
+                  </p>
+                  <p className="font-bold text-white">{selectedCompany.name}</p>
+                  <p className="text-slate-400">{selectedCompany.address}</p>
+                  <p className="font-mono text-[10px] text-slate-300">
+                    GPS: {selectedCompany.location.lat}, {selectedCompany.location.lng}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'actions' && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false)
+                  navigate('/admin/login')
+                }}
+                className="w-full p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-left flex items-center justify-between text-xs font-semibold"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-red-500" />
+                  <span>Ir para Login do Gestor (/admin/login)</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false)
+                  navigate('/acesso')
+                }}
+                className="w-full p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-left flex items-center justify-between text-xs font-semibold"
+              >
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-blue-400" />
+                  <span>Ir para Acesso do Freelancer (/acesso)</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSimulateDeviceMismatch}
+                className="w-full p-3 rounded-xl bg-amber-950/40 border border-amber-800/40 hover:bg-amber-950/60 text-left flex items-center justify-between text-xs font-semibold text-amber-300"
+              >
+                <div className="flex items-center gap-2">
+                  <Fingerprint className="w-4 h-4 text-amber-400" />
+                  <span>Simular Dispositivo Inválido (Mismatch)</span>
+                </div>
+                <RefreshCw className="w-4 h-4 text-amber-400" />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClearAuthData}
+                className="w-full p-3 rounded-xl bg-red-950/40 border border-red-800/40 hover:bg-red-950/60 text-left flex items-center justify-between text-xs font-semibold text-red-300"
+              >
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 text-red-400" />
+                  <span>Limpar Biometria & Resetar Sessão</span>
+                </div>
+                <Trash2 className="w-4 h-4 text-red-400" />
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'logs' && (
+            <div className="space-y-2">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearLogs()
+                    setLogs([])
+                  }}
+                  className="text-[10px] text-red-400 hover:text-red-300 font-bold flex items-center gap-1"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Limpar Logs</span>
+                </button>
+              </div>
+
+              {logs.length === 0 ? (
+                <p className="text-slate-500 text-center py-6">Nenhum log registrado ainda.</p>
+              ) : (
+                <div className="space-y-1.5 font-mono text-[10px]">
+                  {logs.slice(0, 30).map((l, i) => (
+                    <div
+                      key={i}
+                      className={`p-2 rounded-lg ${
+                        l.level === 'error'
+                          ? 'bg-red-950/60 text-red-300 border border-red-800/40'
+                          : l.level === 'warn'
+                            ? 'bg-amber-950/60 text-amber-300 border border-amber-800/40'
+                            : 'bg-slate-800/60 text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[9px] text-slate-400 mb-0.5">
+                        <span className="font-bold uppercase text-red-400">{l.tag}</span>
+                        <span>{new Date(l.timestamp).toLocaleTimeString('pt-BR')}</span>
+                      </div>
+                      <p>{l.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-3 px-5 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-500">
+          <span>Dica: 5 toques no canto superior esquerdo abrem/fecham este painel.</span>
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="text-slate-400 hover:text-white font-bold"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
-
-export default DebugPanel

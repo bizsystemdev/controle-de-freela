@@ -26,13 +26,13 @@ export const LocationMismatchModal: React.FC<LocationMismatchModalProps> = ({
           <span className="absolute -inset-1 rounded-full border-2 border-amber-500/30 animate-pulse-ring pointer-events-none" />
         </div>
 
-        <h2 className="text-xl font-extrabold text-slate-900 mb-1">Fora do local</h2>
+        <h2 className="text-xl font-black text-slate-900 mb-1">Fora do local</h2>
         <p className="text-sm text-slate-500 font-medium mb-6">{message}</p>
 
         <button
           type="button"
           onClick={onRetry}
-          className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-sm shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-1.5 mb-2"
+          className="w-full h-12 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-sm shadow-md shadow-red-600/20 transition-all flex items-center justify-center gap-1.5 mb-2"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Tentar novamente</span>
@@ -50,7 +50,7 @@ export const LocationMismatchModal: React.FC<LocationMismatchModalProps> = ({
 
         <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
           <MapPin className="w-3 h-3" />
-          <span>Verificamos sua localização atual</span>
+          <span>Biz Check validação por raio de tolerância</span>
         </div>
       </div>
     </div>

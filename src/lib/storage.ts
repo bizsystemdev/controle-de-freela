@@ -1,4 +1,4 @@
-// Centralized localStorage helpers for the Presença app.
+// Centralized localStorage helpers for the Biz Check app.
 // Splits keys into client-side session data (credential/device/user)
 // and mock-server-side state (deviceId, open check-in).
 

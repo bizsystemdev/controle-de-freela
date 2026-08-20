@@ -36,12 +36,11 @@ export default function Autenticar() {
     resetAuthError,
     companies,
     selectedCompany,
-    setSelectedCompany,
   } = useApp()
 
   const [dialogMode, setDialogMode] = useState<DialogMode>(null)
 
-  // If we somehow land here without a pending session, bounce back to phone.
+  // If authenticated, route to main flow
   useEffect(() => {
     if (authState === 'authenticated') {
       navigate('/inicio')
@@ -76,10 +75,10 @@ export default function Autenticar() {
   const needsCompanySelection = companyCount > 1 && !selectedCompany
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-6 sm:p-7 bg-gradient-to-b from-white via-white to-indigo-50/40">
+    <div className="flex-1 flex flex-col justify-between p-6 sm:p-7 bg-gradient-to-b from-white via-white to-red-50/30">
       {/* Top Header */}
       <div className="flex items-center justify-between w-full pt-2">
-        <AppLogo size="sm" />
+        <AppLogo size="sm" showText />
         <button
           type="button"
           onClick={handleBack}
@@ -94,9 +93,9 @@ export default function Autenticar() {
       <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
         {/* Animated biometric icon */}
         <div className="relative mb-7 flex items-center justify-center">
-          <div className="absolute -inset-3 rounded-full bg-indigo-500/15 blur-xl animate-pulse" />
-          <div className="absolute -inset-1 rounded-full border-2 border-indigo-500/20 animate-pulse-ring pointer-events-none" />
-          <div className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-700 via-indigo-600 to-violet-500 flex items-center justify-center shadow-2xl shadow-indigo-600/30">
+          <div className="absolute -inset-3 rounded-full bg-red-600/15 blur-xl animate-pulse" />
+          <div className="absolute -inset-1 rounded-full border-2 border-red-600/20 animate-pulse-ring pointer-events-none" />
+          <div className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-red-700 via-red-600 to-red-500 flex items-center justify-center shadow-2xl shadow-red-600/30">
             {isAuthBusy ? (
               <Loader2 className="w-11 h-11 text-white animate-spin" />
             ) : (
@@ -105,20 +104,20 @@ export default function Autenticar() {
           </div>
         </div>
 
-        <h1 className="text-2xl sm:text-[26px] font-extrabold tracking-tight text-slate-900 mb-2">
+        <h1 className="text-2xl sm:text-[26px] font-black tracking-tight text-slate-900 mb-2">
           {isRegisterFlow ? 'Cadastro de autenticação' : 'Autentique-se'}
         </h1>
         <p className="text-base text-slate-500 max-w-[280px] leading-relaxed font-normal mb-1">
           {isRegisterFlow
-            ? 'Cadastre a autenticação do dispositivo para acessar o app sem senha.'
-            : 'Autentique-se com seu dispositivo para continuar'}
+            ? 'Cadastre a autenticação biométrica do aparelho para acessar o Biz Check sem senha.'
+            : 'Autentique-se com biometria ou chave de segurança para continuar'}
         </p>
-        {user?.name && <p className="text-sm font-semibold text-indigo-600 mb-1">{user.name}</p>}
+        {user?.name && <p className="text-sm font-bold text-red-600 mb-1">{user.name}</p>}
         {pendingPhone && (
           <p className="text-xs text-slate-400 tabular-nums font-mono">{pendingPhone}</p>
         )}
 
-        {/* Inline non-blocking error (e.g. cancelled / timeout) */}
+        {/* Inline non-blocking error */}
         {authError && dialogMode === null && !authError.includes('Dispositivo não reconhecido') && (
           <div className="mt-6 w-full max-w-xs flex items-start gap-2.5 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 animate-fade-in text-left">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -129,13 +128,13 @@ export default function Autenticar() {
           </div>
         )}
 
-        {/* Empty companies notice (non-blocking) */}
+        {/* Empty companies notice */}
         {authMessage && (
-          <div className="mt-6 w-full max-w-xs flex items-start gap-2.5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 animate-fade-in text-left">
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          <div className="mt-6 w-full max-w-xs flex items-start gap-2.5 p-3.5 rounded-2xl bg-red-50 border border-red-200 animate-fade-in text-left">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-semibold text-rose-800">Sem vínculos</p>
-              <p className="text-xs text-rose-700 mt-0.5">{authMessage}</p>
+              <p className="text-xs font-semibold text-red-800">Sem vínculos</p>
+              <p className="text-xs text-red-700 mt-0.5">{authMessage}</p>
             </div>
           </div>
         )}
@@ -150,7 +149,7 @@ export default function Autenticar() {
           className={`w-full h-14 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white shadow-lg transition-all duration-200 active:scale-[0.98] ${
             isAuthBusy || !webauthnSupported
               ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none opacity-60'
-              : 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 shadow-indigo-600/30 hover:shadow-indigo-600/40 cursor-pointer'
+              : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-red-600/30 hover:shadow-red-600/40 cursor-pointer'
           }`}
         >
           {isAuthBusy ? (
@@ -171,7 +170,7 @@ export default function Autenticar() {
         <p className="text-center text-[12px] text-slate-400">
           {needsCompanySelection
             ? 'Após autenticar, selecione a empresa de trabalho.'
-            : 'Seus dados de autenticação ficam apenas neste dispositivo.'}
+            : 'Seus dados de autenticação ficam protegidos com segurança.'}
         </p>
       </div>
 
@@ -179,14 +178,14 @@ export default function Autenticar() {
       <Dialog open={dialogMode === 'unsupported'} onOpenChange={(o) => !o && setDialogMode(null)}>
         <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">
           <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-3">
               <ShieldAlert className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-extrabold text-slate-900 text-center">
               Dispositivo incompatível
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-slate-500 text-center pt-1">
-              Seu dispositivo não suporta autenticação do dispositivo. Tente usar outro dispositivo.
+              Seu dispositivo não suporta autenticação biométrica. Tente usar outro dispositivo.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-4">

@@ -150,15 +150,15 @@ export default function Inicio() {
   const isCheckedIn = presenceStatus === 'checked-in'
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-5 sm:p-6 bg-slate-50/60 animate-fade-in">
+    <div className="flex-1 flex flex-col justify-between p-5 sm:p-6 bg-slate-50/70 animate-fade-in">
       {/* Top Bar: Greeting + Avatar */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-              Controle de Presença
+            <span className="text-xs font-bold text-red-600 uppercase tracking-wider block">
+              Biz Check
             </span>
-            <h1 className="text-2xl sm:text-[26px] font-extrabold tracking-tight text-slate-900">
+            <h1 className="text-2xl sm:text-[26px] font-black tracking-tight text-slate-900">
               Olá, {user?.name.split(' ')[0] || 'Usuário'}!
             </h1>
           </div>
@@ -166,7 +166,7 @@ export default function Inicio() {
           <button
             type="button"
             onClick={() => navigate('/perfil')}
-            className="w-11 h-11 rounded-full bg-slate-900 text-white font-bold text-sm flex items-center justify-center ring-2 ring-slate-100 hover:ring-indigo-300 transition-all active:scale-95 shadow-sm"
+            className="w-11 h-11 rounded-full bg-slate-900 text-white font-black text-sm flex items-center justify-center ring-2 ring-slate-200 hover:ring-red-400 transition-all active:scale-95 shadow-sm"
             title="Abrir perfil"
             aria-label="Perfil do usuário"
           >
@@ -179,7 +179,7 @@ export default function Inicio() {
           <div className="flex items-center justify-between p-2.5 px-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
             <div className="flex items-center gap-2.5 min-w-0 pr-2">
               <div
-                className={`w-7 h-7 rounded-full bg-gradient-to-tr ${selectedCompany.gradient} flex items-center justify-center text-white text-xs font-bold shrink-0`}
+                className={`w-7 h-7 rounded-lg bg-gradient-to-tr ${selectedCompany.gradient} flex items-center justify-center text-white text-xs font-bold shrink-0`}
               >
                 {selectedCompany.initial}
               </div>
@@ -197,7 +197,7 @@ export default function Inicio() {
               <button
                 type="button"
                 onClick={() => navigate('/empresas')}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100/80 px-2.5 py-1.5 rounded-xl transition-colors shrink-0 active:scale-95"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-xl transition-colors shrink-0 active:scale-95"
                 title="Trocar de empresa"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -248,9 +248,9 @@ export default function Inicio() {
               isButtonPressing ? 'scale-95' : ''
             } ${
               isProcessing
-                ? 'bg-gradient-to-tr from-slate-400 to-slate-400 shadow-xl'
+                ? 'bg-gradient-to-tr from-slate-400 to-slate-500 shadow-xl'
                 : !isCheckedIn
-                  ? 'bg-gradient-to-tr from-indigo-700 via-indigo-600 to-indigo-500 animate-breathing-indigo shadow-2xl'
+                  ? 'bg-gradient-to-tr from-red-700 via-red-600 to-red-500 animate-breathing-red shadow-2xl'
                   : 'bg-gradient-to-tr from-emerald-700 via-emerald-600 to-emerald-500 animate-breathing-emerald shadow-2xl'
             }`}
             aria-label={!isCheckedIn ? 'Fazer Check-in' : 'Fazer Check-out'}
@@ -289,11 +289,11 @@ export default function Inicio() {
         {/* Status explanation line */}
         <div className="mt-5 max-w-[280px]">
           <p className="text-sm font-semibold text-slate-800">
-            {!isCheckedIn ? 'Você ainda não realizou o check-in.' : 'Você está presente.'}
+            {!isCheckedIn ? 'Você ainda não realizou o check-in.' : 'Você está em atividade.'}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
             {!isCheckedIn
-              ? 'Toque no botão para registrar sua entrada.'
+              ? 'Toque no botão para registrar sua entrada no local.'
               : 'Toque no botão quando for encerrar sua jornada.'}
           </p>
         </div>
@@ -328,9 +328,9 @@ export default function Inicio() {
             </span>
           </div>
         ) : (
-          <div className="w-full bg-white/80 rounded-2xl border border-slate-200/60 p-3 flex items-center justify-center gap-2 text-center text-xs text-slate-500">
-            <Sparkles className="w-4 h-4 text-indigo-500" />
-            <span>Sistema pronto para registro rápido</span>
+          <div className="w-full bg-white/90 rounded-2xl border border-slate-200/60 p-3 flex items-center justify-center gap-2 text-center text-xs text-slate-500">
+            <Sparkles className="w-4 h-4 text-red-500" />
+            <span>Biz Check pronto para registro rápido</span>
           </div>
         )}
       </div>

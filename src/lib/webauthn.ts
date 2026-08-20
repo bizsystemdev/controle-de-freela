@@ -97,11 +97,11 @@ export async function registerCredential(): Promise<StoredCredential> {
 
   const publicKey: PublicKeyCredentialCreationOptions = {
     challenge: randomBuffer(32),
-    rp: { name: 'Presença' },
+    rp: { name: 'Biz Check' },
     user: {
-      id: randomBuffer(16),
-      name: 'usuario@presenca.app',
-      displayName: 'Usuário Presença',
+      id: crypto.getRandomValues(new Uint8Array(16)),
+      name: 'usuario@bizcheck.local',
+      displayName: 'Usuário Biz Check',
     },
     pubKeyCredParams: [
       { type: 'public-key', alg: -7 },
@@ -191,5 +191,13 @@ export function getLocalDeviceId(): string | null {
 
 export function clearDeviceCredential(): void {
   storage.remove(STORAGE_KEYS.credential)
+  storage.remove(STORAGE_KEYS.deviceId)
+}
+
+export function clearStoredCredential(): void {
+  storage.remove(STORAGE_KEYS.credential)
+}
+
+export function clearDeviceId(): void {
   storage.remove(STORAGE_KEYS.deviceId)
 }

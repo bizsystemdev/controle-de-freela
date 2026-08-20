@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-20T13:45:32.043Z",
+  "generatedAt": "2026-08-20T14:13:18.210Z",
   "collections": [
     {
       "name": "users",
@@ -42,6 +42,384 @@
       "indexes": [
         "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
         "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
+      ]
+    },
+    {
+      "name": "companies",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lat",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lng",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_companies_active ON companies (active)"]
+    },
+    {
+      "name": "licenses",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "company_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "companies"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["active", "inactive", "expired"]
+        },
+        {
+          "name": "plan",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["free", "pro", "enterprise"]
+        },
+        {
+          "name": "max_freelancers",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_licenses_company ON licenses (company_id)"]
+    },
+    {
+      "name": "license_managers",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "license_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "licenses"
+        },
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "role",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["owner", "admin", "viewer"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_lic_mgr_user ON license_managers (user_id)",
+        "CREATE INDEX idx_lic_mgr_license ON license_managers (license_id)"
+      ]
+    },
+    {
+      "name": "freelancers",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "document",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "role_title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "device_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "credential_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_freelancers_phone ON freelancers (phone)",
+        "CREATE INDEX idx_freelancers_active ON freelancers (active)"
+      ]
+    },
+    {
+      "name": "freelancer_companies",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "freelancer_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "freelancers"
+        },
+        {
+          "name": "company_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "companies"
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_fc_freelancer ON freelancer_companies (freelancer_id)",
+        "CREATE INDEX idx_fc_company ON freelancer_companies (company_id)"
+      ]
+    },
+    {
+      "name": "attendance_records",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "freelancer_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "freelancers"
+        },
+        {
+          "name": "company_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "companies"
+        },
+        {
+          "name": "type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["check_in", "check_out"]
+        },
+        {
+          "name": "timestamp",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "lat",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lng",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_att_freelancer ON attendance_records (freelancer_id)",
+        "CREATE INDEX idx_att_company ON attendance_records (company_id)",
+        "CREATE INDEX idx_att_timestamp ON attendance_records (timestamp DESC)"
       ]
     }
   ]
