@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-20T18:39:09.752Z",
+  "generatedAt": "2026-08-20T19:10:19.360Z",
   "collections": [
     {
       "name": "users",
@@ -125,6 +125,12 @@
         },
         {
           "name": "neighborhood",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnpj",
           "type": "text",
           "required": false,
           "system": false

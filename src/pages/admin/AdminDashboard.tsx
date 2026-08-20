@@ -22,7 +22,9 @@ import {
   Lock,
   Mail,
   User,
+  FileText,
 } from 'lucide-react'
+import { maskAlphanumericCnpj, isValidAlphanumericCnpj, unmaskCnpj } from '@/lib/cnpj'
 import {
   Dialog,
   DialogContent,
@@ -62,6 +64,7 @@ export default function AdminDashboard() {
   const [city, setCity] = useState('')
   const [state, setState] = useState('SC')
   const [cep, setCep] = useState('')
+  const [cnpj, setCnpj] = useState('')
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('pro')
@@ -104,6 +107,7 @@ export default function AdminDashboard() {
     setCity('')
     setState('SC')
     setCep('')
+    setCnpj('')
     setLat('')
     setLng('')
     setPlan('pro')
@@ -250,6 +254,10 @@ export default function AdminDashboard() {
     if (!city.trim()) errors.city = 'Cidade é obrigatória.'
     if (!state.trim()) errors.state = 'Estado é obrigatório.'
 
+    if (cnpj.trim() && !isValidAlphanumericCnpj(cnpj)) {
+      errors.cnpj = 'CNPJ inválido. Digite os 14 caracteres alfanuméricos.'
+    }
+
     const parsedLat = parseFloat(lat)
     const parsedLng = parseFloat(lng)
     if (!lat || !lng || isNaN(parsedLat) || isNaN(parsedLng)) {
@@ -282,6 +290,7 @@ export default function AdminDashboard() {
         city: city.trim(),
         state: state.trim().toUpperCase(),
         cep: cep.trim() || undefined,
+        cnpj: cnpj.trim() ? unmaskCnpj(cnpj) : undefined,
         lat: parsedLat,
         lng: parsedLng,
         plan,
@@ -508,37 +517,72 @@ export default function AdminDashboard() {
                 1. Informações da Empresa
               </h3>
 
-              {/* Nome */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Nome da empresa <span className="text-red-600">*</span>
-                </label>
-                <div className="relative flex items-center">
-                  <div className="absolute left-3.5 text-slate-400 pointer-events-none">
-                    <Building2 className="w-4 h-4" />
+              {/* Nome e CNPJ */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Nome da empresa <span className="text-red-600">*</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <div className="absolute left-3.5 text-slate-400 pointer-events-none">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={companyName}
+                      onChange={(e) => {
+                        setCompanyName(e.target.value)
+                        if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: '' }))
+                      }}
+                      placeholder="Ex: Biz Check Matriz"
+                      className={`w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all ${
+                        formErrors.name
+                          ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
+                          : 'border-slate-200 focus:border-red-600'
+                      }`}
+                    />
                   </div>
-                  <input
-                    type="text"
-                    required
-                    value={companyName}
-                    onChange={(e) => {
-                      setCompanyName(e.target.value)
-                      if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: '' }))
-                    }}
-                    placeholder="Ex: Biz Check Matriz"
-                    className={`w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all ${
-                      formErrors.name
-                        ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
-                        : 'border-slate-200 focus:border-red-600'
-                    }`}
-                  />
+                  {formErrors.name && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{formErrors.name}</span>
+                    </p>
+                  )}
                 </div>
-                {formErrors.name && (
-                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>{formErrors.name}</span>
-                  </p>
-                )}
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    CNPJ{' '}
+                    <span className="text-slate-400 font-normal">(opcional / alfanumérico)</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <div className="absolute left-3.5 text-slate-400 pointer-events-none">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      value={cnpj}
+                      onChange={(e) => {
+                        const val = maskAlphanumericCnpj(e.target.value)
+                        setCnpj(val)
+                        if (formErrors.cnpj) setFormErrors((prev) => ({ ...prev, cnpj: '' }))
+                      }}
+                      placeholder="00.000.000/0001-00 ou alfanumérico"
+                      className={`w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all font-mono ${
+                        formErrors.cnpj
+                          ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
+                          : 'border-slate-200 focus:border-red-600'
+                      }`}
+                    />
+                  </div>
+                  {formErrors.cnpj && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{formErrors.cnpj}</span>
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Endereço: Rua e Número */}

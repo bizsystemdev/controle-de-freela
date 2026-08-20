@@ -6,6 +6,10 @@ export interface CompanyData {
   cidade: string
   estado: string
   endereco: string
+  cep?: string
+  number?: string
+  neighborhood?: string
+  cnpj?: string
   location: {
     lat: number
     lng: number
@@ -22,9 +26,13 @@ export async function getCompany(id: string): Promise<CompanyData> {
     return {
       id: record.id,
       name: record.name,
-      cidade: record.city || '',
-      estado: record.state || '',
-      endereco: record.address || '',
+      cidade: record.city || record.cidade || '',
+      estado: record.state || record.estado || '',
+      endereco: record.address || record.endereco || '',
+      cep: record.cep || '',
+      number: record.number || '',
+      neighborhood: record.neighborhood || record.bairro || '',
+      cnpj: record.cnpj || '',
       location: {
         lat: record.lat || 0,
         lng: record.lng || 0,
@@ -49,9 +57,13 @@ export async function listActiveCompanies(): Promise<CompanyData[]> {
     return records.map((record) => ({
       id: record.id,
       name: record.name,
-      cidade: record.city || '',
-      estado: record.state || '',
-      endereco: record.address || '',
+      cidade: record.city || record.cidade || '',
+      estado: record.state || record.estado || '',
+      endereco: record.address || record.endereco || '',
+      cep: record.cep || '',
+      number: record.number || '',
+      neighborhood: record.neighborhood || record.bairro || '',
+      cnpj: record.cnpj || '',
       location: {
         lat: record.lat || 0,
         lng: record.lng || 0,

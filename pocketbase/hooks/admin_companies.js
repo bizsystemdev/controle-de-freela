@@ -56,6 +56,10 @@ routerAdd('GET', '/api/admin/companies', (e) => {
             city: comp.getString('city'),
             state: comp.getString('state'),
             address: comp.getString('address'),
+            cep: comp.getString('cep'),
+            number: comp.getString('number'),
+            neighborhood: comp.getString('neighborhood'),
+            cnpj: comp.getString('cnpj'),
             location: {
               lat: comp.getFloat('lat'),
               lng: comp.getFloat('lng'),

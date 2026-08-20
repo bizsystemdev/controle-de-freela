@@ -6,6 +6,10 @@ export interface CompanyAdminItem {
   city: string
   state: string
   address: string
+  cep?: string
+  number?: string
+  neighborhood?: string
+  cnpj?: string
   location: {
     lat: number
     lng: number
@@ -28,6 +32,7 @@ export interface CreateCompanyPayload {
   state: string
   cep?: string
   neighborhood?: string
+  cnpj?: string
   lat: number
   lng: number
   plan: 'free' | 'pro' | 'enterprise'
@@ -35,6 +40,42 @@ export interface CreateCompanyPayload {
   managerEmail: string
   managerPassword: string
   currentAdminId?: string
+}
+
+export interface UpdateCompanyPayload {
+  name?: string
+  street?: string
+  number?: string
+  city?: string
+  state?: string
+  cep?: string
+  neighborhood?: string
+  cnpj?: string
+  lat?: number
+  lng?: number
+  plan?: 'free' | 'pro' | 'enterprise'
+  active?: boolean
+}
+
+export interface UpdateCompanyResponse {
+  success: boolean
+  message: string
+  company: {
+    id: string
+    name: string
+    city: string
+    state: string
+    address: string
+    cep?: string
+    number?: string
+    neighborhood?: string
+    cnpj?: string
+    location: {
+      lat: number
+      lng: number
+    }
+    active?: boolean
+  }
 }
 
 export interface CreateCompanyResponse {
@@ -46,6 +87,10 @@ export interface CreateCompanyResponse {
     city: string
     state: string
     address: string
+    cep?: string
+    number?: string
+    neighborhood?: string
+    cnpj?: string
     location: {
       lat: number
       lng: number
@@ -187,6 +232,7 @@ export async function createAdminCompany(
           cep: payload.cep || '',
           number: payload.number || '',
           neighborhood: payload.neighborhood || '',
+          cnpj: payload.cnpj || '',
         })
 
         // 2. Create license record
@@ -257,6 +303,10 @@ export async function createAdminCompany(
             city: comp.city || '',
             state: comp.state || '',
             address: comp.address || '',
+            cep: comp.cep || payload.cep || '',
+            number: comp.number || payload.number || '',
+            neighborhood: comp.neighborhood || payload.neighborhood || '',
+            cnpj: comp.cnpj || payload.cnpj || '',
             location: {
               lat: comp.lat || payload.lat,
               lng: comp.lng || payload.lng,
@@ -348,6 +398,10 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
                 city: comp.city || '',
                 state: comp.state || '',
                 address: comp.address || '',
+                cep: comp.cep || '',
+                number: comp.number || '',
+                neighborhood: comp.neighborhood || '',
+                cnpj: comp.cnpj || '',
                 location: {
                   lat: comp.lat || 0,
                   lng: comp.lng || 0,
@@ -380,6 +434,10 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
           city: c.city || '',
           state: c.state || '',
           address: c.address || '',
+          cep: c.cep || '',
+          number: c.number || '',
+          neighborhood: c.neighborhood || '',
+          cnpj: c.cnpj || '',
           location: { lat: c.lat || 0, lng: c.lng || 0 },
           freelancersCount: 0,
           lastCheckIn: null,
@@ -388,6 +446,119 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
     }
 
     throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao listar empresas.')
+  }
+}
+
+/**
+ * Atualiza os dados de uma empresa
+ */
+export async function updateAdminCompany(
+  companyId: string,
+  payload: UpdateCompanyPayload,
+): Promise<UpdateCompanyResponse> {
+  try {
+    const res = await pb.send<UpdateCompanyResponse>(
+      `/api/admin/company/${encodeURIComponent(companyId)}`,
+      {
+        method: 'PUT',
+        body: payload,
+      },
+    )
+    return res
+  } catch (err: unknown) {
+    const pbErr = err as {
+      status?: number
+      data?: { error?: string; message?: string }
+      message?: string
+    }
+
+    // Fallback directly via PocketBase SDK
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        const updateData: Record<string, unknown> = {}
+        if (payload.name !== undefined) updateData.name = payload.name
+        if (payload.city !== undefined) updateData.city = payload.city
+        if (payload.state !== undefined) updateData.state = payload.state.toUpperCase()
+        if (payload.cep !== undefined) updateData.cep = payload.cep
+        if (payload.number !== undefined) updateData.number = payload.number
+        if (payload.neighborhood !== undefined) updateData.neighborhood = payload.neighborhood
+        if (payload.cnpj !== undefined) updateData.cnpj = payload.cnpj
+        if (payload.lat !== undefined) updateData.lat = payload.lat
+        if (payload.lng !== undefined) updateData.lng = payload.lng
+        if (payload.active !== undefined) updateData.active = payload.active
+
+        if (
+          payload.street !== undefined ||
+          payload.number !== undefined ||
+          payload.neighborhood !== undefined
+        ) {
+          const street = payload.street || ''
+          const num = payload.number || ''
+          const neigh = payload.neighborhood || ''
+          const fullAddress = num ? `${street}, ${num}${neigh ? ' - ' + neigh : ''}` : street
+          if (fullAddress) {
+            updateData.address = fullAddress
+          }
+        }
+
+        const updatedComp = await pb.collection('companies').update(companyId, updateData)
+
+        // Se alterou o plano, atualiza a licença
+        if (payload.plan) {
+          try {
+            const lics = await pb.collection('licenses').getList(1, 1, {
+              filter: `company_id = "${companyId}"`,
+              sort: '-created',
+            })
+            if (lics.items.length > 0) {
+              const maxFreelancers =
+                payload.plan === 'enterprise' ? 200 : payload.plan === 'pro' ? 50 : 10
+              await pb.collection('licenses').update(lics.items[0].id, {
+                plan: payload.plan,
+                max_freelancers: maxFreelancers,
+              })
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+
+        return {
+          success: true,
+          message: 'Empresa atualizada com sucesso!',
+          company: {
+            id: updatedComp.id,
+            name: updatedComp.name,
+            city: updatedComp.city || '',
+            state: updatedComp.state || '',
+            address: updatedComp.address || '',
+            cep: updatedComp.cep || '',
+            number: updatedComp.number || '',
+            neighborhood: updatedComp.neighborhood || '',
+            cnpj: updatedComp.cnpj || '',
+            location: {
+              lat: updatedComp.lat || 0,
+              lng: updatedComp.lng || 0,
+            },
+            active: updatedComp.active,
+          },
+        }
+      } catch (fallbackErr: unknown) {
+        const fbErr = fallbackErr as { message?: string }
+        throw new Error(fbErr?.message || 'Falha ao atualizar dados da empresa.')
+      }
+    }
+
+    throw new Error(
+      pbErr?.data?.error ||
+        pbErr?.data?.message ||
+        pbErr?.message ||
+        'Falha ao atualizar dados da empresa.',
+    )
   }
 }
 

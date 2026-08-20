@@ -9,6 +9,7 @@ routerAdd('POST', '/api/admin/companies', (e) => {
   const state = String(body.state || body.estado || '').trim()
   const cep = String(body.cep || '').trim()
   const neighborhood = String(body.neighborhood || body.bairro || '').trim()
+  const cnpj = String(body.cnpj || '').trim()
 
   const lat = typeof body.lat === 'number' ? body.lat : parseFloat(String(body.lat || ''))
   const lng = typeof body.lng === 'number' ? body.lng : parseFloat(String(body.lng || ''))
@@ -88,6 +89,7 @@ routerAdd('POST', '/api/admin/companies', (e) => {
     if (cep) createdCompany.set('cep', cep)
     if (number) createdCompany.set('number', number)
     if (neighborhood) createdCompany.set('neighborhood', neighborhood)
+    if (cnpj) createdCompany.set('cnpj', cnpj)
     $app.save(createdCompany)
 
     // 2. Create license record
@@ -151,6 +153,10 @@ routerAdd('POST', '/api/admin/companies', (e) => {
         city: createdCompany.getString('city'),
         state: createdCompany.getString('state'),
         address: createdCompany.getString('address'),
+        cep: createdCompany.getString('cep'),
+        number: createdCompany.getString('number'),
+        neighborhood: createdCompany.getString('neighborhood'),
+        cnpj: createdCompany.getString('cnpj'),
         location: {
           lat: createdCompany.getFloat('lat'),
           lng: createdCompany.getFloat('lng'),

@@ -13,14 +13,17 @@ import {
   updateManager,
   removeManagerFromCompany,
   duplicateManager,
+  updateAdminCompany,
   type CompanyStats,
   type CompanyAdminItem,
   type AdminFreelancer,
   type AdminManager,
   type AttendanceHistoryItem,
+  type UpdateCompanyPayload,
 } from '@/services/admin'
 import { getCompany, type CompanyData } from '@/services/companies'
 import { toast } from '@/hooks/use-toast'
+import { maskAlphanumericCnpj, isValidAlphanumericCnpj, unmaskCnpj } from '@/lib/cnpj'
 import {
   Building2,
   Users,
@@ -48,6 +51,8 @@ import {
   Briefcase,
   FileText,
   RefreshCw,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -122,6 +127,27 @@ export default function AdminCompanyDetail() {
   const [removeFlModalOpen, setRemoveFlModalOpen] = useState(false)
   const [flToRemove, setFlToRemove] = useState<AdminFreelancer | null>(null)
   const [removingFl, setRemovingFl] = useState(false)
+
+  // Company Edit Modal state
+  const [editCompanyModalOpen, setEditCompanyModalOpen] = useState(false)
+  const [savingCompanyEdit, setSavingCompanyEdit] = useState(false)
+  const [compEditErrors, setCompEditErrors] = useState<Record<string, string>>({})
+  const [isLookingUpCep, setIsLookingUpCep] = useState(false)
+  const [isGeocoding, setIsGeocoding] = useState(false)
+  const [editHasCoordinates, setEditHasCoordinates] = useState(true)
+
+  // Company Edit Form Fields
+  const [editCompName, setEditCompName] = useState('')
+  const [editCompStreet, setEditCompStreet] = useState('')
+  const [editCompNumber, setEditCompNumber] = useState('')
+  const [editCompNeighborhood, setEditCompNeighborhood] = useState('')
+  const [editCompCity, setEditCompCity] = useState('')
+  const [editCompState, setEditCompState] = useState('SC')
+  const [editCompCep, setEditCompCep] = useState('')
+  const [editCompCnpj, setEditCompCnpj] = useState('')
+  const [editCompLat, setEditCompLat] = useState('')
+  const [editCompLng, setEditCompLng] = useState('')
+  const [editCompPlan, setEditCompPlan] = useState<'free' | 'pro' | 'enterprise'>('pro')
 
   // Managers tab state
   const [managers, setManagers] = useState<AdminManager[]>([])
@@ -244,6 +270,256 @@ export default function AdminCompanyDetail() {
   useEffect(() => {
     void loadCompanyData()
   }, [id])
+
+  // Helpers to parse structured address from string if number/neighborhood missing
+  const parseExistingAddress = (comp: CompanyData) => {
+    let street = ''
+    let number = comp.number || ''
+    let neighborhood = comp.neighborhood || ''
+
+    if (comp.endereco) {
+      // Try extracting "Rua, Número - Bairro"
+      const parts = comp.endereco.split('-').map((p) => p.trim())
+      if (parts.length > 1 && !neighborhood) {
+        neighborhood = parts.slice(1).join(' - ')
+      }
+      const streetAndNum = parts[0]
+      const commaIdx = streetAndNum.lastIndexOf(',')
+      if (commaIdx !== -1 && !number) {
+        street = streetAndNum.slice(0, commaIdx).trim()
+        number = streetAndNum.slice(commaIdx + 1).trim()
+      } else {
+        street = streetAndNum
+      }
+    }
+
+    return { street, number, neighborhood }
+  }
+
+  const handleOpenEditCompany = () => {
+    if (!company) return
+    const parsed = parseExistingAddress(company)
+
+    // Find active plan from license or allCompanies
+    const currentAdminComp = allCompanies.find((c) => c.id === company.id)
+    const currentPlan = (currentAdminComp?.license?.plan as 'free' | 'pro' | 'enterprise') || 'pro'
+
+    setEditCompName(company.name || '')
+    setEditCompStreet(parsed.street || '')
+    setEditCompNumber(parsed.number || '')
+    setEditCompNeighborhood(parsed.neighborhood || '')
+    setEditCompCity(company.cidade || '')
+    setEditCompState(company.estado || 'SC')
+    setEditCompCep(company.cep || '')
+    setEditCompCnpj(company.cnpj ? maskAlphanumericCnpj(company.cnpj) : '')
+    setEditCompLat(company.location?.lat ? String(company.location.lat) : '')
+    setEditCompLng(company.location?.lng ? String(company.location.lng) : '')
+    setEditCompPlan(currentPlan)
+    setEditHasCoordinates(Boolean(company.location?.lat && company.location?.lng))
+    setCompEditErrors({})
+    setEditCompanyModalOpen(true)
+  }
+
+  // ViaCEP lookup during company edit
+  const handleEditCepLookup = async (cepValue: string) => {
+    const cleanCep = cepValue.replace(/\D/g, '')
+    if (cleanCep.length !== 8) return
+
+    setIsLookingUpCep(true)
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
+      const data = await res.json()
+      if (data.erro) {
+        toast({
+          title: 'CEP não encontrado',
+          description: 'CEP não encontrado. Preencha o endereço manualmente.',
+          variant: 'destructive',
+        })
+      } else {
+        if (data.logradouro) setEditCompStreet(data.logradouro)
+        if (data.bairro) setEditCompNeighborhood(data.bairro)
+        if (data.localidade) setEditCompCity(data.localidade)
+        if (data.uf) setEditCompState(data.uf.toUpperCase())
+        if (compEditErrors.street || compEditErrors.city || compEditErrors.state) {
+          setCompEditErrors((prev) => ({ ...prev, street: '', city: '', state: '' }))
+        }
+      }
+    } catch {
+      toast({
+        title: 'Falha na consulta do CEP',
+        description: 'CEP não encontrado. Preencha o endereço manualmente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLookingUpCep(false)
+    }
+  }
+
+  // Geocoding during company edit
+  const performEditGeocoding = async (
+    streetVal: string,
+    numberVal: string,
+    neighborhoodVal: string,
+    cityVal: string,
+    stateVal: string,
+  ) => {
+    if (!streetVal.trim() || !numberVal.trim() || !cityVal.trim() || !stateVal.trim()) {
+      return
+    }
+
+    setIsGeocoding(true)
+    try {
+      const queryParts = [
+        streetVal.trim(),
+        numberVal.trim(),
+        neighborhoodVal.trim(),
+        cityVal.trim(),
+        stateVal.trim(),
+        'Brasil',
+      ]
+        .filter(Boolean)
+        .join(', ')
+
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryParts)}&limit=1`
+      const res = await fetch(url, {
+        headers: {
+          'Accept-Language': 'pt-BR',
+        },
+      })
+      const results = await res.json()
+
+      if (results && results.length > 0 && results[0].lat && results[0].lon) {
+        const foundLat = parseFloat(results[0].lat).toFixed(6)
+        const foundLng = parseFloat(results[0].lon).toFixed(6)
+        setEditCompLat(foundLat)
+        setEditCompLng(foundLng)
+        setEditHasCoordinates(true)
+        setCompEditErrors((prev) => ({ ...prev, coordinates: '' }))
+      } else {
+        const fallbackQuery = `${streetVal.trim()}, ${cityVal.trim()}, ${stateVal.trim()}, Brasil`
+        const fbRes = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=1`,
+          { headers: { 'Accept-Language': 'pt-BR' } },
+        )
+        const fbResults = await fbRes.json()
+        if (fbResults && fbResults.length > 0 && fbResults[0].lat && fbResults[0].lon) {
+          setEditCompLat(parseFloat(fbResults[0].lat).toFixed(6))
+          setEditCompLng(parseFloat(fbResults[0].lon).toFixed(6))
+          setEditHasCoordinates(true)
+          setCompEditErrors((prev) => ({ ...prev, coordinates: '' }))
+        } else {
+          setCompEditErrors((prev) => ({
+            ...prev,
+            coordinates:
+              'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.',
+          }))
+        }
+      }
+    } catch {
+      setCompEditErrors((prev) => ({
+        ...prev,
+        coordinates:
+          'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.',
+      }))
+    } finally {
+      setIsGeocoding(false)
+    }
+  }
+
+  // Trigger geocoding on edit when modal is open and address fields change
+  useEffect(() => {
+    if (
+      editCompanyModalOpen &&
+      editCompStreet.trim() &&
+      editCompNumber.trim() &&
+      editCompCity.trim() &&
+      editCompState.trim()
+    ) {
+      const timer = setTimeout(() => {
+        void performEditGeocoding(
+          editCompStreet,
+          editCompNumber,
+          editCompNeighborhood,
+          editCompCity,
+          editCompState,
+        )
+      }, 700)
+      return () => clearTimeout(timer)
+    }
+  }, [
+    editCompanyModalOpen,
+    editCompStreet,
+    editCompNumber,
+    editCompNeighborhood,
+    editCompCity,
+    editCompState,
+  ])
+
+  const handleSaveCompanyEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!id || !company) return
+
+    const errors: Record<string, string> = {}
+    if (!editCompName.trim()) errors.name = 'Nome da empresa é obrigatório.'
+    if (!editCompStreet.trim()) errors.street = 'Rua/logradouro é obrigatório.'
+    if (!editCompNumber.trim()) errors.number = 'Número é obrigatório.'
+    if (!editCompCity.trim()) errors.city = 'Cidade é obrigatória.'
+    if (!editCompState.trim()) errors.state = 'Estado é obrigatório.'
+
+    if (editCompCnpj.trim() && !isValidAlphanumericCnpj(editCompCnpj)) {
+      errors.cnpj = 'CNPJ inválido. Digite os 14 caracteres alfanuméricos.'
+    }
+
+    const parsedLat = parseFloat(editCompLat)
+    const parsedLng = parseFloat(editCompLng)
+    if (!editCompLat || !editCompLng || isNaN(parsedLat) || isNaN(parsedLng)) {
+      errors.coordinates =
+        'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setCompEditErrors(errors)
+      return
+    }
+
+    setSavingCompanyEdit(true)
+    setCompEditErrors({})
+
+    try {
+      const payload: UpdateCompanyPayload = {
+        name: editCompName.trim(),
+        street: editCompStreet.trim(),
+        number: editCompNumber.trim(),
+        neighborhood: editCompNeighborhood.trim() || undefined,
+        city: editCompCity.trim(),
+        state: editCompState.trim().toUpperCase(),
+        cep: editCompCep.trim() || undefined,
+        cnpj: editCompCnpj.trim() ? unmaskCnpj(editCompCnpj) : '',
+        lat: parsedLat,
+        lng: parsedLng,
+        plan: editCompPlan,
+      }
+
+      await updateAdminCompany(id, payload)
+
+      toast({
+        title: 'Empresa atualizada com sucesso!',
+        description: `Os dados da empresa ${editCompName} foram salvos.`,
+      })
+
+      setEditCompanyModalOpen(false)
+      await loadCompanyData()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao atualizar dados da empresa.'
+      toast({
+        title: 'Erro ao atualizar empresa',
+        description: msg,
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingCompanyEdit(false)
+    }
+  }
 
   useEffect(() => {
     if (activeTab === 'freelancers' || activeTab === 'overview') {
@@ -624,18 +900,32 @@ export default function AdminCompanyDetail() {
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 Ativa
               </span>
+              {company.cnpj && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                  CNPJ: {maskAlphanumericCnpj(company.cnpj)}
+                </span>
+              )}
             </div>
             <p className="text-xs sm:text-sm text-slate-500 flex items-center gap-1.5 mt-1">
               <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
               <span>
                 {company.endereco}, {company.cidade} - {company.estado}
+                {company.cep && ` (CEP: ${company.cep})`}
               </span>
             </p>
           </div>
         </div>
 
-        {/* Change company dropdown */}
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        {/* Action Buttons: Edit Company & Switch */}
+        <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={handleOpenEditCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/20 transition-all cursor-pointer"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            <span>Editar empresa</span>
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition-colors cursor-pointer">
               <Building2 className="w-4 h-4 text-slate-500" />
@@ -1673,6 +1963,383 @@ export default function AdminCompanyDetail() {
               Cancelar
             </button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- MODAL DE EDIÇÃO DA EMPRESA --- */}
+      <Dialog open={editCompanyModalOpen} onOpenChange={setEditCompanyModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 bg-white border border-slate-200 shadow-2xl">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-2">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight">
+              Editar Empresa
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm text-slate-500">
+              Atualize as informações cadastrais, endereço com busca de CEP, CNPJ e coordenadas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveCompanyEdit} className="space-y-6 pt-2">
+            <div className="space-y-4">
+              {/* Nome e CNPJ */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Nome da empresa <span className="text-red-600">*</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <div className="absolute left-3.5 text-slate-400 pointer-events-none">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={editCompName}
+                      onChange={(e) => {
+                        setEditCompName(e.target.value)
+                        if (compEditErrors.name)
+                          setCompEditErrors((prev) => ({ ...prev, name: '' }))
+                      }}
+                      placeholder="Ex: Biz Check Matriz"
+                      className={`w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all ${
+                        compEditErrors.name
+                          ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
+                          : 'border-slate-200 focus:border-red-600'
+                      }`}
+                    />
+                  </div>
+                  {compEditErrors.name && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{compEditErrors.name}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    CNPJ{' '}
+                    <span className="text-slate-400 font-normal">(opcional / alfanumérico)</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <div className="absolute left-3.5 text-slate-400 pointer-events-none">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      value={editCompCnpj}
+                      onChange={(e) => {
+                        const val = maskAlphanumericCnpj(e.target.value)
+                        setEditCompCnpj(val)
+                        if (compEditErrors.cnpj)
+                          setCompEditErrors((prev) => ({ ...prev, cnpj: '' }))
+                      }}
+                      placeholder="00.000.000/0001-00 ou alfanumérico"
+                      className={`w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all font-mono ${
+                        compEditErrors.cnpj
+                          ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
+                          : 'border-slate-200 focus:border-red-600'
+                      }`}
+                    />
+                  </div>
+                  {compEditErrors.cnpj && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{compEditErrors.cnpj}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Endereço: Rua e Número */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Rua / Endereço <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editCompStreet}
+                    onChange={(e) => {
+                      setEditCompStreet(e.target.value)
+                      if (compEditErrors.street)
+                        setCompEditErrors((prev) => ({ ...prev, street: '' }))
+                    }}
+                    placeholder="Ex: Av. Paulista"
+                    className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white ${
+                      compEditErrors.street
+                        ? 'border-red-500'
+                        : 'border-slate-200 focus:border-red-600'
+                    }`}
+                  />
+                  {compEditErrors.street && (
+                    <p className="text-xs text-red-600 mt-1">{compEditErrors.street}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Número <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editCompNumber}
+                    onChange={(e) => {
+                      setEditCompNumber(e.target.value)
+                      if (compEditErrors.number)
+                        setCompEditErrors((prev) => ({ ...prev, number: '' }))
+                    }}
+                    placeholder="Ex: 1000"
+                    className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white ${
+                      compEditErrors.number
+                        ? 'border-red-500'
+                        : 'border-slate-200 focus:border-red-600'
+                    }`}
+                  />
+                  {compEditErrors.number && (
+                    <p className="text-xs text-red-600 mt-1">{compEditErrors.number}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* CEP (Com busca ViaCEP) e Bairro */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    CEP
+                  </label>
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      value={editCompCep}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setEditCompCep(val)
+                        const clean = val.replace(/\D/g, '')
+                        if (clean.length === 8) {
+                          void handleEditCepLookup(clean)
+                        }
+                      }}
+                      onBlur={() => {
+                        if (editCompCep.trim()) {
+                          void handleEditCepLookup(editCompCep)
+                        }
+                      }}
+                      placeholder="00000-000"
+                      className="w-full h-11 pl-3 pr-10 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white font-mono"
+                    />
+                    {isLookingUpCep && (
+                      <div className="absolute right-3 text-red-600 pointer-events-none">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Preenchimento automático via ViaCEP
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Bairro
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompNeighborhood}
+                    onChange={(e) => setEditCompNeighborhood(e.target.value)}
+                    placeholder="Ex: Bela Vista"
+                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Cidade, Estado e Plano */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Cidade <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editCompCity}
+                    onChange={(e) => {
+                      setEditCompCity(e.target.value)
+                      if (compEditErrors.city) setCompEditErrors((prev) => ({ ...prev, city: '' }))
+                    }}
+                    placeholder="Ex: São Paulo"
+                    className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 focus:outline-none focus:bg-white ${
+                      compEditErrors.city
+                        ? 'border-red-500'
+                        : 'border-slate-200 focus:border-red-600'
+                    }`}
+                  />
+                  {compEditErrors.city && (
+                    <p className="text-xs text-red-600 mt-1">{compEditErrors.city}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Estado <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={2}
+                    value={editCompState}
+                    onChange={(e) => {
+                      setEditCompState(e.target.value.toUpperCase())
+                      if (compEditErrors.state)
+                        setCompEditErrors((prev) => ({ ...prev, state: '' }))
+                    }}
+                    placeholder="SP"
+                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 uppercase focus:outline-none focus:border-red-600 focus:bg-white text-center"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Plano <span className="text-red-600">*</span>
+                  </label>
+                  <Select
+                    value={editCompPlan}
+                    onValueChange={(v) => setEditCompPlan(v as 'free' | 'pro' | 'enterprise')}
+                  >
+                    <SelectTrigger className="w-full h-11 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold">
+                      <SelectValue placeholder="Selecione o plano" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white rounded-2xl border border-slate-200">
+                      <SelectItem value="free" className="text-xs font-medium cursor-pointer">
+                        Básico (10 freelas)
+                      </SelectItem>
+                      <SelectItem value="pro" className="text-xs font-medium cursor-pointer">
+                        Pro (50 freelas)
+                      </SelectItem>
+                      <SelectItem value="enterprise" className="text-xs font-medium cursor-pointer">
+                        Enterprise (200)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Indicador e Ajuste de Coordenadas Geográficas (Nominatim) */}
+              <div className="p-3.5 rounded-xl border transition-all duration-200 bg-slate-50 border-slate-200 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {isGeocoding ? (
+                      <Loader2 className="w-4 h-4 text-slate-500 animate-spin" />
+                    ) : editHasCoordinates ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <MapPin className="w-4 h-4 text-slate-400" />
+                    )}
+                    <span className="text-xs font-medium">
+                      {isGeocoding ? (
+                        <span className="text-slate-600">Buscando coordenadas do endereço...</span>
+                      ) : editHasCoordinates ? (
+                        <span className="text-emerald-700 font-bold">Coordenadas obtidas ✓</span>
+                      ) : (
+                        <span className="text-slate-500">
+                          Preencha o endereço completo para calcular as coordenadas automaticamente.
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editCompStreet && editCompNumber && editCompCity && editCompState) {
+                        void performEditGeocoding(
+                          editCompStreet,
+                          editCompNumber,
+                          editCompNeighborhood,
+                          editCompCity,
+                          editCompState,
+                        )
+                      }
+                    }}
+                    className="text-xs font-bold text-red-600 hover:text-red-700 underline"
+                  >
+                    Recalcular GPS
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Latitude
+                    </label>
+                    <input
+                      type="text"
+                      value={editCompLat}
+                      onChange={(e) => {
+                        setEditCompLat(e.target.value)
+                        setEditHasCoordinates(Boolean(e.target.value && editCompLng))
+                      }}
+                      placeholder="-23.5505"
+                      className="w-full h-9 px-3 bg-white rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Longitude
+                    </label>
+                    <input
+                      type="text"
+                      value={editCompLng}
+                      onChange={(e) => {
+                        setEditCompLng(e.target.value)
+                        setEditHasCoordinates(Boolean(editCompLat && e.target.value))
+                      }}
+                      placeholder="-46.6333"
+                      className="w-full h-9 px-3 bg-white rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                </div>
+
+                {compEditErrors.coordinates && (
+                  <p className="text-xs text-red-600 mt-2 flex items-center gap-1.5 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{compEditErrors.coordinates}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditCompanyModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors order-2 sm:order-1 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={savingCompanyEdit}
+                className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 transition-all flex items-center justify-center gap-2 order-1 sm:order-2 cursor-pointer disabled:opacity-50"
+              >
+                {savingCompanyEdit ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Salvando alterações...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Salvar Empresa</span>
+                  </>
+                )}
+              </button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
