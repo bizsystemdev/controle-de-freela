@@ -46,7 +46,7 @@ export const AdminLayout: React.FC = () => {
       if (location.pathname.includes('/freelancers/novo')) {
         crumbs.push({
           label: 'Freelancers',
-          path: `/admin/empresa/${currentCompanyId}/freelancers`,
+          path: `/admin/empresa/${currentCompanyId}?tab=freelancers`,
         })
         crumbs.push({
           label: 'Novo Freelancer',
@@ -55,12 +55,12 @@ export const AdminLayout: React.FC = () => {
       } else if (location.pathname.includes('/freelancers')) {
         crumbs.push({
           label: 'Freelancers',
-          path: `/admin/empresa/${currentCompanyId}/freelancers`,
+          path: `/admin/empresa/${currentCompanyId}?tab=freelancers`,
         })
       } else if (location.pathname.includes('/historico')) {
         crumbs.push({
           label: 'Histórico de Presença',
-          path: `/admin/empresa/${currentCompanyId}/historico`,
+          path: `/admin/empresa/${currentCompanyId}?tab=historico`,
         })
       }
     }
@@ -113,9 +113,10 @@ export const AdminLayout: React.FC = () => {
                     Painel da Empresa
                   </Link>
                   <Link
-                    to={`/admin/empresa/${currentCompanyId}/freelancers`}
+                    to={`/admin/empresa/${currentCompanyId}?tab=freelancers`}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                      location.pathname.includes('/freelancers')
+                      location.pathname.includes('/freelancers') ||
+                      location.search.includes('tab=freelancers')
                         ? 'bg-red-600 text-white'
                         : 'text-slate-300 hover:text-white hover:bg-slate-800'
                     }`}
@@ -123,9 +124,20 @@ export const AdminLayout: React.FC = () => {
                     Freelancers
                   </Link>
                   <Link
-                    to={`/admin/empresa/${currentCompanyId}/historico`}
+                    to={`/admin/empresa/${currentCompanyId}?tab=gestores`}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                      location.pathname.includes('/historico')
+                      location.search.includes('tab=gestores')
+                        ? 'bg-red-600 text-white'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    Gestores
+                  </Link>
+                  <Link
+                    to={`/admin/empresa/${currentCompanyId}?tab=historico`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      location.pathname.includes('/historico') ||
+                      location.search.includes('tab=historico')
                         ? 'bg-red-600 text-white'
                         : 'text-slate-300 hover:text-white hover:bg-slate-800'
                     }`}
@@ -227,15 +239,23 @@ export const AdminLayout: React.FC = () => {
                   <span>Painel da Empresa</span>
                 </Link>
                 <Link
-                  to={`/admin/empresa/${currentCompanyId}/freelancers`}
+                  to={`/admin/empresa/${currentCompanyId}?tab=freelancers`}
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold text-slate-200 hover:bg-slate-900"
                 >
                   <Users className="w-4 h-4 text-slate-400" />
-                  <span>Freelancers Cadastrados</span>
+                  <span>Freelancers</span>
                 </Link>
                 <Link
-                  to={`/admin/empresa/${currentCompanyId}/historico`}
+                  to={`/admin/empresa/${currentCompanyId}?tab=gestores`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold text-slate-200 hover:bg-slate-900"
+                >
+                  <Shield className="w-4 h-4 text-slate-400" />
+                  <span>Gestores</span>
+                </Link>
+                <Link
+                  to={`/admin/empresa/${currentCompanyId}?tab=historico`}
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold text-slate-200 hover:bg-slate-900"
                 >

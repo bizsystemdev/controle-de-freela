@@ -108,6 +108,30 @@ export interface AttendanceHistoryItem {
   lng?: number
 }
 
+export interface AdminManager {
+  id: string
+  licenseManagerId: string
+  licenseId: string
+  name: string
+  email: string
+  role?: string
+  created: string
+}
+
+export interface CreateManagerPayload {
+  companyId: string
+  name: string
+  email: string
+  password?: string
+  role?: string
+}
+
+export interface UpdateManagerPayload {
+  name?: string
+  email?: string
+  password?: string
+}
+
 export interface HistoryFilterParams {
   freelancerId?: string
   startDate?: string
@@ -398,12 +422,30 @@ export async function getCompanyStats(companyId: string): Promise<CompanyStats> 
           filter: `company_id = "${companyId}" && type = "check_in" && timestamp >= "${todayStart.toISOString()}"`,
         })
 
+        // Open check-ins fallback: count active freelancers whose last record in this company is check_in
+        const activeFcs = await pb.collection('freelancer_companies').getFullList({
+          filter: `company_id = "${companyId}" && active = true`,
+        })
+        let openCount = 0
+        for (const fc of activeFcs) {
+          const lastAtt = await pb.collection('attendance_records').getList(1, 1, {
+            filter: `freelancer_id = "${fc.freelancer_id}" && company_id = "${companyId}"`,
+            sort: '-timestamp',
+          })
+          if (
+            lastAtt.items.length > 0 &&
+            (lastAtt.items[0].type === 'check_in' || lastAtt.items[0].type === 'check-in')
+          ) {
+            openCount++
+          }
+        }
+
         return {
           companyId: comp.id,
           companyName: comp.name,
           totalFreelancers: fcs.totalItems,
           checkInsToday: todayRecords.totalItems,
-          openCheckIns: todayRecords.totalItems,
+          openCheckIns: openCount,
         }
       } catch {
         /* intentionally ignored */
@@ -447,11 +489,12 @@ export async function getCompanyFreelancers(companyId: string): Promise<AdminFre
               (await pb.collection('freelancers').getOne(fc.freelancer_id))
             if (fl && fl.active !== false) {
               const lastAtt = await pb.collection('attendance_records').getList(1, 1, {
-                filter: `freelancer_id = "${fl.id}"`,
+                filter: `freelancer_id = "${fl.id}" && company_id = "${companyId}"`,
                 sort: '-timestamp',
               })
               const hasOpenCheckIn =
-                lastAtt.items.length > 0 && lastAtt.items[0].type === 'check_in'
+                lastAtt.items.length > 0 &&
+                (lastAtt.items[0].type === 'check_in' || lastAtt.items[0].type === 'check-in')
               list.push({
                 id: fl.id,
                 fcId: fc.id,
@@ -631,21 +674,372 @@ export async function removeFreelancerFromCompany(
  */
 export async function updateFreelancer(
   freelancerId: string,
-  data: Partial<{
-    name: string
-    phone: string
-    email: string
-    document: string
-    role_title: string
-  }>,
+  data: {
+    name?: string
+    phone?: string
+    email?: string
+    document?: string
+    roleTitle?: string
+    role_title?: string
+    active?: boolean
+  },
 ): Promise<void> {
   try {
-    await pb.collection('freelancers').update(freelancerId, data)
+    const payload = {
+      name: data.name,
+      phone: data.phone,
+      email: data.email,
+      document: data.document,
+      roleTitle: data.roleTitle || data.role_title,
+      active: data.active,
+    }
+    await pb.send(`/api/admin/freelancers/${encodeURIComponent(freelancerId)}`, {
+      method: 'PUT',
+      body: payload,
+    })
   } catch (err: unknown) {
-    const pbErr = err as { data?: { error?: string }; message?: string }
+    const pbErr = err as {
+      status?: number
+      data?: { error?: string }
+      message?: string
+    }
+
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        const updateObj: Record<string, unknown> = {}
+        if (data.name !== undefined) updateObj.name = data.name
+        if (data.phone !== undefined) updateObj.phone = data.phone
+        if (data.email !== undefined) updateObj.email = data.email
+        if (data.document !== undefined) updateObj.document = data.document
+        if (data.roleTitle !== undefined || data.role_title !== undefined) {
+          updateObj.role_title = data.roleTitle || data.role_title
+        }
+        if (data.active !== undefined) updateObj.active = data.active
+
+        await pb.collection('freelancers').update(freelancerId, updateObj)
+        return
+      } catch (fallbackErr) {
+        const fbErr = fallbackErr as { message?: string }
+        throw new Error(fbErr?.message || 'Falha ao atualizar dados do freelancer.')
+      }
+    }
+
     throw new Error(
       pbErr?.data?.error || pbErr?.message || 'Falha ao atualizar dados do freelancer.',
     )
+  }
+}
+
+/**
+ * Lista gestores vinculados a uma empresa
+ */
+export async function getCompanyManagers(companyId: string): Promise<AdminManager[]> {
+  try {
+    const res = await pb.send<{ managers: AdminManager[] }>(
+      `/api/admin/company/${encodeURIComponent(companyId)}/managers`,
+      { method: 'GET' },
+    )
+    return res.managers || []
+  } catch (err: unknown) {
+    const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        const licenses = await pb.collection('licenses').getFullList({
+          filter: `company_id = "${companyId}"`,
+        })
+        if (licenses.length === 0) return []
+
+        const licFilter = licenses.map((l) => `license_id = "${l.id}"`).join(' || ')
+        const lms = await pb.collection('license_managers').getFullList({
+          filter: licFilter,
+          expand: 'user_id',
+          sort: '-created',
+        })
+
+        const managers: AdminManager[] = []
+        const seenIds = new Set<string>()
+
+        for (const lm of lms) {
+          const user = lm.expand?.user_id || (await pb.collection('users').getOne(lm.user_id))
+          if (user && !seenIds.has(user.id)) {
+            seenIds.add(user.id)
+            managers.push({
+              id: user.id,
+              licenseManagerId: lm.id,
+              licenseId: lm.license_id,
+              name: user.name || 'Gestor',
+              email: user.email,
+              role: lm.role || 'owner',
+              created: user.created,
+            })
+          }
+        }
+        return managers
+      } catch (fallbackErr) {
+        const fbErr = fallbackErr as { message?: string }
+        throw new Error(fbErr?.message || 'Falha ao listar gestores.')
+      }
+    }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao listar gestores.')
+  }
+}
+
+/**
+ * Cadastra e vincula novo gestor à empresa
+ */
+export async function createCompanyManager(
+  payload: CreateManagerPayload,
+): Promise<{ success: boolean; manager: AdminManager }> {
+  try {
+    const res = await pb.send<{ success: boolean; manager: AdminManager }>(
+      `/api/admin/company/${encodeURIComponent(payload.companyId)}/managers`,
+      {
+        method: 'POST',
+        body: payload,
+      },
+    )
+    return res
+  } catch (err: unknown) {
+    const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        let licenses = await pb.collection('licenses').getList(1, 1, {
+          filter: `company_id = "${payload.companyId}" && status = "active"`,
+        })
+        let licenseId = licenses.items[0]?.id
+        if (!licenseId) {
+          const allLics = await pb.collection('licenses').getList(1, 1, {
+            filter: `company_id = "${payload.companyId}"`,
+          })
+          if (allLics.items.length > 0) {
+            licenseId = allLics.items[0].id
+          } else {
+            const newLic = await pb.collection('licenses').create({
+              company_id: payload.companyId,
+              status: 'active',
+              plan: 'pro',
+              max_freelancers: 50,
+            })
+            licenseId = newLic.id
+          }
+        }
+
+        let user
+        try {
+          const existing = await pb
+            .collection('users')
+            .getFirstListItem(`email = "${payload.email}"`)
+          user = existing
+          if (payload.name) {
+            await pb.collection('users').update(user.id, { name: payload.name })
+          }
+        } catch {
+          user = await pb.collection('users').create({
+            email: payload.email,
+            password: payload.password || 'Skip@Pass',
+            passwordConfirm: payload.password || 'Skip@Pass',
+            name: payload.name,
+            verified: true,
+          })
+        }
+
+        const existingLm = await pb.collection('license_managers').getList(1, 1, {
+          filter: `license_id = "${licenseId}" && user_id = "${user.id}"`,
+        })
+
+        let lmId = ''
+        if (existingLm.items.length > 0) {
+          lmId = existingLm.items[0].id
+        } else {
+          const lm = await pb.collection('license_managers').create({
+            license_id: licenseId,
+            user_id: user.id,
+            role: payload.role || 'owner',
+          })
+          lmId = lm.id
+        }
+
+        return {
+          success: true,
+          manager: {
+            id: user.id,
+            licenseManagerId: lmId,
+            licenseId,
+            name: user.name || payload.name,
+            email: user.email,
+            role: payload.role || 'owner',
+            created: user.created,
+          },
+        }
+      } catch (fallbackErr) {
+        const fbErr = fallbackErr as { message?: string }
+        throw new Error(fbErr?.message || 'Falha ao cadastrar gestor.')
+      }
+    }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao cadastrar gestor.')
+  }
+}
+
+/**
+ * Atualiza dados de um gestor
+ */
+export async function updateManager(
+  managerId: string,
+  payload: UpdateManagerPayload,
+): Promise<void> {
+  try {
+    await pb.send(`/api/admin/managers/${encodeURIComponent(managerId)}`, {
+      method: 'PUT',
+      body: payload,
+    })
+  } catch (err: unknown) {
+    const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        const updateObj: Record<string, unknown> = {}
+        if (payload.name) updateObj.name = payload.name
+        if (payload.email) updateObj.email = payload.email
+        if (payload.password) {
+          updateObj.password = payload.password
+          updateObj.passwordConfirm = payload.password
+        }
+        await pb.collection('users').update(managerId, updateObj)
+        return
+      } catch (fallbackErr) {
+        const fbErr = fallbackErr as { message?: string }
+        throw new Error(fbErr?.message || 'Falha ao atualizar dados do gestor.')
+      }
+    }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao atualizar dados do gestor.')
+  }
+}
+
+/**
+ * Desvincula gestor de uma empresa
+ */
+export async function removeManagerFromCompany(
+  companyId: string,
+  managerId: string,
+): Promise<void> {
+  try {
+    await pb.send(
+      `/api/admin/company/${encodeURIComponent(companyId)}/managers/${encodeURIComponent(managerId)}`,
+      {
+        method: 'DELETE',
+      },
+    )
+  } catch (err: unknown) {
+    const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        const licenses = await pb.collection('licenses').getFullList({
+          filter: `company_id = "${companyId}"`,
+        })
+        for (const lic of licenses) {
+          const lms = await pb.collection('license_managers').getFullList({
+            filter: `license_id = "${lic.id}" && user_id = "${managerId}"`,
+          })
+          for (const lm of lms) {
+            await pb.collection('license_managers').delete(lm.id)
+          }
+        }
+        return
+      } catch (fallbackErr) {
+        const fbErr = fallbackErr as { message?: string }
+        throw new Error(fbErr?.message || 'Falha ao desvincular gestor.')
+      }
+    }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao desvincular gestor.')
+  }
+}
+
+/**
+ * Duplica gestor para outra empresa
+ */
+export async function duplicateManager(
+  sourceCompanyId: string,
+  managerId: string,
+  targetCompanyId: string,
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await pb.send<{ success: boolean; message: string }>(
+      `/api/admin/company/${encodeURIComponent(sourceCompanyId)}/managers/${encodeURIComponent(managerId)}/duplicate`,
+      {
+        method: 'POST',
+        body: { targetCompanyId },
+      },
+    )
+    return res
+  } catch (err: unknown) {
+    const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        let licenses = await pb.collection('licenses').getList(1, 1, {
+          filter: `company_id = "${targetCompanyId}" && status = "active"`,
+        })
+        let licenseId = licenses.items[0]?.id
+        if (!licenseId) {
+          const allLics = await pb.collection('licenses').getList(1, 1, {
+            filter: `company_id = "${targetCompanyId}"`,
+          })
+          if (allLics.items.length > 0) {
+            licenseId = allLics.items[0].id
+          } else {
+            const newLic = await pb.collection('licenses').create({
+              company_id: targetCompanyId,
+              status: 'active',
+              plan: 'pro',
+              max_freelancers: 50,
+            })
+            licenseId = newLic.id
+          }
+        }
+
+        const existingLm = await pb.collection('license_managers').getList(1, 1, {
+          filter: `license_id = "${licenseId}" && user_id = "${managerId}"`,
+        })
+        if (existingLm.items.length === 0) {
+          await pb.collection('license_managers').create({
+            license_id: licenseId,
+            user_id: managerId,
+            role: 'owner',
+          })
+        }
+
+        return {
+          success: true,
+          message: 'Gestor vinculado com sucesso à empresa selecionada.',
+        }
+      } catch (fallbackErr) {
+        const fbErr = fallbackErr as { message?: string }
+        throw new Error(fbErr?.message || 'Falha ao duplicar gestor.')
+      }
+    }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao duplicar gestor.')
   }
 }
 

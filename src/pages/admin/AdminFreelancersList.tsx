@@ -5,6 +5,7 @@ import {
   getAdminCompanies,
   duplicateFreelancer,
   removeFreelancerFromCompany,
+  updateFreelancer,
   type AdminFreelancer,
   type CompanyAdminItem,
 } from '@/services/admin'
@@ -24,6 +25,10 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  Pencil,
+  FileText,
+  Briefcase,
+  User,
 } from 'lucide-react'
 import {
   Dialog,
@@ -57,6 +62,17 @@ export default function AdminFreelancersList() {
   const [targetCompanyId, setTargetCompanyId] = useState('')
   const [duplicating, setDuplicating] = useState(false)
 
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingFreelancer, setEditingFreelancer] = useState<AdminFreelancer | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editDocument, setEditDocument] = useState('')
+  const [editRoleTitle, setEditRoleTitle] = useState('')
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({})
+  const [savingEdit, setSavingEdit] = useState(false)
+
   // Remove confirmation modal state
   const [removeModalOpen, setRemoveModalOpen] = useState(false)
   const [freelancerToRemove, setFreelancerToRemove] = useState<AdminFreelancer | null>(null)
@@ -88,6 +104,72 @@ export default function AdminFreelancersList() {
   useEffect(() => {
     void loadData()
   }, [id])
+
+  const handleOpenEdit = (fl: AdminFreelancer) => {
+    setEditingFreelancer(fl)
+    setEditName(fl.name || '')
+    setEditPhone(fl.phone || '')
+    setEditEmail(fl.email || '')
+    setEditDocument(fl.document || '')
+    setEditRoleTitle(fl.roleTitle || '')
+    setEditErrors({})
+    setEditModalOpen(true)
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingFreelancer) return
+
+    const errs: Record<string, string> = {}
+    if (!editName.trim()) errs.name = 'Nome é obrigatório.'
+    if (!editPhone.trim()) errs.phone = 'Telefone é obrigatório.'
+
+    if (Object.keys(errs).length > 0) {
+      setEditErrors(errs)
+      return
+    }
+
+    setSavingEdit(true)
+    setEditErrors({})
+    try {
+      await updateFreelancer(editingFreelancer.id, {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        email: editEmail.trim(),
+        document: editDocument.trim(),
+        roleTitle: editRoleTitle.trim(),
+      })
+
+      toast({
+        title: 'Freelancer atualizado!',
+        description: `Os dados de ${editName} foram atualizados com sucesso.`,
+      })
+
+      setFreelancers((prev) =>
+        prev.map((f) =>
+          f.id === editingFreelancer.id
+            ? {
+                ...f,
+                name: editName.trim(),
+                phone: editPhone.trim(),
+                email: editEmail.trim(),
+                document: editDocument.trim(),
+                roleTitle: editRoleTitle.trim(),
+              }
+            : f,
+        ),
+      )
+      setEditModalOpen(false)
+    } catch (err) {
+      toast({
+        title: 'Erro ao atualizar',
+        description: err instanceof Error ? err.message : 'Falha ao salvar dados.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingEdit(false)
+    }
+  }
 
   const handleOpenDuplicate = (fl: AdminFreelancer) => {
     setSelectedFreelancer(fl)
@@ -303,8 +385,18 @@ export default function AdminFreelancersList() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
+                          onClick={() => handleOpenEdit(fl)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors active:scale-95 cursor-pointer"
+                          title="Editar dados do freelancer"
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-slate-500" />
+                          <span className="hidden sm:inline">Editar</span>
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => handleOpenDuplicate(fl)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors active:scale-95"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors active:scale-95 cursor-pointer"
                           title="Duplicar para outra empresa"
                         >
                           <Copy className="w-3.5 h-3.5 text-slate-500" />
@@ -314,7 +406,7 @@ export default function AdminFreelancersList() {
                         <button
                           type="button"
                           onClick={() => handleOpenRemove(fl)}
-                          className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors active:scale-95"
+                          className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors active:scale-95 cursor-pointer"
                           title="Remover vínculo com esta empresa"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -328,6 +420,147 @@ export default function AdminFreelancersList() {
           </div>
         </div>
       )}
+
+      {/* Edit Freelancer Modal */}
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-2">
+              <Pencil className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-black text-slate-900">
+              Editar Freelancer
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Altere as informações cadastrais de <strong>{editingFreelancer?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveEdit} className="space-y-4 pt-2">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Nome completo <span className="text-red-600">*</span>
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                  <User className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                />
+              </div>
+              {editErrors.name && <p className="text-xs text-red-600 mt-1">{editErrors.name}</p>}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Telefone / WhatsApp <span className="text-red-600">*</span>
+                </label>
+                <div className="relative flex items-center">
+                  <div className="absolute left-3 text-slate-400 pointer-events-none">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  />
+                </div>
+                {editErrors.phone && (
+                  <p className="text-xs text-red-600 mt-1">{editErrors.phone}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  CPF <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <div className="relative flex items-center">
+                  <div className="absolute left-3 text-slate-400 pointer-events-none">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    value={editDocument}
+                    onChange={(e) => setEditDocument(e.target.value)}
+                    placeholder="000.000.000-00"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  E-mail <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <div className="relative flex items-center">
+                  <div className="absolute left-3 text-slate-400 pointer-events-none">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="freelancer@exemplo.com"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Cargo / Função
+                </label>
+                <div className="relative flex items-center">
+                  <div className="absolute left-3 text-slate-400 pointer-events-none">
+                    <Briefcase className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    value={editRoleTitle}
+                    onChange={(e) => setEditRoleTitle(e.target.value)}
+                    placeholder="Ex: Garçom, Barista"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs order-2 sm:order-1"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={savingEdit}
+                className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
+              >
+                {savingEdit ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Salvando...</span>
+                  </>
+                ) : (
+                  <span>Salvar Alterações</span>
+                )}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Duplicate Freelancer Modal */}
       <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>

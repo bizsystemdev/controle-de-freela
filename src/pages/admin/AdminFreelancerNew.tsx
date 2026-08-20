@@ -93,7 +93,7 @@ export default function AdminFreelancerNew() {
         title: 'Freelancer cadastrado com sucesso!',
         description: `${name} foi vinculado à empresa ${company?.name}.`,
       })
-      navigate(`/admin/empresa/${id}/freelancers`)
+      navigate(`/admin/empresa/${id}?tab=freelancers`)
     } catch (err) {
       toast({
         title: 'Erro ao cadastrar freelancer',
@@ -110,7 +110,7 @@ export default function AdminFreelancerNew() {
       {/* Header */}
       <div>
         <Link
-          to={`/admin/empresa/${id}/freelancers`}
+          to={`/admin/empresa/${id}?tab=freelancers`}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 mb-2 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -252,7 +252,7 @@ export default function AdminFreelancerNew() {
           <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-2.5 sm:justify-end">
             <button
               type="button"
-              onClick={() => navigate(`/admin/empresa/${id}/freelancers`)}
+              onClick={() => navigate(`/admin/empresa/${id}?tab=freelancers`)}
               className="px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors order-2 sm:order-1"
             >
               Cancelar

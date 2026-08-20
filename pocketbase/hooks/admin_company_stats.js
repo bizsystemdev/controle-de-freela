@@ -36,21 +36,20 @@ routerAdd('GET', '/api/admin/company/:id/stats', (e) => {
   )
   const checkInsToday = todayRecords.length
 
-  // 3. Open check-ins currently (freelancers who checked in to this company whose last record is check_in)
+  // 3. Open check-ins currently (records with type = 'check_in' without a subsequent check_out)
   let openCheckIns = 0
   for (let i = 0; i < fcs.length; i++) {
     const freelancerId = fcs[i].getString('freelancer_id')
     const lastAtt = $app.findRecordsByFilter(
       'attendance_records',
-      `freelancer_id = '${freelancerId}'`,
+      `freelancer_id = '${freelancerId}' && company_id = '${companyId}'`,
       '-timestamp',
       1,
       0,
     )
     if (
       lastAtt.length > 0 &&
-      lastAtt[0].getString('type') === 'check_in' &&
-      lastAtt[0].getString('company_id') === companyId
+      (lastAtt[0].getString('type') === 'check_in' || lastAtt[0].getString('type') === 'check-in')
     ) {
       openCheckIns++
     }

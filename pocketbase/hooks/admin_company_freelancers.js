@@ -20,10 +20,10 @@ routerAdd('GET', '/api/admin/company/:id/freelancers', (e) => {
     try {
       const fl = $app.findRecordById('freelancers', freelancerId)
       if (fl.getBool('active') !== false) {
-        // Check if has open check-in
+        // Check if has open check-in in this company
         const lastAtt = $app.findRecordsByFilter(
           'attendance_records',
-          `freelancer_id = '${freelancerId}'`,
+          `freelancer_id = '${freelancerId}' && company_id = '${companyId}'`,
           '-timestamp',
           1,
           0,
@@ -31,7 +31,11 @@ routerAdd('GET', '/api/admin/company/:id/freelancers', (e) => {
 
         let hasOpenCheckIn = false
         let lastCheckInTime = null
-        if (lastAtt.length > 0 && lastAtt[0].getString('type') === 'check_in') {
+        if (
+          lastAtt.length > 0 &&
+          (lastAtt[0].getString('type') === 'check_in' ||
+            lastAtt[0].getString('type') === 'check-in')
+        ) {
           hasOpenCheckIn = true
           lastCheckInTime = lastAtt[0].getString('timestamp')
         }

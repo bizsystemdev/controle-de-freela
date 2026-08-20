@@ -17,7 +17,6 @@ import {
   Loader2,
   Sparkles,
   Plus,
-  Compass,
   CheckCircle2,
   AlertCircle,
   Lock,
@@ -51,7 +50,9 @@ export default function AdminDashboard() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-  const [isGettingLocation, setIsGettingLocation] = useState(false)
+  const [isLookingUpCep, setIsLookingUpCep] = useState(false)
+  const [isGeocoding, setIsGeocoding] = useState(false)
+  const [hasCoordinates, setHasCoordinates] = useState(false)
 
   // Form Fields
   const [companyName, setCompanyName] = useState('')
@@ -103,51 +104,141 @@ export default function AdminDashboard() {
     setCity('')
     setState('SC')
     setCep('')
-    setLat('-27.6830')
-    setLng('-48.5045')
+    setLat('')
+    setLng('')
     setPlan('pro')
     setManagerName('')
     setManagerEmail('')
     setManagerPassword('')
     setFormErrors({})
+    setHasCoordinates(false)
     setCreateModalOpen(true)
   }
 
-  const handleGetCurrentLocation = () => {
-    if (!navigator.geolocation) {
+  // Consulta de CEP no ViaCEP
+  const handleCepLookup = async (cepValue: string) => {
+    const cleanCep = cepValue.replace(/\D/g, '')
+    if (cleanCep.length !== 8) return
+
+    setIsLookingUpCep(true)
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
+      const data = await res.json()
+      if (data.erro) {
+        toast({
+          title: 'CEP não encontrado',
+          description: 'CEP não encontrado. Preencha o endereço manualmente.',
+          variant: 'destructive',
+        })
+      } else {
+        if (data.logradouro) setStreet(data.logradouro)
+        if (data.bairro) setNeighborhood(data.bairro)
+        if (data.localidade) setCity(data.localidade)
+        if (data.uf) setState(data.uf.toUpperCase())
+        if (formErrors.street || formErrors.city || formErrors.state) {
+          setFormErrors((prev) => ({ ...prev, street: '', city: '', state: '' }))
+        }
+      }
+    } catch {
       toast({
-        title: 'Geolocalização não suportada',
-        description: 'Seu navegador não suporta captura automática de coordenadas.',
+        title: 'Falha na consulta do CEP',
+        description: 'CEP não encontrado. Preencha o endereço manualmente.',
         variant: 'destructive',
       })
+    } finally {
+      setIsLookingUpCep(false)
+    }
+  }
+
+  // Geocoding automático com OpenStreetMap Nominatim
+  const performGeocoding = async (
+    streetVal: string,
+    numberVal: string,
+    neighborhoodVal: string,
+    cityVal: string,
+    stateVal: string,
+  ) => {
+    if (!streetVal.trim() || !numberVal.trim() || !cityVal.trim() || !stateVal.trim()) {
       return
     }
 
-    setIsGettingLocation(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude.toFixed(6))
-        setLng(pos.coords.longitude.toFixed(6))
-        setIsGettingLocation(false)
-        if (formErrors.lat || formErrors.lng) {
-          setFormErrors((prev) => ({ ...prev, lat: '', lng: '' }))
+    setIsGeocoding(true)
+    try {
+      const queryParts = [
+        streetVal.trim(),
+        numberVal.trim(),
+        neighborhoodVal.trim(),
+        cityVal.trim(),
+        stateVal.trim(),
+        'Brasil',
+      ]
+        .filter(Boolean)
+        .join(', ')
+
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryParts)}&limit=1`
+      const res = await fetch(url, {
+        headers: {
+          'Accept-Language': 'pt-BR',
+        },
+      })
+      const results = await res.json()
+
+      if (results && results.length > 0 && results[0].lat && results[0].lon) {
+        const foundLat = parseFloat(results[0].lat).toFixed(6)
+        const foundLng = parseFloat(results[0].lon).toFixed(6)
+        setLat(foundLat)
+        setLng(foundLng)
+        setHasCoordinates(true)
+        setFormErrors((prev) => ({ ...prev, coordinates: '' }))
+      } else {
+        // Try without neighborhood or number if strict search yielded nothing
+        const fallbackQuery = `${streetVal.trim()}, ${cityVal.trim()}, ${stateVal.trim()}, Brasil`
+        const fbRes = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=1`,
+          { headers: { 'Accept-Language': 'pt-BR' } },
+        )
+        const fbResults = await fbRes.json()
+        if (fbResults && fbResults.length > 0 && fbResults[0].lat && fbResults[0].lon) {
+          setLat(parseFloat(fbResults[0].lat).toFixed(6))
+          setLng(parseFloat(fbResults[0].lon).toFixed(6))
+          setHasCoordinates(true)
+          setFormErrors((prev) => ({ ...prev, coordinates: '' }))
+        } else {
+          setLat('')
+          setLng('')
+          setHasCoordinates(false)
+          setFormErrors((prev) => ({
+            ...prev,
+            coordinates:
+              'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.',
+          }))
         }
-        toast({
-          title: 'Coordenadas obtidas!',
-          description: `Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)}`,
-        })
-      },
-      (err) => {
-        setIsGettingLocation(false)
-        toast({
-          title: 'Não foi possível obter localização',
-          description: err.message || 'Verifique as permissões de GPS.',
-          variant: 'destructive',
-        })
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    )
+      }
+    } catch {
+      setLat('')
+      setLng('')
+      setHasCoordinates(false)
+      setFormErrors((prev) => ({
+        ...prev,
+        coordinates:
+          'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.',
+      }))
+    } finally {
+      setIsGeocoding(false)
+    }
   }
+
+  // Trigger geocoding when address fields change and are complete
+  useEffect(() => {
+    if (street.trim() && number.trim() && city.trim() && state.trim()) {
+      const timer = setTimeout(() => {
+        void performGeocoding(street, number, neighborhood, city, state)
+      }, 700)
+      return () => clearTimeout(timer)
+    } else {
+      setHasCoordinates(false)
+    }
+  }, [street, number, neighborhood, city, state])
 
   const handleCreateCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -161,11 +252,9 @@ export default function AdminDashboard() {
 
     const parsedLat = parseFloat(lat)
     const parsedLng = parseFloat(lng)
-    if (isNaN(parsedLat) || parsedLat < -90 || parsedLat > 90) {
-      errors.lat = 'Latitude inválida (ex: -27.6830).'
-    }
-    if (isNaN(parsedLng) || parsedLng < -180 || parsedLng > 180) {
-      errors.lng = 'Longitude inválida (ex: -48.5045).'
+    if (!lat || !lng || isNaN(parsedLat) || isNaN(parsedLng)) {
+      errors.coordinates =
+        'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.'
     }
 
     if (!managerName.trim()) errors.managerName = 'Nome do gestor é obrigatório.'
@@ -499,9 +588,44 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Bairro, Cidade, Estado, CEP */}
+              {/* CEP (Com busca ViaCEP) */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div className="sm:col-span-1">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    CEP
+                  </label>
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      value={cep}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setCep(val)
+                        const clean = val.replace(/\D/g, '')
+                        if (clean.length === 8) {
+                          void handleCepLookup(clean)
+                        }
+                      }}
+                      onBlur={() => {
+                        if (cep.trim()) {
+                          void handleCepLookup(cep)
+                        }
+                      }}
+                      placeholder="00000-000"
+                      className="w-full h-11 pl-3 pr-10 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white font-mono"
+                    />
+                    {isLookingUpCep && (
+                      <div className="absolute right-3 text-red-600 pointer-events-none">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Preenchimento automático via ViaCEP
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
                     Bairro
                   </label>
@@ -513,8 +637,11 @@ export default function AdminDashboard() {
                     className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
                   />
                 </div>
+              </div>
 
-                <div className="sm:col-span-1">
+              {/* Cidade, Estado e Plano */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
                     Cidade <span className="text-red-600">*</span>
                   </label>
@@ -556,67 +683,7 @@ export default function AdminDashboard() {
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    CEP <span className="text-slate-400 font-normal">(opcional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={cep}
-                    onChange={(e) => setCep(e.target.value)}
-                    placeholder="01310-100"
-                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Coordenadas & Plano */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Latitude <span className="text-red-600">*</span>
-                    </label>
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    value={lat}
-                    onChange={(e) => {
-                      setLat(e.target.value)
-                      if (formErrors.lat) setFormErrors((prev) => ({ ...prev, lat: '' }))
-                    }}
-                    placeholder="-27.6830"
-                    className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-mono text-slate-900 focus:outline-none focus:bg-white ${
-                      formErrors.lat ? 'border-red-500' : 'border-slate-200 focus:border-red-600'
-                    }`}
-                  />
-                  {formErrors.lat && <p className="text-xs text-red-600 mt-1">{formErrors.lat}</p>}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Longitude <span className="text-red-600">*</span>
-                    </label>
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    value={lng}
-                    onChange={(e) => {
-                      setLng(e.target.value)
-                      if (formErrors.lng) setFormErrors((prev) => ({ ...prev, lng: '' }))
-                    }}
-                    placeholder="-48.5045"
-                    className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-mono text-slate-900 focus:outline-none focus:bg-white ${
-                      formErrors.lng ? 'border-red-500' : 'border-slate-200 focus:border-red-600'
-                    }`}
-                  />
-                  {formErrors.lng && <p className="text-xs text-red-600 mt-1">{formErrors.lng}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Plano da Licença <span className="text-red-600">*</span>
+                    Plano <span className="text-red-600">*</span>
                   </label>
                   <Select
                     value={plan}
@@ -627,37 +694,56 @@ export default function AdminDashboard() {
                     </SelectTrigger>
                     <SelectContent className="bg-white rounded-2xl border border-slate-200">
                       <SelectItem value="free" className="text-xs font-medium cursor-pointer">
-                        Básico / Free (Até 10 freelas)
+                        Básico (10 freelas)
                       </SelectItem>
                       <SelectItem value="pro" className="text-xs font-medium cursor-pointer">
-                        Premium / Pro (Até 50 freelas)
+                        Pro (50 freelas)
                       </SelectItem>
                       <SelectItem value="enterprise" className="text-xs font-medium cursor-pointer">
-                        Enterprise (Até 200 freelas)
+                        Enterprise (200)
                       </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              {/* Botão para capturar GPS atual */}
-              <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                <span className="text-[11px] text-slate-500">
-                  Usado para validar raio no check-in do app.
-                </span>
-                <button
-                  type="button"
-                  onClick={handleGetCurrentLocation}
-                  disabled={isGettingLocation}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  {isGettingLocation ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Compass className="w-3.5 h-3.5 text-red-600" />
+              {/* Indicador de Coordenadas Geográficas (Nominatim) */}
+              <div className="p-3.5 rounded-xl border transition-all duration-200 bg-slate-50 border-slate-200">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {isGeocoding ? (
+                      <Loader2 className="w-4 h-4 text-slate-500 animate-spin" />
+                    ) : hasCoordinates ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <MapPin className="w-4 h-4 text-slate-400" />
+                    )}
+                    <span className="text-xs font-medium">
+                      {isGeocoding ? (
+                        <span className="text-slate-600">Buscando coordenadas do endereço...</span>
+                      ) : hasCoordinates ? (
+                        <span className="text-emerald-700 font-bold">Coordenadas obtidas ✓</span>
+                      ) : (
+                        <span className="text-slate-500">
+                          Preencha o endereço completo para calcular as coordenadas automaticamente.
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  {hasCoordinates && lat && lng && (
+                    <span className="text-[11px] font-mono text-slate-500 hidden sm:inline">
+                      {parseFloat(lat).toFixed(4)}, {parseFloat(lng).toFixed(4)}
+                    </span>
                   )}
-                  <span>Usar GPS atual</span>
-                </button>
+                </div>
+
+                {formErrors.coordinates && (
+                  <p className="text-xs text-red-600 mt-2 flex items-center gap-1.5 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{formErrors.coordinates}</span>
+                  </p>
+                )}
               </div>
             </div>
 
