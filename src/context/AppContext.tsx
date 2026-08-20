@@ -384,7 +384,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const localCredId = getStoredCredentialId()
       const localDeviceId = getLocalDeviceId()
       const userId = apiUser?.id || storage.get(STORAGE_KEYS.userId) || ''
-      const serverDeviceId = apiUser?.deviceId
+      let serverDeviceId = apiUser?.deviceId
+      if (!apiUser && userId) {
+        try {
+          const fl = await pb.collection('freelancers').getOne(userId)
+          serverDeviceId = fl.device_id || null
+        } catch {
+          // silencioso — se falhar, mantém undefined
+        }
+      }
 
       if (!serverDeviceId) {
         // 1. First access (no deviceId on server): Register WebAuthn & save new deviceId
