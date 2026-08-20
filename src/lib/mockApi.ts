@@ -116,15 +116,22 @@ export async function validatePhone(phone: string): Promise<MockValidatePhoneRes
 
 /** POST /api/auth/register-device — registers a WebAuthn credential server-side. */
 export async function registerDevice(
-  _userId: string,
-  _rawId: string,
+  _freelancerId: string,
+  _credentialId: string,
+  incomingDeviceId?: string,
 ): Promise<{ success: boolean; deviceId: string }> {
-  await randomDelay(500, 800)
-  const deviceId = `dev-${Math.random().toString(36).slice(2, 10)}`
+  await delay(600)
+  const currentDev = getMockDeviceId()
+  if (currentDev && incomingDeviceId && incomingDeviceId !== currentDev) {
+    throw new Error(
+      'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o acesso neste dispositivo.',
+    )
+  }
+  const deviceId =
+    currentDev || incomingDeviceId || `dev-${Math.random().toString(36).slice(2, 10)}`
   setMockDeviceId(deviceId)
   return { success: true, deviceId }
 }
-
 /** POST /api/auth/authenticate — validates a WebAuthn assertion for login. */
 export async function authenticateUser(
   _userId: string,

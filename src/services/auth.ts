@@ -147,15 +147,29 @@ export async function validatePhone(
 export async function registerDevice(
   freelancerId: string,
   credentialId: string,
+  deviceId?: string,
 ): Promise<{ success: boolean; deviceId: string }> {
   try {
     const res = await pb.send<{ success: boolean; deviceId: string }>('/api/auth/register-device', {
       method: 'POST',
-      body: { freelancerId, credentialId },
+      body: { freelancerId, credentialId, deviceId },
     })
     return res
   } catch (err: unknown) {
-    const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
+    const pbErr = err as {
+      status?: number
+      data?: { error?: string; message?: string }
+      message?: string
+    }
+
+    if (pbErr?.data?.error === 'device_mismatch') {
+      const customErr = new Error(
+        pbErr.data.message ||
+          'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o acesso neste dispositivo.',
+      )
+      ;(customErr as unknown as { code: string }).code = 'device_mismatch'
+      throw customErr
+    }
 
     // Fallback directly via PocketBase SDK
     if (
@@ -164,7 +178,25 @@ export async function registerDevice(
       pbErr?.message?.includes('File not found')
     ) {
       try {
-        const genDeviceId = 'dev-' + Math.random().toString(36).substring(2, 12)
+        const fl = await pb.collection('freelancers').getOne(freelancerId)
+        if (fl.device_id) {
+          if (deviceId && deviceId === fl.device_id) {
+            await pb.collection('freelancers').update(freelancerId, {
+              credential_id: credentialId,
+            })
+            return {
+              success: true,
+              deviceId: fl.device_id,
+            }
+          }
+          const mismatchErr = new Error(
+            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o acesso neste dispositivo.',
+          )
+          ;(mismatchErr as unknown as { code: string }).code = 'device_mismatch'
+          throw mismatchErr
+        }
+
+        const genDeviceId = deviceId || 'dev-' + Math.random().toString(36).substring(2, 12)
         await pb.collection('freelancers').update(freelancerId, {
           device_id: genDeviceId,
           credential_id: credentialId,
@@ -174,12 +206,23 @@ export async function registerDevice(
           deviceId: genDeviceId,
         }
       } catch (fallbackErr: unknown) {
+        if (
+          fallbackErr instanceof Error &&
+          (fallbackErr as unknown as { code?: string }).code === 'device_mismatch'
+        ) {
+          throw fallbackErr
+        }
         const fbErr = fallbackErr as { message?: string }
         throw new Error(fbErr?.message || 'Falha ao registrar dispositivo.')
       }
     }
 
-    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao registrar dispositivo.')
+    throw new Error(
+      pbErr?.data?.message ||
+        pbErr?.data?.error ||
+        pbErr?.message ||
+        'Falha ao registrar dispositivo.',
+    )
   }
 }
 

@@ -61,6 +61,8 @@ export default function Autenticar() {
       setDialogMode('mismatch')
     } else if (authError.includes('Credencial não encontrada')) {
       setDialogMode('missing-credential')
+    } else {
+      setDialogMode(null)
     }
   }, [webauthnSupported, authError])
 
