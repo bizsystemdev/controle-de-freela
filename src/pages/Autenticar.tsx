@@ -43,11 +43,15 @@ export default function Autenticar() {
   // If authenticated, route to main flow
   useEffect(() => {
     if (authState === 'authenticated') {
-      navigate('/inicio')
+      if (companies.length > 1 && !selectedCompany) {
+        navigate('/empresas')
+      } else {
+        navigate('/inicio')
+      }
     } else if (authState === 'needs-phone' || authState === 'unauthenticated') {
       navigate('/acesso')
     }
-  }, [authState, navigate])
+  }, [authState, companies, selectedCompany, navigate])
 
   // Surface WebAuthn unsupported / device mismatch as a blocking modal.
   useEffect(() => {

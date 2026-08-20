@@ -424,8 +424,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const userId = apiUser?.id || storage.get(STORAGE_KEYS.userId) || ''
-      const status = await getAttendanceStatus(userId)
-      await applyAttendanceStatus(status)
+      try {
+        const status = await getAttendanceStatus(userId)
+        await applyAttendanceStatus(status)
+      } catch (statusErr) {
+        logWarn('auth', 'Falha ao buscar status de presença, prosseguindo com estado padrão', {
+          error: statusErr instanceof Error ? statusErr.message : String(statusErr),
+        })
+      }
 
       setRole('freelancer')
       setAuthState('authenticated')

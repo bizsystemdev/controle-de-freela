@@ -20,7 +20,7 @@ export default function Index() {
         }
       } else if (authState === 'needs-biometric') {
         navigate('/autenticar')
-      } else {
+      } else if (authState !== 'loading') {
         navigate('/acesso')
       }
     }

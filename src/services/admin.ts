@@ -20,6 +20,50 @@ export interface CompanyAdminItem {
   }
 }
 
+export interface CreateCompanyPayload {
+  name: string
+  street: string
+  number: string
+  city: string
+  state: string
+  cep?: string
+  neighborhood?: string
+  lat: number
+  lng: number
+  plan: 'free' | 'pro' | 'enterprise'
+  managerName: string
+  managerEmail: string
+  managerPassword: string
+  currentAdminId?: string
+}
+
+export interface CreateCompanyResponse {
+  success: boolean
+  message: string
+  company: {
+    id: string
+    name: string
+    city: string
+    state: string
+    address: string
+    location: {
+      lat: number
+      lng: number
+    }
+    license: {
+      id: string
+      plan: string
+      status: string
+      maxFreelancers: number
+    }
+    manager: {
+      id: string
+      name: string
+      email: string
+    }
+  }
+}
+
 export interface CompanyStats {
   companyId: string
   companyName: string
@@ -74,6 +118,24 @@ export interface HistoryFilterParams {
 /**
  * Lista empresas administradas pelo gestor
  */
+/**
+ * Cadastra uma nova empresa, licença e gestor inicial
+ */
+export async function createAdminCompany(
+  payload: CreateCompanyPayload,
+): Promise<CreateCompanyResponse> {
+  try {
+    const res = await pb.send<CreateCompanyResponse>('/api/admin/companies', {
+      method: 'POST',
+      body: payload,
+    })
+    return res
+  } catch (err: unknown) {
+    const pbErr = err as { data?: { error?: string }; message?: string }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao criar nova empresa.')
+  }
+}
+
 export async function getAdminCompanies(managerId?: string): Promise<CompanyAdminItem[]> {
   try {
     const query = managerId ? `?managerId=${encodeURIComponent(managerId)}` : ''
