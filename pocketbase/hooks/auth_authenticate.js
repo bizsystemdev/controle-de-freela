@@ -26,11 +26,25 @@ routerAdd('POST', '/api/auth/authenticate', (e) => {
     })
   }
 
+  const incomingDeviceId = String(body.deviceId || '').trim()
+
+  // Compare deviceId if provided and exists
+  if (incomingDeviceId && savedDev && incomingDeviceId !== savedDev) {
+    return e.json(400, {
+      success: false,
+      error: 'device_mismatch',
+      message:
+        'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o acesso neste dispositivo.',
+    })
+  }
+
   // If credentialId was supplied, check match
   if (credentialId && savedCred && savedCred !== credentialId) {
     return e.json(400, {
       success: false,
-      error: 'Credencial não confere com o dispositivo cadastrado.',
+      error: 'device_mismatch',
+      message:
+        'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o acesso neste dispositivo.',
     })
   }
 

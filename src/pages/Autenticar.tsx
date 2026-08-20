@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-type DialogMode = 'unsupported' | 'mismatch' | null
+type DialogMode = 'unsupported' | 'mismatch' | 'missing-credential' | null
 
 export default function Autenticar() {
   const navigate = useNavigate()
@@ -53,12 +53,14 @@ export default function Autenticar() {
     }
   }, [authState, companies, selectedCompany, navigate])
 
-  // Surface WebAuthn unsupported / device mismatch as a blocking modal.
+  // Surface WebAuthn unsupported / device mismatch / missing credential as a blocking modal.
   useEffect(() => {
     if (!webauthnSupported) {
       setDialogMode('unsupported')
     } else if (authError.includes('Dispositivo não reconhecido')) {
       setDialogMode('mismatch')
+    } else if (authError.includes('Credencial não encontrada')) {
+      setDialogMode('missing-credential')
     }
   }, [webauthnSupported, authError])
 
@@ -215,17 +217,49 @@ export default function Autenticar() {
               Dispositivo não reconhecido
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-slate-500 text-center pt-1">
-              Entre em contato com a empresa contratante para liberar um novo registro.
+              Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o
+              acesso neste dispositivo.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-4">
             <button
               type="button"
               onClick={handleBack}
-              className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold text-sm transition-all flex items-center justify-center gap-1.5"
+              className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold text-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <RefreshCw className="w-4 h-4" />
-              Voltar para acesso
+              <ArrowLeft className="w-4 h-4" />
+              Voltar
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Missing Credential modal */}
+      <Dialog
+        open={dialogMode === 'missing-credential'}
+        onOpenChange={(o) => !o && setDialogMode(null)}
+      >
+        <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">
+          <DialogHeader className="text-center sm:text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-extrabold text-slate-900 text-center">
+              Credencial não encontrada
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm text-slate-500 text-center pt-1">
+              Credencial não encontrada neste dispositivo. Se você trocou de aparelho, entre em
+              contato com a empresa contratante.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-4">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold text-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Voltar
             </button>
           </DialogFooter>
         </DialogContent>

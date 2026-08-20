@@ -853,6 +853,7 @@ export async function updateFreelancer(
     roleTitle?: string
     role_title?: string
     active?: boolean
+    clearDevice?: boolean
   },
 ): Promise<void> {
   try {
@@ -863,6 +864,7 @@ export async function updateFreelancer(
       document: data.document,
       roleTitle: data.roleTitle || data.role_title,
       active: data.active,
+      clearDevice: data.clearDevice,
     }
     await pb.send(`/api/admin/freelancers/${encodeURIComponent(freelancerId)}`, {
       method: 'PUT',
@@ -890,6 +892,10 @@ export async function updateFreelancer(
           updateObj.role_title = data.roleTitle || data.role_title
         }
         if (data.active !== undefined) updateObj.active = data.active
+        if (data.clearDevice) {
+          updateObj.device_id = ''
+          updateObj.credential_id = ''
+        }
 
         await pb.collection('freelancers').update(freelancerId, updateObj)
         return
@@ -901,6 +907,45 @@ export async function updateFreelancer(
 
     throw new Error(
       pbErr?.data?.error || pbErr?.message || 'Falha ao atualizar dados do freelancer.',
+    )
+  }
+}
+
+/**
+ * Limpa/desvincula o dispositivo e credencial WebAuthn do freelancer
+ */
+export async function clearFreelancerDevice(freelancerId: string): Promise<void> {
+  try {
+    await pb.send(`/api/admin/freelancers/${encodeURIComponent(freelancerId)}`, {
+      method: 'PUT',
+      body: { clearDevice: true },
+    })
+  } catch (err: unknown) {
+    const pbErr = err as {
+      status?: number
+      data?: { error?: string }
+      message?: string
+    }
+
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        await pb.collection('freelancers').update(freelancerId, {
+          device_id: '',
+          credential_id: '',
+        })
+        return
+      } catch (fallbackErr) {
+        const fbErr = fallbackErr as { message?: string }
+        throw new Error(fbErr?.message || 'Falha ao liberar dispositivo do freelancer.')
+      }
+    }
+
+    throw new Error(
+      pbErr?.data?.error || pbErr?.message || 'Falha ao liberar dispositivo do freelancer.',
     )
   }
 }

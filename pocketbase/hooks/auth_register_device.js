@@ -14,6 +14,19 @@ routerAdd('POST', '/api/auth/register-device', (e) => {
     return e.json(404, { error: 'Freelancer não encontrado.' })
   }
 
+  const currentDeviceId = freelancer.getString('device_id')
+  const allowOverwrite = Boolean(body.allowOverwrite)
+
+  // Only allow registering if device_id is empty or authorized update
+  if (currentDeviceId && !allowOverwrite) {
+    return e.json(400, {
+      success: false,
+      error: 'device_already_registered',
+      message:
+        'Este freelancer já possui um dispositivo registrado. Solicite ao gestor a liberação do aparelho.',
+    })
+  }
+
   const deviceId = 'dev-' + $security.randomString(10)
   freelancer.set('device_id', deviceId)
   freelancer.set('credential_id', credentialId)

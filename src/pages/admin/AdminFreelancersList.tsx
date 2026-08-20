@@ -6,6 +6,7 @@ import {
   duplicateFreelancer,
   removeFreelancerFromCompany,
   updateFreelancer,
+  clearFreelancerDevice,
   type AdminFreelancer,
   type CompanyAdminItem,
 } from '@/services/admin'
@@ -29,6 +30,9 @@ import {
   FileText,
   Briefcase,
   User,
+  Smartphone,
+  SmartphoneNfc,
+  RotateCcw,
 } from 'lucide-react'
 import {
   Dialog,
@@ -77,6 +81,11 @@ export default function AdminFreelancersList() {
   const [removeModalOpen, setRemoveModalOpen] = useState(false)
   const [freelancerToRemove, setFreelancerToRemove] = useState<AdminFreelancer | null>(null)
   const [removing, setRemoving] = useState(false)
+
+  // Clear device modal state
+  const [clearDeviceModalOpen, setClearDeviceModalOpen] = useState(false)
+  const [flToClearDevice, setFlToClearDevice] = useState<AdminFreelancer | null>(null)
+  const [clearingDevice, setClearingDevice] = useState(false)
 
   const loadData = async () => {
     if (!id) return
@@ -227,6 +236,36 @@ export default function AdminFreelancersList() {
     }
   }
 
+  const handleOpenClearDevice = (fl: AdminFreelancer) => {
+    setFlToClearDevice(fl)
+    setClearDeviceModalOpen(true)
+  }
+
+  const handleConfirmClearDevice = async () => {
+    if (!flToClearDevice) return
+    setClearingDevice(true)
+    try {
+      await clearFreelancerDevice(flToClearDevice.id)
+      toast({
+        title: 'Dispositivo liberado',
+        description:
+          'Dispositivo liberado com sucesso. O freelancer já pode acessar de um novo aparelho.',
+      })
+      setFreelancers((prev) =>
+        prev.map((f) => (f.id === flToClearDevice.id ? { ...f, deviceId: null } : f)),
+      )
+      setClearDeviceModalOpen(false)
+    } catch (err) {
+      toast({
+        title: 'Erro ao liberar dispositivo',
+        description: err instanceof Error ? err.message : 'Falha ao limpar dispositivo.',
+        variant: 'destructive',
+      })
+    } finally {
+      setClearingDevice(false)
+    }
+  }
+
   const filtered = freelancers.filter((f) => {
     const q = search.toLowerCase().trim()
     if (!q) return true
@@ -322,6 +361,7 @@ export default function AdminFreelancersList() {
                   <th className="py-3.5 px-4 sm:px-6">Freelancer</th>
                   <th className="py-3.5 px-4">Telefone</th>
                   <th className="py-3.5 px-4">Cargo / Função</th>
+                  <th className="py-3.5 px-4">Dispositivo</th>
                   <th className="py-3.5 px-4">Status de Ponto</th>
                   <th className="py-3.5 px-4 sm:px-6 text-right">Ações</th>
                 </tr>
@@ -365,6 +405,27 @@ export default function AdminFreelancersList() {
                       {fl.roleTitle || <span className="text-slate-400 italic">Geral</span>}
                     </td>
 
+                    {/* Dispositivo */}
+                    <td className="py-4 px-4">
+                      {fl.deviceId ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-full"
+                          title={`Dispositivo ID: ${fl.deviceId}`}
+                        >
+                          <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="font-bold">Vinculado</span>
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full"
+                          title="Nenhum dispositivo registrado ainda"
+                        >
+                          <Smartphone className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Sem dispositivo</span>
+                        </span>
+                      )}
+                    </td>
+
                     {/* Status Check-in */}
                     <td className="py-4 px-4">
                       {fl.hasOpenCheckIn ? (
@@ -383,6 +444,18 @@ export default function AdminFreelancersList() {
                     {/* Actions */}
                     <td className="py-4 px-4 sm:px-6 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {Boolean(fl.deviceId) && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenClearDevice(fl)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors active:scale-95 cursor-pointer"
+                            title="Limpar dispositivo registrado do freelancer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                            <span className="hidden sm:inline">Limpar dispositivo</span>
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(fl)}
@@ -628,6 +701,48 @@ export default function AdminFreelancersList() {
               type="button"
               onClick={() => setDuplicateModalOpen(false)}
               className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs"
+            >
+              Cancelar
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear Device Modal */}
+      <Dialog open={clearDeviceModalOpen} onOpenChange={setClearDeviceModalOpen}>
+        <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
+          <DialogHeader className="text-center sm:text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3">
+              <SmartphoneNfc className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-black text-slate-900 text-center">
+              Limpar dispositivo
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 text-center pt-1 leading-relaxed">
+              Tem certeza? O freelancer poderá registrar um novo dispositivo no próximo acesso.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-4">
+            <button
+              type="button"
+              disabled={clearingDevice}
+              onClick={handleConfirmClearDevice}
+              className="w-full h-11 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-amber-600/20"
+            >
+              {clearingDevice ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Limpando...</span>
+                </>
+              ) : (
+                'Sim, limpar dispositivo'
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setClearDeviceModalOpen(false)}
+              className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer"
             >
               Cancelar
             </button>

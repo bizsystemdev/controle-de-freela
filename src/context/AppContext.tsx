@@ -361,13 +361,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAuthState('needs-biometric')
       } else {
         const localDevice = getLocalDeviceId()
+        const localCredId = getStoredCredentialId()
+
+        // If local device exists and is different from server deviceId -> mismatch
         if (localDevice && localDevice !== res.user.deviceId) {
           setAuthError(
-            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar um novo registro.',
+            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o acesso neste dispositivo.',
           )
           setAuthState('needs-biometric')
           return
         }
+
+        // If no local credential or device stored on this device, but user has deviceId on server:
+        if (!localCredId && !localDevice) {
+          setAuthError(
+            'Credencial não encontrada neste dispositivo. Se você trocou de aparelho, entre em contato com a empresa contratante.',
+          )
+          setAuthState('needs-biometric')
+          return
+        }
+
         setPendingPhone(phone)
         setAuthState('needs-biometric')
       }
@@ -395,31 +408,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const localCredId = getStoredCredentialId()
-      const needsRegister = !apiUser?.deviceId && !localCredId
+      const localDeviceId = getLocalDeviceId()
       const userId = apiUser?.id || storage.get(STORAGE_KEYS.userId) || ''
 
-      if (needsRegister) {
+      // If server already has a deviceId
+      if (apiUser?.deviceId) {
+        // If local device is different from server deviceId -> block
+        if (localDeviceId && localDeviceId !== apiUser.deviceId) {
+          setAuthError(
+            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o acesso neste dispositivo.',
+          )
+          return
+        }
+
+        // If no local credential on this device
+        if (!localCredId) {
+          setAuthError(
+            'Credencial não encontrada neste dispositivo. Se você trocou de aparelho, entre em contato com a empresa contratante.',
+          )
+          return
+        }
+
+        // Try WebAuthn authentication with local credential
+        await authenticateCredential(localCredId)
+        // Verify with backend
+        await authenticateFreelancer(userId, localCredId, localDeviceId || undefined)
+      } else {
+        // First authentication: deviceId is empty on server -> Register WebAuthn
         const cred = await registerCredential()
         saveCredential(cred)
         refreshStoredCredential()
         const reg = await registerDevice(userId, cred.rawId)
         saveDeviceId(reg.deviceId)
         setApiUser((prev) => (prev ? { ...prev, deviceId: reg.deviceId } : prev))
-      } else {
-        if (!localCredId) {
-          // If the device has no local credential stored yet for this browser, perform registration
-          const cred = await registerCredential()
-          saveCredential(cred)
-          refreshStoredCredential()
-          const reg = await registerDevice(userId, cred.rawId)
-          saveDeviceId(reg.deviceId)
-          setApiUser((prev) => (prev ? { ...prev, deviceId: reg.deviceId } : prev))
-        } else {
-          await authenticateCredential(localCredId)
-          await authenticateFreelancer(userId, localCredId).catch(() => {
-            // Ignore if already verified locally
-          })
-        }
       }
 
       try {

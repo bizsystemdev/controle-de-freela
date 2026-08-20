@@ -186,21 +186,41 @@ export async function registerDevice(
 /**
  * Autentica o freelancer com a credencial WebAuthn
  */
+export interface AuthenticateFreelancerResult {
+  success: boolean
+  freelancer?: ApiUser
+  error?: string
+  message?: string
+  needsRegister?: boolean
+}
+
 export async function authenticateFreelancer(
   freelancerId: string,
   credentialId?: string,
-): Promise<{ success: boolean; freelancer?: ApiUser }> {
+  deviceId?: string,
+): Promise<AuthenticateFreelancerResult> {
   try {
-    const res = await pb.send<{ success: boolean; freelancer?: ApiUser }>(
-      '/api/auth/authenticate',
-      {
-        method: 'POST',
-        body: { freelancerId, credentialId },
-      },
-    )
+    const res = await pb.send<AuthenticateFreelancerResult>('/api/auth/authenticate', {
+      method: 'POST',
+      body: { freelancerId, credentialId, deviceId },
+    })
     return res
   } catch (err: unknown) {
-    const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
+    const pbErr = err as {
+      status?: number
+      data?: { error?: string; message?: string; success?: boolean }
+      message?: string
+    }
+
+    // Check specific error code (like device_mismatch)
+    if (pbErr?.data?.error === 'device_mismatch') {
+      const customErr = new Error(
+        pbErr.data.message ||
+          'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o acesso neste dispositivo.',
+      )
+      ;(customErr as unknown as { code: string }).code = 'device_mismatch'
+      throw customErr
+    }
 
     // Fallback directly via PocketBase SDK
     if (
@@ -210,6 +230,20 @@ export async function authenticateFreelancer(
     ) {
       try {
         const fl = await pb.collection('freelancers').getOne(freelancerId)
+        if (fl.device_id && deviceId && fl.device_id !== deviceId) {
+          const mismatchErr = new Error(
+            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o acesso neste dispositivo.',
+          )
+          ;(mismatchErr as unknown as { code: string }).code = 'device_mismatch'
+          throw mismatchErr
+        }
+        if (fl.credential_id && credentialId && fl.credential_id !== credentialId) {
+          const mismatchErr = new Error(
+            'Dispositivo não reconhecido. Entre em contato com a empresa contratante para liberar o acesso neste dispositivo.',
+          )
+          ;(mismatchErr as unknown as { code: string }).code = 'device_mismatch'
+          throw mismatchErr
+        }
         return {
           success: true,
           freelancer: {
@@ -220,12 +254,23 @@ export async function authenticateFreelancer(
           },
         }
       } catch (fallbackErr: unknown) {
+        if (
+          fallbackErr instanceof Error &&
+          (fallbackErr as unknown as { code?: string }).code === 'device_mismatch'
+        ) {
+          throw fallbackErr
+        }
         const fbErr = fallbackErr as { message?: string }
         throw new Error(fbErr?.message || 'Falha na autenticação do dispositivo.')
       }
     }
 
-    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha na autenticação do dispositivo.')
+    throw new Error(
+      pbErr?.data?.message ||
+        pbErr?.data?.error ||
+        pbErr?.message ||
+        'Falha na autenticação do dispositivo.',
+    )
   }
 }
 

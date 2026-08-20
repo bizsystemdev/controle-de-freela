@@ -39,6 +39,12 @@ routerAdd('PUT', '/api/admin/freelancers/:id', (e) => {
     freelancer.set('active', Boolean(body.active))
   }
 
+  // Handle clearDevice
+  if (body.clearDevice === true || body.clear_device === true) {
+    freelancer.set('device_id', '')
+    freelancer.set('credential_id', '')
+  }
+
   try {
     $app.save(freelancer)
     return e.json(200, {
@@ -51,6 +57,7 @@ routerAdd('PUT', '/api/admin/freelancers/:id', (e) => {
         email: freelancer.getString('email'),
         document: freelancer.getString('document'),
         roleTitle: freelancer.getString('role_title'),
+        deviceId: freelancer.getString('device_id') || null,
         active: freelancer.getBool('active'),
       },
     })
