@@ -135,6 +135,9 @@ export default function Inicio() {
       if (result.ok === true) {
         setModalCheckOutData({ time: result.checkOutTime, duration: result.duration })
         setShowCheckOutModal(true)
+      } else if (result.reason === 'location' || result.reason === 'geo-unavailable') {
+        setLocationMessage(result.message)
+        setShowLocationModal(true)
       } else {
         setToastMessage(result.message)
       }

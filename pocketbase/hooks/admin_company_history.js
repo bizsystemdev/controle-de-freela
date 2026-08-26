@@ -60,6 +60,8 @@ routerAdd('GET', '/api/admin/company/:id/history', (e) => {
     }
 
     const flInfo = flMap[flId]
+    const recLat = rec.getFloat('lat')
+    const recLng = rec.getFloat('lng')
     history.push({
       id: rec.id,
       freelancerId: flId,
@@ -69,8 +71,9 @@ routerAdd('GET', '/api/admin/company/:id/history', (e) => {
       companyId: rec.getString('company_id'),
       type: rec.getString('type'),
       timestamp: rec.getString('timestamp'),
-      lat: rec.getFloat('lat'),
-      lng: rec.getFloat('lng'),
+      manual: rec.getBool('manual'),
+      lat: recLat !== 0 ? recLat : null,
+      lng: recLng !== 0 ? recLng : null,
     })
   }
 

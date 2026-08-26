@@ -149,8 +149,32 @@ export interface AttendanceHistoryItem {
   companyId: string
   type: 'check_in' | 'check_out'
   timestamp: string
+  manual?: boolean
   lat?: number
   lng?: number
+}
+
+export interface ManualAttendancePayload {
+  freelancerId: string
+  companyId: string
+  type: 'check_in' | 'check_out' | 'check-in' | 'check-out'
+  timestamp?: string
+}
+
+export interface ManualAttendanceResponse {
+  success: boolean
+  manual: boolean
+  durationFormatted?: string
+  record: {
+    id: string
+    freelancerId: string
+    companyId: string
+    type: string
+    timestamp: string
+    manual?: boolean
+    lat?: number | null
+    lng?: number | null
+  }
 }
 
 export interface AdminManager {
@@ -1262,6 +1286,102 @@ export async function duplicateManager(
 /**
  * Consulta histórico de presença com filtros
  */
+/**
+ * Registra ponto manual pelo gestor
+ */
+export async function registerManualAttendance(
+  payload: ManualAttendancePayload,
+): Promise<ManualAttendanceResponse> {
+  try {
+    const res = await pb.send<ManualAttendanceResponse>('/api/admin/attendance/manual-register', {
+      method: 'POST',
+      body: payload,
+    })
+    return res
+  } catch (err: unknown) {
+    const pbErr = err as {
+      status?: number
+      data?: { error?: string; message?: string }
+      message?: string
+    }
+
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        const type =
+          payload.type === 'check-in' || payload.type === 'check_in' ? 'check_in' : 'check_out'
+        const timestamp = payload.timestamp || new Date().toISOString()
+
+        const recent = await pb.collection('attendance_records').getList(1, 1, {
+          filter: `freelancer_id = "${payload.freelancerId}"`,
+          sort: '-timestamp',
+        })
+
+        const lastRec = recent.items.length > 0 ? recent.items[0] : null
+        const lastType = lastRec ? lastRec.type : null
+
+        if (type === 'check_in' && lastType === 'check_in') {
+          throw new Error('Já existe um check-in aberto para este freelancer.')
+        }
+        if (type === 'check_out' && (!lastRec || lastType !== 'check_in')) {
+          throw new Error('Não há check-in aberto para registrar saída.')
+        }
+
+        let durationFormatted = ''
+        if (type === 'check_out' && lastRec) {
+          const startMs = new Date(lastRec.timestamp).getTime()
+          const endMs = new Date(timestamp).getTime()
+          const diffMins = Math.max(1, Math.floor((endMs - startMs) / (1000 * 60)))
+          const hours = Math.floor(diffMins / 60)
+          const mins = diffMins % 60
+          if (hours > 0) {
+            durationFormatted = `${hours}h${mins < 10 ? '0' : ''}${mins}`
+          } else {
+            durationFormatted = `${mins} min`
+          }
+        }
+
+        const created = await pb.collection('attendance_records').create({
+          freelancer_id: payload.freelancerId,
+          company_id: payload.companyId,
+          type,
+          timestamp,
+          manual: true,
+        })
+
+        return {
+          success: true,
+          manual: true,
+          durationFormatted: durationFormatted || undefined,
+          record: {
+            id: created.id,
+            freelancerId: created.freelancer_id,
+            companyId: created.company_id,
+            type: created.type,
+            timestamp: created.timestamp,
+            manual: created.manual,
+            lat: created.lat || null,
+            lng: created.lng || null,
+          },
+        }
+      } catch (fallbackErr) {
+        const fbErr = fallbackErr as { message?: string }
+        throw new Error(fbErr?.message || 'Falha ao registrar ponto manual.')
+      }
+    }
+
+    throw new Error(
+      pbErr?.data?.error ||
+        pbErr?.data?.message ||
+        pbErr?.message ||
+        'Falha ao registrar ponto manual.',
+    )
+  }
+}
+
 export async function getCompanyAttendanceHistory(
   companyId: string,
   filters?: HistoryFilterParams,
@@ -1320,6 +1440,7 @@ export async function getCompanyAttendanceHistory(
             companyId: rec.company_id,
             type: rec.type as 'check_in' | 'check_out',
             timestamp: rec.timestamp,
+            manual: rec.manual,
             lat: rec.lat,
             lng: rec.lng,
           }

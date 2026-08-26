@@ -83,7 +83,7 @@ export type CheckInResult =
 
 export type CheckOutResult =
   | { ok: true; checkOutTime: string; duration: string }
-  | { ok: false; reason: 'network'; message: string }
+  | { ok: false; reason: 'location' | 'geo-unavailable' | 'network'; message: string }
 
 interface AppContextType {
   // Common & Roles
@@ -571,6 +571,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ----- Check-out ---------------------------------------------------------
   const performCheckOut = useCallback(async (): Promise<CheckOutResult> => {
+    logInfo('checkout', 'Iniciando check-out Biz Check', {
+      company: selectedCompany
+        ? {
+            id: selectedCompany.id,
+            name: selectedCompany.name,
+            address: selectedCompany.address,
+            location: selectedCompany.location,
+          }
+        : null,
+    })
+
+    if (!isGeolocationAvailable()) {
+      logWarn('checkout', 'Geolocalização indisponível no dispositivo', {
+        reason: 'geo-unavailable',
+      })
+      return {
+        ok: false,
+        reason: 'geo-unavailable',
+        message: 'Permita o acesso à localização para registrar o ponto.',
+      }
+    }
+
+    let coords
+    try {
+      coords = await getCurrentPosition()
+    } catch (err) {
+      logError('checkout', 'Falha ao obter localização do dispositivo', {
+        error: err instanceof Error ? err.message : String(err),
+        reason: 'geo-unavailable',
+      })
+      return {
+        ok: false,
+        reason: 'geo-unavailable',
+        message: 'Permita o acesso à localização para registrar o ponto.',
+      }
+    }
+
+    const companyLat = selectedCompany?.location?.lat
+    const companyLng = selectedCompany?.location?.lng
+    if (
+      companyLat !== undefined &&
+      companyLng !== undefined &&
+      !Number.isNaN(companyLat) &&
+      !Number.isNaN(companyLng) &&
+      companyLat !== 0 &&
+      companyLng !== 0
+    ) {
+      const within = isWithinRadius(coords.latitude, coords.longitude, companyLat, companyLng)
+      if (!within) {
+        logWarn('checkout', 'Check-out bloqueado: dispositivo fora do raio', {
+          device: { lat: coords.latitude, lng: coords.longitude },
+          company: { lat: companyLat, lng: companyLng },
+          reason: 'location',
+        })
+        return {
+          ok: false,
+          reason: 'location',
+          message:
+            'Você não está no local da empresa. Aproxime-se do endereço para registrar o ponto.',
+        }
+      }
+    }
+
     const now = new Date()
     const formattedOut = formatTimeString(now)
     const checkIn = currentRecord?.checkInTime || new Date(now.getTime() - 8 * 3600 * 1000)
@@ -584,6 +647,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         companyId: empresaId,
         type: 'check_out',
         timestamp: now.toISOString(),
+        lat: coords.latitude,
+        lng: coords.longitude,
       })
       const finalDuration = res.durationFormatted || duration
 

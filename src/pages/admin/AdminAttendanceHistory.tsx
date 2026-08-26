@@ -290,16 +290,31 @@ export default function AdminAttendanceHistory() {
                         <span className="text-slate-400 ml-2 font-medium">{time}</span>
                       </td>
 
-                      {/* Coords */}
+                      {/* Coords & Mode */}
                       <td className="py-4 px-4 sm:px-6 text-slate-600">
-                        {record.lat && record.lng ? (
-                          <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-slate-100 px-2 py-1 rounded-lg text-slate-700">
-                            <MapPin className="w-3 h-3 text-red-600" />
-                            {record.lat.toFixed(4)}, {record.lng.toFixed(4)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 italic">Dispositivo</span>
-                        )}
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
+                          {record.lat !== null &&
+                          record.lat !== undefined &&
+                          record.lng !== null &&
+                          record.lng !== undefined &&
+                          (record.lat !== 0 || record.lng !== 0) ? (
+                            <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-slate-100 px-2 py-1 rounded-lg text-slate-700">
+                              <MapPin className="w-3 h-3 text-red-600 shrink-0" />
+                              <span>
+                                {Number(record.lat).toFixed(4)}, {Number(record.lng).toFixed(4)}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic text-[11px]">
+                              {record.manual ? 'Manual (Sem GPS)' : 'Dispositivo'}
+                            </span>
+                          )}
+                          {record.manual && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200/60 w-fit">
+                              Manual
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
