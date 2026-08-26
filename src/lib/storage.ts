@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   credential: 'presenca:credential',
   deviceId: 'presenca:deviceId',
   userPhone: 'presenca:userPhone',
+  savedPhone: 'presenca:savedPhone',
   userId: 'presenca:userId',
   userName: 'presenca:userName',
   mockDeviceId: 'presenca:mock:deviceId',

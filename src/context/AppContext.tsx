@@ -102,6 +102,7 @@ interface AppContextType {
   hasStoredCredential: boolean
   webauthnSupported: boolean
   pendingPhone: string
+  savedPhone: string
 
   // Actions
   setSelectedCompany: (company: Company | null) => void
@@ -216,6 +217,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAuthBusy, setIsAuthBusy] = useState(false)
   const [hasStoredCredential, setHasStoredCredential] = useState(false)
   const [pendingPhone, setPendingPhone] = useState('')
+  const [savedPhone, setSavedPhone] = useState(
+    () => storage.get(STORAGE_KEYS.savedPhone) || storage.get(STORAGE_KEYS.userPhone) || '',
+  )
 
   const webauthnSupported = isWebAuthnSupported()
   const initializedRef = useRef(false)
@@ -348,6 +352,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       storage.set(STORAGE_KEYS.userId, res.user.id)
       storage.set(STORAGE_KEYS.userName, res.user.name)
       storage.set(STORAGE_KEYS.userPhone, res.user.phone)
+      storage.set(STORAGE_KEYS.savedPhone, res.user.phone)
+      setSavedPhone(res.user.phone)
 
       if (!isWebAuthnSupported()) {
         setAuthError(
@@ -712,6 +718,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         hasStoredCredential,
         webauthnSupported,
         pendingPhone,
+        savedPhone,
         setSelectedCompany,
         resetAuthError,
         submitPhone,

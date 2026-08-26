@@ -7,10 +7,17 @@ import { Check, Phone, Loader2, Sparkles, AlertCircle, ShieldCheck } from 'lucid
 
 export default function Acesso() {
   const navigate = useNavigate()
-  const { submitPhone, isAuthBusy, authError, resetAuthError, authState } = useApp()
-  const [phone, setPhone] = useState('(11) 98765-4321')
+  const { submitPhone, isAuthBusy, authError, resetAuthError, authState, savedPhone } = useApp()
+  const [phone, setPhone] = useState(() => (savedPhone ? maskBrazilianPhone(savedPhone) : ''))
   const [localError, setLocalError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Sync if savedPhone changes or gets populated from storage
+  useEffect(() => {
+    if (savedPhone && !phone) {
+      setPhone(maskBrazilianPhone(savedPhone))
+    }
+  }, [savedPhone, phone])
 
   const isSubmitting = isAuthBusy
   const isValid = isValidBrazilianPhone(phone)
@@ -22,7 +29,6 @@ export default function Acesso() {
       inputRef.current.focus()
     }
   }, [])
-
   // Redirect to biometric screen once phone is validated.
   useEffect(() => {
     if (authState === 'needs-biometric') {
