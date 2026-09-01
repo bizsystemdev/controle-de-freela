@@ -2238,6 +2238,57 @@ export default function AdminCompanyDetail() {
                 </div>
               </div>
 
+              {/* CEP (Com busca ViaCEP) e Bairro */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    CEP
+                  </label>
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      value={editCompCep}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setEditCompCep(val)
+                        const clean = val.replace(/\D/g, '')
+                        if (clean.length === 8) {
+                          void handleEditCepLookup(clean)
+                        }
+                      }}
+                      onBlur={() => {
+                        if (editCompCep.trim()) {
+                          void handleEditCepLookup(editCompCep)
+                        }
+                      }}
+                      placeholder="00000-000"
+                      className="w-full h-11 pl-3 pr-10 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-mono"
+                    />
+                    {isLookingUpCep && (
+                      <div className="absolute right-3 text-indigo-600 pointer-events-none">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Preenchimento automático via ViaCEP
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Bairro
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompNeighborhood}
+                    onChange={(e) => setEditCompNeighborhood(e.target.value)}
+                    placeholder="Ex: Bela Vista"
+                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+
               {/* Endereço: Rua e Número */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2">
@@ -2288,57 +2339,6 @@ export default function AdminCompanyDetail() {
                   {compEditErrors.number && (
                     <p className="text-xs text-red-600 mt-1">{compEditErrors.number}</p>
                   )}
-                </div>
-              </div>
-
-              {/* CEP (Com busca ViaCEP) e Bairro */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    CEP
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="text"
-                      value={editCompCep}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setEditCompCep(val)
-                        const clean = val.replace(/\D/g, '')
-                        if (clean.length === 8) {
-                          void handleEditCepLookup(clean)
-                        }
-                      }}
-                      onBlur={() => {
-                        if (editCompCep.trim()) {
-                          void handleEditCepLookup(editCompCep)
-                        }
-                      }}
-                      placeholder="00000-000"
-                      className="w-full h-11 pl-3 pr-10 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-mono"
-                    />
-                    {isLookingUpCep && (
-                      <div className="absolute right-3 text-indigo-600 pointer-events-none">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Preenchimento automático via ViaCEP
-                  </p>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Bairro
-                  </label>
-                  <input
-                    type="text"
-                    value={editCompNeighborhood}
-                    onChange={(e) => setEditCompNeighborhood(e.target.value)}
-                    placeholder="Ex: Bela Vista"
-                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
-                  />
                 </div>
               </div>
 
