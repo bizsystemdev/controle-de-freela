@@ -97,11 +97,11 @@ export async function registerCredential(): Promise<StoredCredential> {
 
   const publicKey: PublicKeyCredentialCreationOptions = {
     challenge: randomBuffer(32),
-    rp: { name: 'Biz Check' },
+    rp: { name: 'Freela Check' },
     user: {
       id: crypto.getRandomValues(new Uint8Array(16)),
-      name: 'usuario@bizcheck.local',
-      displayName: 'Usuário Biz Check',
+      name: 'usuario@freelacheck.local',
+      displayName: 'Usuário Freela Check',
     },
     pubKeyCredParams: [
       { type: 'public-key', alg: -7 },

@@ -18,8 +18,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 9%;
 
-    /* Brand Biz Check Red: #DC2626 -> 0 72.2% 50.6% */
-    --primary: 0 72.2% 50.6%;
+    /* Brand Freela Check Indigo: #4F46E5 -> 243 75.4% 58.6% */
+    --primary: 243 75.4% 58.6%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 96%;
@@ -28,8 +28,8 @@
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
 
-    --accent: 0 85% 97%;
-    --accent-foreground: 0 72.2% 50.6%;
+    --accent: 243 100% 97%;
+    --accent-foreground: 243 75.4% 58.6%;
 
     /* Destructive / Alert */
     --destructive: 0 84.2% 60.2%;
@@ -37,7 +37,7 @@
 
     --border: 0 0% 90%;
     --input: 0 0% 90%;
-    --ring: 0 72.2% 50.6%;
+    --ring: 243 75.4% 58.6%;
 
     --radius: 1rem;
   }
@@ -67,19 +67,36 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Breathing shadow animations - Red for Biz Check */
-  @keyframes breathing-red {
+  /* Breathing shadow animations - Indigo for Freela Check */
+  @keyframes breathing-indigo {
     0%,
     100% {
       box-shadow:
-        0 10px 25px -5px rgba(220, 38, 38, 0.4),
-        0 8px 10px -6px rgba(220, 38, 38, 0.2);
+        0 10px 25px -5px rgba(79, 70, 229, 0.4),
+        0 8px 10px -6px rgba(79, 70, 229, 0.2);
       transform: scale(1);
     }
     50% {
       box-shadow:
-        0 20px 35px -5px rgba(220, 38, 38, 0.55),
-        0 12px 16px -6px rgba(220, 38, 38, 0.35);
+        0 20px 35px -5px rgba(79, 70, 229, 0.55),
+        0 12px 16px -6px rgba(79, 70, 229, 0.35);
+      transform: scale(1.018);
+    }
+  }
+
+  /* Compatibility alias for breathing-red */
+  @keyframes breathing-red {
+    0%,
+    100% {
+      box-shadow:
+        0 10px 25px -5px rgba(79, 70, 229, 0.4),
+        0 8px 10px -6px rgba(79, 70, 229, 0.2);
+      transform: scale(1);
+    }
+    50% {
+      box-shadow:
+        0 20px 35px -5px rgba(79, 70, 229, 0.55),
+        0 12px 16px -6px rgba(79, 70, 229, 0.35);
       transform: scale(1.018);
     }
   }
@@ -139,8 +156,12 @@
     }
   }
 
+  .animate-breathing-indigo {
+    animation: breathing-indigo 3s ease-in-out infinite;
+  }
+
   .animate-breathing-red {
-    animation: breathing-red 3s ease-in-out infinite;
+    animation: breathing-indigo 3s ease-in-out infinite;
   }
 
   .animate-breathing-emerald {

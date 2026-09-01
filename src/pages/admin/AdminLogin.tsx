@@ -81,12 +81,12 @@ export default function AdminLogin() {
   const errorMessage = localError || authError
 
   return (
-    <div className="min-h-screen w-full bg-slate-900 flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-red-500 selection:text-white">
+    <div className="min-h-screen w-full bg-slate-900 flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-indigo-500 selection:text-white">
       <div className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200/80">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <AppLogo size="sm" showText />
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-full border border-red-100">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
             <ShieldCheck className="w-3.5 h-3.5" />
             Painel Gestor
           </span>
@@ -110,7 +110,7 @@ export default function AdminLogin() {
           <button
             type="button"
             onClick={fillAdminDemo}
-            className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl transition-colors active:scale-95"
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors active:scale-95"
           >
             Preencher
           </button>
@@ -132,7 +132,7 @@ export default function AdminLogin() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu.email@empresa.com"
-                className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-600 focus:bg-white focus:ring-4 focus:ring-red-600/10 transition-all"
+                className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all"
               />
             </div>
           </div>
@@ -150,7 +150,7 @@ export default function AdminLogin() {
                   setForgotError('')
                   setForgotOpen(true)
                 }}
-                className="text-xs font-semibold text-red-600 hover:text-red-700 transition-colors"
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
               >
                 Esqueci minha senha
               </button>
@@ -165,7 +165,7 @@ export default function AdminLogin() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-600 focus:bg-white focus:ring-4 focus:ring-red-600/10 transition-all"
+                className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all"
               />
             </div>
           </div>
@@ -180,7 +180,7 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={isAuthBusy}
-            className="w-full h-12 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-[0.98] text-white font-bold text-sm shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+            className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 active:scale-[0.98] text-white font-bold text-sm shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
           >
             {isAuthBusy ? (
               <>
@@ -209,7 +209,7 @@ export default function AdminLogin() {
       <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
         <DialogContent className="max-w-sm rounded-3xl p-6 bg-white border border-slate-100">
           <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
               <KeyRound className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900 text-center">
@@ -248,7 +248,7 @@ export default function AdminLogin() {
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
                   placeholder="seu.email@empresa.com"
-                  className="w-full h-12 px-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-12 px-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
 
@@ -263,7 +263,7 @@ export default function AdminLogin() {
                 <button
                   type="submit"
                   disabled={forgotLoading}
-                  className="w-full h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-2"
+                  className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2"
                 >
                   {forgotLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

@@ -46,7 +46,7 @@ export default function Empresas() {
                   onClick={() => handleSelectCompany(comp)}
                   className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between group active:scale-[0.98] ${
                     isCurrent
-                      ? 'border-red-600 bg-red-50/60 shadow-md shadow-red-600/10 ring-2 ring-red-600/20'
+                      ? 'border-indigo-600 bg-indigo-50/60 shadow-md shadow-indigo-600/10 ring-2 ring-indigo-600/20'
                       : 'border-slate-200/80 bg-white hover:border-slate-300 shadow-sm hover:shadow-md'
                   }`}
                 >
@@ -71,7 +71,7 @@ export default function Empresas() {
                   {/* Right Icon */}
                   <div className="shrink-0 pl-2">
                     {isCurrent ? (
-                      <CheckCircle2 className="w-6 h-6 text-red-600 fill-red-100 animate-fade-in" />
+                      <CheckCircle2 className="w-6 h-6 text-indigo-600 fill-indigo-100 animate-fade-in" />
                     ) : (
                       <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
                     )}
@@ -108,7 +108,7 @@ export default function Empresas() {
       <div className="pt-6 pb-2 text-center">
         <div className="inline-flex items-center gap-1.5 text-xs text-slate-400">
           <Building2 className="w-3.5 h-3.5" />
-          <span>Biz Check • Vínculos sincronizados</span>
+          <span>Freela Check • Vínculos sincronizados</span>
         </div>
       </div>
     </div>

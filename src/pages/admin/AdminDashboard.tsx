@@ -345,10 +345,10 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-red-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-96 bg-red-600/10 blur-3xl pointer-events-none" />
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 bottom-0 w-96 bg-indigo-600/10 blur-3xl pointer-events-none" />
         <div className="relative z-10 max-w-2xl">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-600/30 text-red-300 border border-red-500/30 mb-3">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 mb-3">
             <Sparkles className="w-3.5 h-3.5" />
             Visão Geral do Gestor
           </span>
@@ -356,8 +356,8 @@ export default function AdminDashboard() {
             Olá, {manager?.name || 'Administrador'}!
           </h1>
           <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-            Bem-vindo ao Biz Check Admin. Gerencie as empresas, freelancers vinculados e acompanhe
-            registros de presença em tempo real.
+            Bem-vindo ao Freela Check Admin. Gerencie as empresas, freelancers vinculados e
+            acompanhe registros de presença em tempo real.
           </p>
         </div>
 
@@ -398,7 +398,7 @@ export default function AdminDashboard() {
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 transition-all self-start sm:self-auto cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all self-start sm:self-auto cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>+ Nova empresa</span>
@@ -407,7 +407,7 @@ export default function AdminDashboard() {
 
         {loading ? (
           <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm flex flex-col items-center justify-center">
-            <Loader2 className="w-8 h-8 text-red-600 animate-spin mb-3" />
+            <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
             <p className="text-sm font-semibold text-slate-700">Carregando empresas...</p>
           </div>
         ) : error ? (
@@ -425,7 +425,7 @@ export default function AdminDashboard() {
             <button
               type="button"
               onClick={handleOpenCreateModal}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-bold text-xs rounded-xl"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl"
             >
               <Plus className="w-4 h-4" />
               <span>+ Nova empresa</span>
@@ -437,16 +437,16 @@ export default function AdminDashboard() {
               <div
                 key={comp.id}
                 onClick={() => navigate(`/admin/empresa/${comp.id}`)}
-                className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 hover:border-red-500/50 hover:shadow-xl transition-all duration-200 cursor-pointer group flex flex-col justify-between"
+                className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 hover:border-indigo-500/50 hover:shadow-xl transition-all duration-200 cursor-pointer group flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-red-600 via-red-700 to-slate-900 text-white font-black text-lg flex items-center justify-center shadow-md shadow-red-600/20 group-hover:scale-105 transition-transform">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-slate-900 text-white font-black text-lg flex items-center justify-center shadow-md shadow-indigo-600/20 group-hover:scale-105 transition-transform">
                         {comp.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <h3 className="text-lg font-black text-slate-900 group-hover:text-red-600 transition-colors">
+                        <h3 className="text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
                           {comp.name}
                         </h3>
                         <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
@@ -472,7 +472,7 @@ export default function AdminDashboard() {
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1.5 text-xs text-slate-700 font-bold">
-                      <Users className="w-4 h-4 text-red-600" />
+                      <Users className="w-4 h-4 text-indigo-600" />
                       <span>{comp.freelancersCount} freelancers</span>
                     </div>
                     <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
@@ -483,7 +483,7 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600 group-hover:translate-x-1 transition-transform">
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 group-hover:translate-x-1 transition-transform">
                     <span>Gerenciar</span>
                     <ChevronRight className="w-4 h-4" />
                   </span>
@@ -498,7 +498,7 @@ export default function AdminDashboard() {
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 bg-white border border-slate-200 shadow-2xl">
           <DialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
               <Building2 className="w-6 h-6" />
             </div>
             <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight">
@@ -535,11 +535,11 @@ export default function AdminDashboard() {
                         setCompanyName(e.target.value)
                         if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: '' }))
                       }}
-                      placeholder="Ex: Biz Check Matriz"
+                      placeholder="Ex: Freela Check Matriz"
                       className={`w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all ${
                         formErrors.name
-                          ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
-                          : 'border-slate-200 focus:border-red-600'
+                          ? 'border-red-500 focus:border-indigo-600 ring-2 ring-red-500/10'
+                          : 'border-slate-200 focus:border-indigo-600'
                       }`}
                     />
                   </div>
@@ -571,8 +571,8 @@ export default function AdminDashboard() {
                       placeholder="00.000.000/0001-00 ou alfanumérico"
                       className={`w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all font-mono ${
                         formErrors.cnpj
-                          ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
-                          : 'border-slate-200 focus:border-red-600'
+                          ? 'border-red-500 focus:border-indigo-600 ring-2 ring-red-500/10'
+                          : 'border-slate-200 focus:border-indigo-600'
                       }`}
                     />
                   </div>
@@ -601,7 +601,9 @@ export default function AdminDashboard() {
                     }}
                     placeholder="Ex: Av. Paulista"
                     className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white ${
-                      formErrors.street ? 'border-red-500' : 'border-slate-200 focus:border-red-600'
+                      formErrors.street
+                        ? 'border-red-500'
+                        : 'border-slate-200 focus:border-indigo-600'
                     }`}
                   />
                   {formErrors.street && (
@@ -623,7 +625,9 @@ export default function AdminDashboard() {
                     }}
                     placeholder="Ex: 1000"
                     className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white ${
-                      formErrors.number ? 'border-red-500' : 'border-slate-200 focus:border-red-600'
+                      formErrors.number
+                        ? 'border-red-500'
+                        : 'border-slate-200 focus:border-indigo-600'
                     }`}
                   />
                   {formErrors.number && (
@@ -656,10 +660,10 @@ export default function AdminDashboard() {
                         }
                       }}
                       placeholder="00000-000"
-                      className="w-full h-11 pl-3 pr-10 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white font-mono"
+                      className="w-full h-11 pl-3 pr-10 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-mono"
                     />
                     {isLookingUpCep && (
-                      <div className="absolute right-3 text-red-600 pointer-events-none">
+                      <div className="absolute right-3 text-indigo-600 pointer-events-none">
                         <Loader2 className="w-4 h-4 animate-spin" />
                       </div>
                     )}
@@ -678,7 +682,7 @@ export default function AdminDashboard() {
                     value={neighborhood}
                     onChange={(e) => setNeighborhood(e.target.value)}
                     placeholder="Ex: Bela Vista"
-                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                   />
                 </div>
               </div>
@@ -699,7 +703,9 @@ export default function AdminDashboard() {
                     }}
                     placeholder="Ex: São Paulo"
                     className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 focus:outline-none focus:bg-white ${
-                      formErrors.city ? 'border-red-500' : 'border-slate-200 focus:border-red-600'
+                      formErrors.city
+                        ? 'border-red-500'
+                        : 'border-slate-200 focus:border-indigo-600'
                     }`}
                   />
                   {formErrors.city && (
@@ -721,7 +727,7 @@ export default function AdminDashboard() {
                       if (formErrors.state) setFormErrors((prev) => ({ ...prev, state: '' }))
                     }}
                     placeholder="SP"
-                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 uppercase focus:outline-none focus:border-red-600 focus:bg-white text-center"
+                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 uppercase focus:outline-none focus:border-indigo-600 focus:bg-white text-center"
                   />
                 </div>
 
@@ -819,7 +825,7 @@ export default function AdminDashboard() {
                       className={`w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 focus:outline-none focus:bg-white ${
                         formErrors.managerName
                           ? 'border-red-500'
-                          : 'border-slate-200 focus:border-red-600'
+                          : 'border-slate-200 focus:border-indigo-600'
                       }`}
                     />
                   </div>
@@ -849,7 +855,7 @@ export default function AdminDashboard() {
                       className={`w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 focus:outline-none focus:bg-white ${
                         formErrors.managerEmail
                           ? 'border-red-500'
-                          : 'border-slate-200 focus:border-red-600'
+                          : 'border-slate-200 focus:border-indigo-600'
                       }`}
                     />
                   </div>
@@ -879,7 +885,7 @@ export default function AdminDashboard() {
                       className={`w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 focus:outline-none focus:bg-white ${
                         formErrors.managerPassword
                           ? 'border-red-500'
-                          : 'border-slate-200 focus:border-red-600'
+                          : 'border-slate-200 focus:border-indigo-600'
                       }`}
                     />
                   </div>
@@ -901,7 +907,7 @@ export default function AdminDashboard() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 transition-all flex items-center justify-center gap-2 order-1 sm:order-2 cursor-pointer disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 order-1 sm:order-2 cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>

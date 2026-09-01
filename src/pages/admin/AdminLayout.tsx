@@ -76,10 +76,10 @@ export const AdminLayout: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link to="/admin" className="flex items-center gap-2.5">
-              <AppLogo size="sm" variant="red" />
+              <AppLogo size="sm" variant="indigo" />
               <div className="flex flex-col">
                 <span className="text-lg font-black tracking-tight leading-none text-white">
-                  Biz <span className="text-red-500">Check</span>
+                  Freela <span className="text-indigo-400">Check</span>
                 </span>
                 <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                   Painel Administrativo
@@ -93,7 +93,7 @@ export const AdminLayout: React.FC = () => {
                 to="/admin"
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                   location.pathname === '/admin'
-                    ? 'bg-red-600 text-white'
+                    ? 'bg-indigo-600 text-white'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
               >
@@ -106,7 +106,7 @@ export const AdminLayout: React.FC = () => {
                     to={`/admin/empresa/${currentCompanyId}`}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                       location.pathname === `/admin/empresa/${currentCompanyId}`
-                        ? 'bg-red-600 text-white'
+                        ? 'bg-indigo-600 text-white'
                         : 'text-slate-300 hover:text-white hover:bg-slate-800'
                     }`}
                   >
@@ -117,7 +117,7 @@ export const AdminLayout: React.FC = () => {
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                       location.pathname.includes('/freelancers') ||
                       location.search.includes('tab=freelancers')
-                        ? 'bg-red-600 text-white'
+                        ? 'bg-indigo-600 text-white'
                         : 'text-slate-300 hover:text-white hover:bg-slate-800'
                     }`}
                   >
@@ -127,7 +127,7 @@ export const AdminLayout: React.FC = () => {
                     to={`/admin/empresa/${currentCompanyId}?tab=gestores`}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                       location.search.includes('tab=gestores')
-                        ? 'bg-red-600 text-white'
+                        ? 'bg-indigo-600 text-white'
                         : 'text-slate-300 hover:text-white hover:bg-slate-800'
                     }`}
                   >
@@ -138,7 +138,7 @@ export const AdminLayout: React.FC = () => {
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                       location.pathname.includes('/historico') ||
                       location.search.includes('tab=historico')
-                        ? 'bg-red-600 text-white'
+                        ? 'bg-indigo-600 text-white'
                         : 'text-slate-300 hover:text-white hover:bg-slate-800'
                     }`}
                   >
@@ -164,7 +164,7 @@ export const AdminLayout: React.FC = () => {
             {/* Profile Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-800 transition-colors focus:outline-none">
-                <div className="w-8 h-8 rounded-lg bg-red-600 text-white font-black text-xs flex items-center justify-center shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">
                   {manager?.name?.charAt(0) || 'G'}
                 </div>
                 <div className="hidden sm:flex flex-col text-left">
@@ -225,7 +225,7 @@ export const AdminLayout: React.FC = () => {
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold text-slate-200 hover:bg-slate-900"
             >
-              <Building2 className="w-4 h-4 text-red-500" />
+              <Building2 className="w-4 h-4 text-indigo-400" />
               <span>Todas as Empresas</span>
             </Link>
             {currentCompanyId && (
@@ -289,7 +289,7 @@ export const AdminLayout: React.FC = () => {
                 {isLast ? (
                   <span className="font-bold text-slate-900">{crumb.label}</span>
                 ) : (
-                  <Link to={crumb.path} className="hover:text-red-600 transition-colors">
+                  <Link to={crumb.path} className="hover:text-indigo-600 transition-colors">
                     {crumb.label}
                   </Link>
                 )}
@@ -307,7 +307,7 @@ export const AdminLayout: React.FC = () => {
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200/80 py-4 px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-400">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Biz Check • Sistema de Gestão e Controle de Presença</span>
+          <span>Freela Check • Sistema de Gestão e Controle de Presença</span>
           <span className="inline-flex items-center gap-1 font-semibold text-slate-600">
             <Shield className="w-3.5 h-3.5 text-emerald-600" />
             Ambiente Seguro & Sincronizado

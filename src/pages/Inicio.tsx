@@ -158,8 +158,8 @@ export default function Inicio() {
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-red-600 uppercase tracking-wider block">
-              Biz Check
+            <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider block">
+              Freela Check
             </span>
             <h1 className="text-2xl sm:text-[26px] font-black tracking-tight text-slate-900">
               Olá, {user?.name.split(' ')[0] || 'Usuário'}!
@@ -169,7 +169,7 @@ export default function Inicio() {
           <button
             type="button"
             onClick={() => navigate('/perfil')}
-            className="w-11 h-11 rounded-full bg-slate-900 text-white font-black text-sm flex items-center justify-center ring-2 ring-slate-200 hover:ring-red-400 transition-all active:scale-95 shadow-sm"
+            className="w-11 h-11 rounded-full bg-slate-900 text-white font-black text-sm flex items-center justify-center ring-2 ring-slate-200 hover:ring-indigo-400 transition-all active:scale-95 shadow-sm"
             title="Abrir perfil"
             aria-label="Perfil do usuário"
           >
@@ -200,7 +200,7 @@ export default function Inicio() {
               <button
                 type="button"
                 onClick={() => navigate('/empresas')}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-xl transition-colors shrink-0 active:scale-95"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-xl transition-colors shrink-0 active:scale-95"
                 title="Trocar de empresa"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -253,7 +253,7 @@ export default function Inicio() {
               isProcessing
                 ? 'bg-gradient-to-tr from-slate-400 to-slate-500 shadow-xl'
                 : !isCheckedIn
-                  ? 'bg-gradient-to-tr from-red-700 via-red-600 to-red-500 animate-breathing-red shadow-2xl'
+                  ? 'bg-gradient-to-tr from-indigo-700 via-indigo-600 to-violet-600 animate-breathing-indigo shadow-2xl'
                   : 'bg-gradient-to-tr from-emerald-700 via-emerald-600 to-emerald-500 animate-breathing-emerald shadow-2xl'
             }`}
             aria-label={!isCheckedIn ? 'Fazer Check-in' : 'Fazer Check-out'}
@@ -332,8 +332,8 @@ export default function Inicio() {
           </div>
         ) : (
           <div className="w-full bg-white/90 rounded-2xl border border-slate-200/60 p-3 flex items-center justify-center gap-2 text-center text-xs text-slate-500">
-            <Sparkles className="w-4 h-4 text-red-500" />
-            <span>Biz Check pronto para registro rápido</span>
+            <Sparkles className="w-4 h-4 text-indigo-500" />
+            <span>Freela Check pronto para registro rápido</span>
           </div>
         )}
       </div>

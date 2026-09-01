@@ -147,8 +147,8 @@ export default function AdminFreelancerNew() {
                 placeholder="Ex: João Silva de Souza"
                 className={`w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all ${
                   errors.name
-                    ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
-                    : 'border-slate-200 focus:border-red-600'
+                    ? 'border-red-500 focus:border-indigo-600 ring-2 ring-red-500/10'
+                    : 'border-slate-200 focus:border-indigo-600'
                 }`}
               />
             </div>
@@ -173,8 +173,8 @@ export default function AdminFreelancerNew() {
                 placeholder="(11) 99999-9999"
                 className={`w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all font-mono tabular-nums ${
                   errors.phone
-                    ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
-                    : 'border-slate-200 focus:border-red-600'
+                    ? 'border-red-500 focus:border-indigo-600 ring-2 ring-red-500/10'
+                    : 'border-slate-200 focus:border-indigo-600'
                 }`}
               />
             </div>
@@ -202,7 +202,7 @@ export default function AdminFreelancerNew() {
                 value={roleTitle}
                 onChange={(e) => setRoleTitle(e.target.value)}
                 placeholder="Ex: Garçom, Barista, Auxiliar de Cozinha"
-                className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-600 focus:bg-white transition-all"
+                className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all"
               />
             </div>
           </div>
@@ -223,7 +223,7 @@ export default function AdminFreelancerNew() {
                   value={document}
                   onChange={(e) => setDocument(e.target.value)}
                   placeholder="000.000.000-00"
-                  className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-600 focus:bg-white transition-all font-mono"
+                  className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all font-mono"
                 />
               </div>
             </div>
@@ -242,7 +242,7 @@ export default function AdminFreelancerNew() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="freelancer@exemplo.com"
-                  className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-600 focus:bg-white transition-all"
+                  className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all"
                 />
               </div>
             </div>
@@ -260,7 +260,7 @@ export default function AdminFreelancerNew() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 transition-all flex items-center justify-center gap-2 order-1 sm:order-2"
+              className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 order-1 sm:order-2"
             >
               {isSubmitting ? (
                 <>

@@ -85,10 +85,10 @@ export default function Acesso() {
           <button
             type="button"
             onClick={() => handleFillDemo('(11) 98765-4321')}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors active:scale-95"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors active:scale-95"
             title="Preencher com dados de teste"
           >
-            <Sparkles className="w-3.5 h-3.5 text-red-600" />
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
             <span>Modo demo</span>
           </button>
         </div>
@@ -113,8 +113,8 @@ export default function Acesso() {
               hasError || authError
                 ? 'border-red-500 bg-red-50/30 animate-shake ring-4 ring-red-500/10'
                 : isValid
-                  ? 'border-red-600 bg-white ring-4 ring-red-600/10'
-                  : 'border-slate-200 focus-within:border-red-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-red-600/10'
+                  ? 'border-indigo-600 bg-white ring-4 ring-indigo-600/10'
+                  : 'border-slate-200 focus-within:border-indigo-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-600/10'
             }`}
           >
             <div className="pl-4 pr-2 text-slate-400 flex items-center justify-center pointer-events-none">
@@ -123,7 +123,7 @@ export default function Acesso() {
                   hasError || authError
                     ? 'text-red-500'
                     : isValid
-                      ? 'text-red-600'
+                      ? 'text-indigo-600'
                       : 'text-slate-400'
                 }`}
               />
@@ -172,7 +172,7 @@ export default function Acesso() {
           className={`w-full h-14 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white shadow-lg transition-all duration-200 active:scale-[0.98] ${
             isEmpty
               ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none opacity-50'
-              : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-red-600/30 hover:shadow-red-600/40 cursor-pointer'
+              : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-indigo-600/30 hover:shadow-indigo-600/40 cursor-pointer'
           }`}
         >
           {isSubmitting ? (
@@ -189,7 +189,7 @@ export default function Acesso() {
         <div className="flex items-center justify-center pt-2">
           <Link
             to="/admin/login"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-red-600 transition-colors p-2 rounded-xl hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 transition-colors p-2 rounded-xl hover:bg-slate-50"
           >
             <ShieldCheck className="w-4 h-4 text-slate-400" />
             <span>Sou gestor / Acessar painel administrativo</span>

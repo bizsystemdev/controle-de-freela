@@ -25,9 +25,9 @@ const AdminAttendanceHistory = lazy(() => import('./pages/admin/AdminAttendanceH
 
 const AdminSuspenseFallback = () => (
   <div className="min-h-screen w-full bg-slate-900 flex flex-col items-center justify-center p-6">
-    <Loader2 className="w-8 h-8 text-red-600 animate-spin mb-3" />
+    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
     <p className="text-xs font-bold text-slate-400 tracking-wider uppercase">
-      Carregando Biz Check Admin...
+      Carregando Freela Check Admin...
     </p>
   </div>
 )

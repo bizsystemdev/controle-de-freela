@@ -119,7 +119,7 @@ export default function AdminAttendanceHistory() {
       <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-red-600" />
+            <Filter className="w-4 h-4 text-indigo-600" />
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
               Filtros de Consulta
             </span>
@@ -129,7 +129,7 @@ export default function AdminAttendanceHistory() {
             <button
               type="button"
               onClick={handleResetFilters}
-              className="text-xs font-bold text-red-600 hover:text-red-700"
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-700"
             >
               Limpar Filtros
             </button>
@@ -198,7 +198,7 @@ export default function AdminAttendanceHistory() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full h-10 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+              className="w-full h-10 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
             />
           </div>
 
@@ -211,7 +211,7 @@ export default function AdminAttendanceHistory() {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full h-10 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+              className="w-full h-10 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
             />
           </div>
         </div>
@@ -220,7 +220,7 @@ export default function AdminAttendanceHistory() {
       {/* History Table */}
       {loading ? (
         <div className="bg-white rounded-3xl p-16 text-center border border-slate-200/80 shadow-sm flex flex-col items-center justify-center">
-          <Loader2 className="w-8 h-8 text-red-600 animate-spin mb-3" />
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
           <p className="text-sm font-semibold text-slate-700">
             Carregando registros de presença...
           </p>
@@ -299,7 +299,7 @@ export default function AdminAttendanceHistory() {
                           record.lng !== undefined &&
                           (record.lat !== 0 || record.lng !== 0) ? (
                             <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-slate-100 px-2 py-1 rounded-lg text-slate-700">
-                              <MapPin className="w-3 h-3 text-red-600 shrink-0" />
+                              <MapPin className="w-3 h-3 text-indigo-600 shrink-0" />
                               <span>
                                 {Number(record.lat).toFixed(4)}, {Number(record.lng).toFixed(4)}
                               </span>

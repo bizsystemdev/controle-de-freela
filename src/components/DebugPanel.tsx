@@ -100,12 +100,12 @@ export const DebugPanel: React.FC = () => {
         {/* Header */}
         <div className="p-4 px-5 bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
               <Bug className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-white leading-tight">
-                Biz Check • Painel Debug
+                Freela Check • Painel Debug
               </h2>
               <p className="text-[10px] text-slate-400">
                 Diagnóstico & Testes em tempo de execução
@@ -129,7 +129,7 @@ export const DebugPanel: React.FC = () => {
             onClick={() => setActiveTab('info')}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-colors ${
               activeTab === 'info'
-                ? 'bg-slate-800 text-red-400 shadow-sm'
+                ? 'bg-slate-800 text-indigo-400 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -140,7 +140,7 @@ export const DebugPanel: React.FC = () => {
             onClick={() => setActiveTab('actions')}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-colors ${
               activeTab === 'actions'
-                ? 'bg-slate-800 text-red-400 shadow-sm'
+                ? 'bg-slate-800 text-indigo-400 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -154,7 +154,7 @@ export const DebugPanel: React.FC = () => {
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-colors ${
               activeTab === 'logs'
-                ? 'bg-slate-800 text-red-400 shadow-sm'
+                ? 'bg-slate-800 text-indigo-400 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -173,7 +173,7 @@ export const DebugPanel: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   <div>
                     <span className="text-slate-400">Papel Ativo:</span>{' '}
-                    <strong className="text-red-400">{role || 'Nenhum'}</strong>
+                    <strong className="text-indigo-400">{role || 'Nenhum'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400">Estado Auth:</span>{' '}
@@ -240,7 +240,7 @@ export const DebugPanel: React.FC = () => {
                 className="w-full p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-left flex items-center justify-between text-xs font-semibold"
               >
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-red-500" />
+                  <ShieldCheck className="w-4 h-4 text-indigo-500" />
                   <span>Ir para Login do Gestor (/admin/login)</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -319,7 +319,7 @@ export const DebugPanel: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-center justify-between text-[9px] text-slate-400 mb-0.5">
-                        <span className="font-bold uppercase text-red-400">{l.tag}</span>
+                        <span className="font-bold uppercase text-indigo-400">{l.tag}</span>
                         <span>{new Date(l.timestamp).toLocaleTimeString('pt-BR')}</span>
                       </div>
                       <p>{l.message}</p>

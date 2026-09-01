@@ -7,7 +7,7 @@ export default function Layout() {
 
   if (isAdminRoute) {
     return (
-      <div className="min-h-screen w-full bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-red-100 selection:text-red-900">
+      <div className="min-h-screen w-full bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-indigo-100 selection:text-indigo-900">
         <main className="flex-1 flex flex-col">
           <Outlet />
         </main>
@@ -17,7 +17,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-white text-slate-900 flex flex-col antialiased selection:bg-red-100 selection:text-red-900">
+    <div className="min-h-screen w-full bg-white text-slate-900 flex flex-col antialiased selection:bg-indigo-100 selection:text-indigo-900">
       {/* Screen Content */}
       <main className="flex-1 flex flex-col">
         <Outlet />

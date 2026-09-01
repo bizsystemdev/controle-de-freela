@@ -123,10 +123,10 @@ const AppContext = createContext<AppContextType | undefined>(undefined)
 // ---------------------------------------------------------------------------
 
 const COMPANY_GRADIENTS = [
-  'from-red-600 via-red-700 to-slate-900',
-  'from-slate-900 via-slate-800 to-red-800',
-  'from-red-700 to-red-500',
-  'from-zinc-900 to-red-600',
+  'from-indigo-600 via-indigo-700 to-slate-900',
+  'from-slate-900 via-slate-800 to-indigo-800',
+  'from-indigo-700 to-violet-600',
+  'from-zinc-900 to-indigo-600',
 ]
 
 function getCompanyGradient(id: string): string {
@@ -178,7 +178,7 @@ function mapCompany(api: ApiCompany): Company {
     location: { lat: api.location?.lat || 0, lng: api.location?.lng || 0 },
     initial: companyInitial(api.name),
     gradient: getCompanyGradient(api.id),
-    colorTheme: 'red',
+    colorTheme: 'indigo',
   }
 }
 
@@ -471,7 +471,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ----- Check-in (with geolocation) --------------------------------------
   const performCheckIn = useCallback(
     async (company: Company): Promise<CheckInResult> => {
-      logInfo('checkin', 'Iniciando check-in Biz Check', {
+      logInfo('checkin', 'Iniciando check-in Freela Check', {
         company: {
           id: company.id,
           name: company.name,
@@ -577,7 +577,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ----- Check-out ---------------------------------------------------------
   const performCheckOut = useCallback(async (): Promise<CheckOutResult> => {
-    logInfo('checkout', 'Iniciando check-out Biz Check', {
+    logInfo('checkout', 'Iniciando check-out Freela Check', {
       company: selectedCompany
         ? {
             id: selectedCompany.id,

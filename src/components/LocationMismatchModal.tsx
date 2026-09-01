@@ -32,7 +32,7 @@ export const LocationMismatchModal: React.FC<LocationMismatchModalProps> = ({
         <button
           type="button"
           onClick={onRetry}
-          className="w-full h-12 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-sm shadow-md shadow-red-600/20 transition-all flex items-center justify-center gap-1.5 mb-2"
+          className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-sm shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-1.5 mb-2"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Tentar novamente</span>
@@ -50,7 +50,7 @@ export const LocationMismatchModal: React.FC<LocationMismatchModalProps> = ({
 
         <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
           <MapPin className="w-3 h-3" />
-          <span>Biz Check validação por raio de tolerância</span>
+          <span>Freela Check validação por raio de tolerância</span>
         </div>
       </div>
     </div>

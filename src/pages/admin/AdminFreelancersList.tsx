@@ -378,7 +378,7 @@ export default function AdminFreelancersList() {
 
         <Link
           to={`/admin/empresa/${id}/freelancers/novo`}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 transition-all self-start sm:self-auto"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all self-start sm:self-auto"
         >
           <UserPlus className="w-4 h-4" />
           <span>Novo Freelancer</span>
@@ -394,7 +394,7 @@ export default function AdminFreelancersList() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nome, telefone ou cargo..."
-            className="w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-600 focus:bg-white"
+            className="w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white"
           />
         </div>
 
@@ -406,7 +406,7 @@ export default function AdminFreelancersList() {
       {/* Freelancers List / Table */}
       {loading ? (
         <div className="bg-white rounded-3xl p-16 text-center border border-slate-200/80 shadow-sm flex flex-col items-center justify-center">
-          <Loader2 className="w-8 h-8 text-red-600 animate-spin mb-3" />
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
           <p className="text-sm font-semibold text-slate-700">Carregando lista de freelancers...</p>
         </div>
       ) : filtered.length === 0 ? (
@@ -420,7 +420,7 @@ export default function AdminFreelancersList() {
           </p>
           <Link
             to={`/admin/empresa/${id}/freelancers/novo`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-bold text-xs rounded-xl"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl"
           >
             <UserPlus className="w-4 h-4" />
             <span>Cadastrar agora</span>
@@ -530,20 +530,20 @@ export default function AdminFreelancersList() {
                           <button
                             type="button"
                             onClick={() => handleOpenManualAttendance(fl)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-700 hover:text-red-900 bg-red-50 hover:bg-red-100 border border-red-200/80 transition-colors active:scale-95 cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-colors active:scale-95 cursor-pointer"
                             title="Fazer Check-out manual para este freelancer"
                           >
-                            <Clock className="w-3.5 h-3.5 text-red-600" />
+                            <Clock className="w-3.5 h-3.5 text-emerald-600" />
                             <span>Fazer Check-out</span>
                           </button>
                         ) : (
                           <button
                             type="button"
                             onClick={() => handleOpenManualAttendance(fl)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-colors active:scale-95 cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 transition-colors active:scale-95 cursor-pointer"
                             title="Fazer Check-in manual para este freelancer"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
                             <span>Fazer Check-in</span>
                           </button>
                         )}
@@ -601,7 +601,7 @@ export default function AdminFreelancersList() {
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
           <DialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
               <Pencil className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900">
@@ -626,7 +626,7 @@ export default function AdminFreelancersList() {
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
               {editErrors.name && <p className="text-xs text-red-600 mt-1">{editErrors.name}</p>}
@@ -646,7 +646,7 @@ export default function AdminFreelancersList() {
                     required
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                   />
                 </div>
                 {editErrors.phone && (
@@ -667,7 +667,7 @@ export default function AdminFreelancersList() {
                     value={editDocument}
                     onChange={(e) => setEditDocument(e.target.value)}
                     placeholder="000.000.000-00"
-                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                   />
                 </div>
               </div>
@@ -687,7 +687,7 @@ export default function AdminFreelancersList() {
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
                     placeholder="freelancer@exemplo.com"
-                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                   />
                 </div>
               </div>
@@ -705,7 +705,7 @@ export default function AdminFreelancersList() {
                     value={editRoleTitle}
                     onChange={(e) => setEditRoleTitle(e.target.value)}
                     placeholder="Ex: Garçom, Barista"
-                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                   />
                 </div>
               </div>
@@ -722,7 +722,7 @@ export default function AdminFreelancersList() {
               <button
                 type="submit"
                 disabled={savingEdit}
-                className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
               >
                 {savingEdit ? (
                   <>
@@ -742,7 +742,7 @@ export default function AdminFreelancersList() {
       <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
         <DialogContent className="max-w-sm rounded-3xl p-6 bg-white border border-slate-100">
           <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
               <Copy className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900 text-center">
@@ -789,7 +789,7 @@ export default function AdminFreelancersList() {
               type="button"
               disabled={duplicating || !targetCompanyId || availableTargetCompanies.length === 0}
               onClick={handleConfirmDuplicate}
-              className="w-full h-11 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {duplicating ? (
                 <>
@@ -913,7 +913,7 @@ export default function AdminFreelancersList() {
               className={`w-full h-11 rounded-xl active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50 ${
                 manualAttType === 'check_in'
                   ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
-                  : 'bg-red-600 hover:bg-red-700 shadow-red-600/20'
+                  : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
               }`}
             >
               {registeringManual ? (
