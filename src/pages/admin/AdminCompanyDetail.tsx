@@ -6,6 +6,7 @@ import {
   getCompanyFreelancers,
   getCompanyManagers,
   getCompanyAttendanceHistory,
+  getDeviceReleases,
   duplicateFreelancer,
   removeFreelancerFromCompany,
   updateFreelancer,
@@ -21,6 +22,7 @@ import {
   type AdminFreelancer,
   type AdminManager,
   type AttendanceHistoryItem,
+  type DeviceReleaseItem,
   type UpdateCompanyPayload,
 } from '@/services/admin'
 import { getCompany, type CompanyData } from '@/services/companies'
@@ -90,12 +92,15 @@ export default function AdminCompanyDetail() {
 
   const activeTab = searchParams.get('tab') || 'overview'
 
-  const setActiveTab = (tab: 'overview' | 'freelancers' | 'gestores' | 'historico') => {
+  const setActiveTab = (
+    tab: 'overview' | 'freelancers' | 'gestores' | 'historico' | 'liberacoes',
+  ) => {
     if (tab === 'overview') {
       searchParams.delete('tab')
       setSearchParams(searchParams, { replace: true })
     } else {
-      setSearchParams({ tab }, { replace: true })
+      searchParams.set('tab', tab)
+      setSearchParams(searchParams, { replace: true })
     }
   }
 
@@ -212,6 +217,13 @@ export default function AdminCompanyDetail() {
   const [histStartDate, setHistStartDate] = useState('')
   const [histEndDate, setHistEndDate] = useState('')
 
+  // Device Releases tab state
+  const [deviceReleases, setDeviceReleases] = useState<DeviceReleaseItem[]>([])
+  const [loadingReleases, setLoadingReleases] = useState(false)
+  const [selectedRelFreelancerId, setSelectedRelFreelancerId] = useState('all')
+  const [relStartDate, setRelStartDate] = useState('')
+  const [relEndDate, setRelEndDate] = useState('')
+
   // Load basic company data and stats
   const loadCompanyData = async () => {
     if (!id) return
@@ -286,6 +298,29 @@ export default function AdminCompanyDetail() {
       })
     } finally {
       setLoadingHistory(false)
+    }
+  }
+
+  const loadReleases = async () => {
+    if (!id) return
+    setLoadingReleases(true)
+    try {
+      const relData = await getDeviceReleases({
+        companyId: id,
+        freelancerId: selectedRelFreelancerId === 'all' ? undefined : selectedRelFreelancerId,
+        startDate: relStartDate || undefined,
+        endDate: relEndDate || undefined,
+      })
+      setDeviceReleases(relData)
+    } catch (err) {
+      toast({
+        title: 'Erro ao carregar liberações',
+        description:
+          err instanceof Error ? err.message : 'Falha ao buscar histórico de liberações.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingReleases(false)
     }
   }
 
@@ -556,7 +591,23 @@ export default function AdminCompanyDetail() {
         void loadFreelancers()
       }
     }
-  }, [id, activeTab, selectedHistFreelancerId, selectedHistType, histStartDate, histEndDate])
+    if (activeTab === 'liberacoes') {
+      void loadReleases()
+      if (freelancers.length === 0) {
+        void loadFreelancers()
+      }
+    }
+  }, [
+    id,
+    activeTab,
+    selectedHistFreelancerId,
+    selectedHistType,
+    histStartDate,
+    histEndDate,
+    selectedRelFreelancerId,
+    relStartDate,
+    relEndDate,
+  ])
 
   // --- Handlers: Freelancers ---
   const handleOpenEditFl = (fl: AdminFreelancer) => {
@@ -690,15 +741,19 @@ export default function AdminCompanyDetail() {
     if (!flToClearDevice) return
     setClearingDevice(true)
     try {
-      await clearFreelancerDevice(flToClearDevice.id)
+      await clearFreelancerDevice(flToClearDevice.id, {
+        companyId: id,
+      })
       toast({
         title: 'Dispositivo liberado',
         description:
-          'Dispositivo liberado com sucesso. O freelancer já pode acessar de um novo aparelho.',
+          'Dispositivo liberado com sucesso e registrado no histórico de auditoria. O freelancer já pode acessar de um novo aparelho.',
       })
       setFreelancers((prev) =>
         prev.map((f) => (f.id === flToClearDevice.id ? { ...f, deviceId: null } : f)),
       )
+      // Se a aba de liberações já foi carregada, recarrega
+      void loadReleases()
       setClearDeviceModalOpen(false)
     } catch (err) {
       toast({
@@ -1153,6 +1208,30 @@ export default function AdminCompanyDetail() {
           <History className="w-3.5 h-3.5" />
           <span>Histórico</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('liberacoes')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'liberacoes'
+              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>Liberações de Dispositivo</span>
+          {deviceReleases.length > 0 && (
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                activeTab === 'liberacoes'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-200 text-slate-700'
+              }`}
+            >
+              {deviceReleases.length}
+            </span>
+          )}
+        </button>
       </div>
       {/* TAB 1: VISÃO GERAL */}
       {activeTab === 'overview' && (
@@ -1209,7 +1288,7 @@ export default function AdminCompanyDetail() {
           </div>
 
           {/* Action Shortcut Modules */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Module 1: Freelancers Management */}
             <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
               <div>
@@ -1305,6 +1384,34 @@ export default function AdminCompanyDetail() {
                 >
                   <History className="w-4 h-4" />
                   <span>Consultar Histórico</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Module 4: Device Releases Records */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <RotateCcw className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">Liberações de Aparelho</h3>
+                    <p className="text-xs text-slate-500">
+                      Auditoria de desvinculações de dispositivos por gestores.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('liberacoes')}
+                  className="w-full py-2.5 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Ver Liberações</span>
                 </button>
               </div>
             </div>
@@ -1925,6 +2032,218 @@ export default function AdminCompanyDetail() {
                                 </span>
                               )}
                             </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 5: HISTÓRICO DE LIBERAÇÃO DE DISPOSITIVOS */}
+      {activeTab === 'liberacoes' && (
+        <div className="space-y-4 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-900">
+                  Histórico de Liberações de Dispositivo
+                </h2>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                  <Shield className="w-3 h-3 text-amber-600" />
+                  Auditoria
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Registro de quando e qual gestor autorizou a troca ou limpeza do aparelho do
+                colaborador.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void loadReleases()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors self-start sm:self-auto cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Atualizar</span>
+            </button>
+          </div>
+
+          {/* Filter Controls */}
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-indigo-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Filtros de Liberações
+                </span>
+              </div>
+
+              {(selectedRelFreelancerId !== 'all' || relStartDate || relEndDate) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRelFreelancerId('all')
+                    setRelStartDate('')
+                    setRelEndDate('')
+                  }}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                >
+                  Limpar Filtros
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Freelancer Filter */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Profissional
+                </label>
+                <Select value={selectedRelFreelancerId} onValueChange={setSelectedRelFreelancerId}>
+                  <SelectTrigger className="w-full h-10 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
+                    <SelectValue placeholder="Todos os freelancers" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white rounded-2xl border border-slate-200">
+                    <SelectItem value="all" className="text-xs font-medium cursor-pointer">
+                      Todos os freelancers
+                    </SelectItem>
+                    {freelancers.map((fl) => (
+                      <SelectItem
+                        key={fl.id}
+                        value={fl.id}
+                        className="text-xs font-medium cursor-pointer"
+                      >
+                        {fl.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Start Date */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Data Início
+                </label>
+                <input
+                  type="date"
+                  value={relStartDate}
+                  onChange={(e) => setRelStartDate(e.target.value)}
+                  className="w-full h-10 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
+              </div>
+
+              {/* End Date */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Data Fim
+                </label>
+                <input
+                  type="date"
+                  value={relEndDate}
+                  onChange={(e) => setRelEndDate(e.target.value)}
+                  className="w-full h-10 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Releases Table */}
+          {loadingReleases ? (
+            <div className="bg-white rounded-3xl p-16 text-center border border-slate-200/80 shadow-sm flex flex-col items-center justify-center">
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
+              <p className="text-sm font-semibold text-slate-700">
+                Carregando histórico de liberações...
+              </p>
+            </div>
+          ) : deviceReleases.length === 0 ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm">
+              <RotateCcw className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-slate-900">Nenhuma liberação registrada</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                Quando um gestor clicar em "Limpar dispositivo" na lista de freelancers, o evento
+                será auditado e listado aqui com todos os detalhes.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 uppercase font-bold tracking-wider">
+                    <tr>
+                      <th className="py-3.5 px-4 sm:px-6">Freelancer Liberado</th>
+                      <th className="py-3.5 px-4">Gestor Responsável</th>
+                      <th className="py-3.5 px-4">Data e Hora</th>
+                      <th className="py-3.5 px-4 sm:px-6">Dispositivo Anterior</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {deviceReleases.map((rel) => {
+                      const { date, time } = formatDateTime(rel.created)
+
+                      return (
+                        <tr key={rel.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-4 px-4 sm:px-6">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shrink-0">
+                                {rel.freelancerName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-900 text-sm">
+                                  {rel.freelancerName}
+                                </p>
+                                <p className="text-[11px] text-slate-400 font-mono">
+                                  {rel.freelancerPhone || rel.freelancerRoleTitle || ''}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0">
+                                {rel.managerName?.charAt(0) || 'G'}
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-800">
+                                  {rel.managerName || 'Gestor'}
+                                </p>
+                                {rel.managerEmail && (
+                                  <p className="text-[11px] text-slate-400 font-normal">
+                                    {rel.managerEmail}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-4 px-4 font-mono text-slate-700">
+                            <span className="font-bold text-slate-900">{date}</span>
+                            <span className="text-slate-400 ml-2 font-medium">{time}</span>
+                          </td>
+
+                          <td className="py-4 px-4 sm:px-6">
+                            {rel.previousDeviceId ? (
+                              <div className="flex items-center gap-1.5">
+                                <Smartphone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span
+                                  className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-700 truncate max-w-[200px]"
+                                  title={rel.previousDeviceId}
+                                >
+                                  {rel.previousDeviceId}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">
+                                Dispositivo não identificado / prévio
+                              </span>
+                            )}
                           </td>
                         </tr>
                       )
@@ -2652,378 +2971,7 @@ export default function AdminCompanyDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Remove Freelancer Modal */}
-      <Dialog open={removeFlModalOpen} onOpenChange={setRemoveFlModalOpen}>
-        <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">
-          <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <DialogTitle className="text-xl font-black text-slate-900 text-center">
-              Desvincular Freelancer?
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 text-center pt-1">
-              Tem certeza que deseja remover o vínculo de <strong>{flToRemove?.name}</strong> com
-              esta empresa? O cadastro global continuará salvo.
-            </DialogDescription>
-          </DialogHeader>
 
-          <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-4">
-            <button
-              type="button"
-              disabled={removingFl}
-              onClick={handleConfirmRemoveFl}
-              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {removingFl ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sim, desvincular'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setRemoveFlModalOpen(false)}
-              className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer"
-            >
-              Cancelar
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {/* --- MODAIS DE GESTOR --- */}
-      {/* Create Manager Modal */}
-      <Dialog open={createMgrModalOpen} onOpenChange={setCreateMgrModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
-          <DialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
-              <Shield className="w-6 h-6" />
-            </div>
-            <DialogTitle className="text-xl font-black text-slate-900">
-              Cadastrar Novo Gestor
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Crie ou vincule um gestor para administrar a empresa <strong>{company.name}</strong>.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateMgrSubmit} className="space-y-4 pt-2">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Nome completo <span className="text-red-600">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                  <User className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  required
-                  value={newMgrName}
-                  onChange={(e) => {
-                    setNewMgrName(e.target.value)
-                    if (mgrCreateErrors.name) setMgrCreateErrors((prev) => ({ ...prev, name: '' }))
-                  }}
-                  placeholder="Ex: Ana Gerente"
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
-                />
-              </div>
-              {mgrCreateErrors.name && (
-                <p className="text-xs text-red-600 mt-1">{mgrCreateErrors.name}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                E-mail de Acesso <span className="text-red-600">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <input
-                  type="email"
-                  required
-                  value={newMgrEmail}
-                  onChange={(e) => {
-                    setNewMgrEmail(e.target.value)
-                    if (mgrCreateErrors.email)
-                      setMgrCreateErrors((prev) => ({ ...prev, email: '' }))
-                  }}
-                  placeholder="gestor@exemplo.com"
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
-                />
-              </div>
-              {mgrCreateErrors.email && (
-                <p className="text-xs text-red-600 mt-1">{mgrCreateErrors.email}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Senha Inicial <span className="text-red-600">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <input
-                  type="password"
-                  required
-                  value={newMgrPassword}
-                  onChange={(e) => {
-                    setNewMgrPassword(e.target.value)
-                    if (mgrCreateErrors.password)
-                      setMgrCreateErrors((prev) => ({ ...prev, password: '' }))
-                  }}
-                  placeholder="Mínimo 6 caracteres"
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
-                />
-              </div>
-              {mgrCreateErrors.password && (
-                <p className="text-xs text-red-600 mt-1">{mgrCreateErrors.password}</p>
-              )}
-            </div>
-
-            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setCreateMgrModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs order-2 sm:order-1 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={creatingMgr}
-                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
-              >
-                {creatingMgr ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Cadastrando...</span>
-                  </>
-                ) : (
-                  <span>Criar e Vincular Gestor</span>
-                )}
-              </button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-      {/* Edit Manager Modal */}
-      <Dialog open={editMgrModalOpen} onOpenChange={setEditMgrModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
-          <DialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
-              <Pencil className="w-6 h-6" />
-            </div>
-            <DialogTitle className="text-xl font-black text-slate-900">Editar Gestor</DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Atualize as informações cadastrais de <strong>{editingMgr?.name}</strong>.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSaveEditMgr} className="space-y-4 pt-2">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Nome completo <span className="text-red-600">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                  <User className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  required
-                  value={editMgrName}
-                  onChange={(e) => setEditMgrName(e.target.value)}
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
-                />
-              </div>
-              {mgrEditErrors.name && (
-                <p className="text-xs text-red-600 mt-1">{mgrEditErrors.name}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                E-mail de Acesso <span className="text-red-600">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <input
-                  type="email"
-                  required
-                  value={editMgrEmail}
-                  onChange={(e) => setEditMgrEmail(e.target.value)}
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
-                />
-              </div>
-              {mgrEditErrors.email && (
-                <p className="text-xs text-red-600 mt-1">{mgrEditErrors.email}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Nova Senha{' '}
-                <span className="text-slate-400 font-normal">
-                  (deixe em branco para não alterar)
-                </span>
-              </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <input
-                  type="password"
-                  value={editMgrPassword}
-                  onChange={(e) => setEditMgrPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
-                />
-              </div>
-              {mgrEditErrors.password && (
-                <p className="text-xs text-red-600 mt-1">{mgrEditErrors.password}</p>
-              )}
-            </div>
-
-            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setEditMgrModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs order-2 sm:order-1 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={savingMgrEdit}
-                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
-              >
-                {savingMgrEdit ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Salvando...</span>
-                  </>
-                ) : (
-                  <span>Salvar Alterações</span>
-                )}
-              </button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-      {/* Duplicate Manager Modal */}
-      <Dialog open={dupMgrModalOpen} onOpenChange={setDupMgrModalOpen}>
-        <DialogContent className="max-w-sm rounded-3xl p-6 bg-white border border-slate-100">
-          <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
-              <Copy className="w-6 h-6" />
-            </div>
-            <DialogTitle className="text-xl font-black text-slate-900 text-center">
-              Duplicar Gestor
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 text-center pt-1">
-              Conceda acesso de <strong>{selectedDupMgr?.name}</strong> a outra empresa sob sua
-              gestão.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Empresa de destino
-              </label>
-
-              {availableOtherCompanies.length === 0 ? (
-                <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded-xl">
-                  Você gerencia apenas esta empresa no momento.
-                </p>
-              ) : (
-                <Select value={targetDupMgrCompId} onValueChange={setTargetDupMgrCompId}>
-                  <SelectTrigger className="w-full h-11 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
-                    <SelectValue placeholder="Selecione a empresa destino" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white rounded-2xl border border-slate-200">
-                    {availableOtherCompanies.map((c) => (
-                      <SelectItem
-                        key={c.id}
-                        value={c.id}
-                        className="text-xs font-medium cursor-pointer"
-                      >
-                        {c.name} ({c.city})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-2">
-            <button
-              type="button"
-              disabled={
-                duplicatingMgr || !targetDupMgrCompId || availableOtherCompanies.length === 0
-              }
-              onClick={handleConfirmDupMgr}
-              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
-              {duplicatingMgr ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Vinculando...</span>
-                </>
-              ) : (
-                <span>Confirmar Vínculo</span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setDupMgrModalOpen(false)}
-              className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer"
-            >
-              Cancelar
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {/* Remove Manager Modal */}
-      <Dialog open={removeMgrModalOpen} onOpenChange={setRemoveMgrModalOpen}>
-        <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">
-          <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <DialogTitle className="text-xl font-black text-slate-900 text-center">
-              Desvincular Gestor?
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 text-center pt-1">
-              Tem certeza que deseja remover o acesso de <strong>{mgrToRemove?.name}</strong> a esta
-              empresa? O usuário não será excluído.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-4">
-            <button
-              type="button"
-              disabled={removingMgr}
-              onClick={handleConfirmRemoveMgr}
-              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {removingMgr ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sim, desvincular'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setRemoveMgrModalOpen(false)}
-              className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer"
-            >
-              Cancelar
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      =======
       {/* Remove Freelancer Modal */}
       <Dialog open={removeFlModalOpen} onOpenChange={setRemoveFlModalOpen}>
         <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">

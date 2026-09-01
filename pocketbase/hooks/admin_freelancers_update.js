@@ -40,13 +40,71 @@ routerAdd('PUT', '/api/admin/freelancers/:id', (e) => {
   }
 
   // Handle clearDevice
-  if (body.clearDevice === true || body.clear_device === true) {
+  const isClearDevice = body.clearDevice === true || body.clear_device === true
+  let oldDeviceId = freelancer.getString('device_id') || ''
+
+  if (isClearDevice) {
     freelancer.set('device_id', '')
     freelancer.set('credential_id', '')
   }
 
   try {
     $app.save(freelancer)
+
+    // Se a liberação de dispositivo ocorreu, gravar o histórico em device_releases
+    if (isClearDevice) {
+      try {
+        const devRelCol = $app.findCollectionByNameOrId('device_releases')
+        const relRecord = new Record(devRelCol)
+
+        relRecord.set('freelancer_id', freelancerId)
+
+        const companyId = String(body.companyId || body.company_id || '').trim()
+        if (companyId) {
+          relRecord.set('company_id', companyId)
+        }
+
+        const authUser = e.auth
+        let managerId = String(
+          body.managerId || body.manager_id || (authUser ? authUser.id : '') || '',
+        ).trim()
+        let managerName = String(
+          body.managerName ||
+            body.manager_name ||
+            (authUser ? authUser.getString('name') : '') ||
+            '',
+        ).trim()
+        let managerEmail = String(
+          body.managerEmail ||
+            body.manager_email ||
+            (authUser ? authUser.getString('email') : '') ||
+            '',
+        ).trim()
+
+        if (!managerName && managerId) {
+          try {
+            const u = $app.findRecordById('users', managerId)
+            managerName = u.getString('name') || ''
+            if (!managerEmail) managerEmail = u.getString('email') || ''
+          } catch (_) {}
+        }
+
+        if (managerId) relRecord.set('manager_id', managerId)
+        if (managerName) relRecord.set('manager_name', managerName)
+        if (managerEmail) relRecord.set('manager_email', managerEmail)
+        if (oldDeviceId) relRecord.set('previous_device_id', oldDeviceId)
+        if (body.reason) relRecord.set('reason', String(body.reason).trim())
+
+        $app.save(relRecord)
+      } catch (logErr) {
+        // Log release failure without failing the clear operation
+        console.log(
+          'Failed to log device release: ' +
+            (logErr && logErr.message ? logErr.message : String(logErr)),
+        )
+      }
+    }
+
     return e.json(200, {
       success: true,
       message: 'Freelancer atualizado com sucesso.',

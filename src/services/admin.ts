@@ -24,6 +24,89 @@ export interface CompanyAdminItem {
   }
 }
 
+/**
+ * Consulta histórico de liberações de dispositivos com filtros
+ */
+export async function getDeviceReleases(
+  filters?: DeviceReleaseFilterParams,
+): Promise<DeviceReleaseItem[]> {
+  try {
+    const params = new URLSearchParams()
+    if (filters?.companyId) params.append('companyId', filters.companyId)
+    if (filters?.freelancerId) params.append('freelancerId', filters.freelancerId)
+    if (filters?.startDate) params.append('startDate', filters.startDate)
+    if (filters?.endDate) params.append('endDate', filters.endDate)
+
+    const queryString = params.toString() ? `?${params.toString()}` : ''
+    const res = await pb.send<{ releases: DeviceReleaseItem[] }>(
+      `/api/admin/device-releases${queryString}`,
+      { method: 'GET' },
+    )
+    return res.releases || []
+  } catch (err: unknown) {
+    const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        let filter = 'id != ""'
+        if (filters?.companyId) {
+          filter += ` && company_id = "${filters.companyId}"`
+        }
+        if (filters?.freelancerId) {
+          filter += ` && freelancer_id = "${filters.freelancerId}"`
+        }
+        if (filters?.startDate) {
+          filter += ` && created >= "${new Date(filters.startDate).toISOString()}"`
+        }
+        if (filters?.endDate) {
+          const endObj = new Date(filters.endDate)
+          if (filters.endDate.length <= 10) endObj.setHours(23, 59, 59, 999)
+          filter += ` && created <= "${endObj.toISOString()}"`
+        }
+
+        const records = await pb.collection('device_releases').getFullList({
+          filter,
+          sort: '-created',
+          expand: 'freelancer_id,company_id,manager_id',
+        })
+
+        return records.map((rec) => {
+          const fl = rec.expand?.freelancer_id
+          const comp = rec.expand?.company_id
+          const mgr = rec.expand?.manager_id
+
+          return {
+            id: rec.id,
+            freelancerId: rec.freelancer_id,
+            freelancerName: fl?.name || 'Freelancer',
+            freelancerPhone: fl?.phone || '',
+            freelancerRoleTitle: fl?.role_title || '',
+            companyId: rec.company_id || null,
+            companyName: comp?.name || null,
+            managerId: rec.manager_id || null,
+            managerName: rec.manager_name || mgr?.name || 'Gestor',
+            managerEmail: rec.manager_email || mgr?.email || '',
+            previousDeviceId: rec.previous_device_id || null,
+            reason: rec.reason || '',
+            created: rec.created,
+            updated: rec.updated,
+          }
+        })
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+    throw new Error(
+      pbErr?.data?.error ||
+        pbErr?.message ||
+        'Falha ao buscar histórico de liberações de dispositivo.',
+    )
+  }
+}
+
 export interface CreateCompanyPayload {
   name: string
   street: string
@@ -152,6 +235,30 @@ export interface AttendanceHistoryItem {
   manual?: boolean
   lat?: number
   lng?: number
+}
+
+export interface DeviceReleaseItem {
+  id: string
+  freelancerId: string
+  freelancerName: string
+  freelancerPhone?: string
+  freelancerRoleTitle?: string
+  companyId?: string | null
+  companyName?: string | null
+  managerId?: string | null
+  managerName?: string
+  managerEmail?: string
+  previousDeviceId?: string | null
+  reason?: string
+  created: string
+  updated?: string
+}
+
+export interface DeviceReleaseFilterParams {
+  companyId?: string
+  freelancerId?: string
+  startDate?: string
+  endDate?: string
 }
 
 export interface ManualAttendancePayload {
@@ -938,11 +1045,37 @@ export async function updateFreelancer(
 /**
  * Limpa/desvincula o dispositivo e credencial WebAuthn do freelancer
  */
-export async function clearFreelancerDevice(freelancerId: string): Promise<void> {
+export interface ClearDeviceOptions {
+  companyId?: string
+  managerId?: string
+  managerName?: string
+  managerEmail?: string
+  reason?: string
+}
+
+/**
+ * Limpa/desvincula o dispositivo e credencial WebAuthn do freelancer e registra no histórico
+ */
+export async function clearFreelancerDevice(
+  freelancerId: string,
+  options?: ClearDeviceOptions,
+): Promise<void> {
+  const currentAuth = pb.authStore.record
+  const managerId = options?.managerId || currentAuth?.id || undefined
+  const managerName = options?.managerName || currentAuth?.name || undefined
+  const managerEmail = options?.managerEmail || currentAuth?.email || undefined
+
   try {
     await pb.send(`/api/admin/freelancers/${encodeURIComponent(freelancerId)}`, {
       method: 'PUT',
-      body: { clearDevice: true },
+      body: {
+        clearDevice: true,
+        companyId: options?.companyId,
+        managerId,
+        managerName,
+        managerEmail,
+        reason: options?.reason,
+      },
     })
   } catch (err: unknown) {
     const pbErr = err as {
@@ -957,10 +1090,35 @@ export async function clearFreelancerDevice(freelancerId: string): Promise<void>
       pbErr?.message?.includes('File not found')
     ) {
       try {
+        // Obter device_id anterior antes de zerar
+        let oldDeviceId = ''
+        try {
+          const flRecord = await pb.collection('freelancers').getOne(freelancerId)
+          oldDeviceId = flRecord.device_id || ''
+        } catch {
+          /* intentionally ignored */
+        }
+
         await pb.collection('freelancers').update(freelancerId, {
           device_id: '',
           credential_id: '',
         })
+
+        // Gravar no histórico device_releases via SDK direto
+        try {
+          await pb.collection('device_releases').create({
+            freelancer_id: freelancerId,
+            company_id: options?.companyId || '',
+            manager_id: managerId || '',
+            manager_name: managerName || 'Gestor',
+            manager_email: managerEmail || '',
+            previous_device_id: oldDeviceId,
+            reason: options?.reason || '',
+          })
+        } catch {
+          /* intentionally ignored */
+        }
+
         return
       } catch (fallbackErr) {
         const fbErr = fallbackErr as { message?: string }

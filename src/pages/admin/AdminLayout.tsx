@@ -6,6 +6,7 @@ import {
   Building2,
   Users,
   History,
+  RotateCcw,
   LogOut,
   ChevronRight,
   Menu,
@@ -144,6 +145,16 @@ export const AdminLayout: React.FC = () => {
                   >
                     Histórico
                   </Link>
+                  <Link
+                    to={`/admin/empresa/${currentCompanyId}?tab=liberacoes`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      location.search.includes('tab=liberacoes')
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    Liberações
+                  </Link>
                 </>
               )}
             </nav>
@@ -261,6 +272,14 @@ export const AdminLayout: React.FC = () => {
                 >
                   <History className="w-4 h-4 text-slate-400" />
                   <span>Histórico de Presença</span>
+                </Link>
+                <Link
+                  to={`/admin/empresa/${currentCompanyId}?tab=liberacoes`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold text-slate-200 hover:bg-slate-900"
+                >
+                  <RotateCcw className="w-4 h-4 text-slate-400" />
+                  <span>Liberações de Dispositivo</span>
                 </Link>
               </>
             )}

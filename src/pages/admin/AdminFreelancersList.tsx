@@ -258,11 +258,13 @@ export default function AdminFreelancersList() {
     if (!flToClearDevice) return
     setClearingDevice(true)
     try {
-      await clearFreelancerDevice(flToClearDevice.id)
+      await clearFreelancerDevice(flToClearDevice.id, {
+        companyId: id,
+      })
       toast({
         title: 'Dispositivo liberado',
         description:
-          'Dispositivo liberado com sucesso. O freelancer já pode acessar de um novo aparelho.',
+          'Dispositivo liberado com sucesso e registrado no histórico de auditoria. O freelancer já pode acessar de um novo aparelho.',
       })
       setFreelancers((prev) =>
         prev.map((f) => (f.id === flToClearDevice.id ? { ...f, deviceId: null } : f)),
