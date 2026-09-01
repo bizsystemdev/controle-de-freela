@@ -975,7 +975,7 @@ export default function AdminCompanyDetail() {
   if (loading) {
     return (
       <div className="bg-white rounded-3xl p-16 text-center border border-slate-200/80 shadow-sm flex flex-col items-center justify-center">
-        <Loader2 className="w-8 h-8 text-red-600 animate-spin mb-3" />
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
         <p className="text-sm font-semibold text-slate-700">Carregando painel da empresa...</p>
       </div>
     )
@@ -983,8 +983,8 @@ export default function AdminCompanyDetail() {
 
   if (error || !company) {
     return (
-      <div className="bg-red-50 rounded-3xl p-8 border border-red-200 text-center space-y-4">
-        <p className="font-bold text-red-700 text-base">{error || 'Empresa não encontrada.'}</p>
+      <div className="bg-indigo-50 rounded-3xl p-8 border border-indigo-200 text-center space-y-4">
+        <p className="font-bold text-indigo-700 text-base">{error || 'Empresa não encontrada.'}</p>
         <button
           type="button"
           onClick={() => navigate('/admin')}
@@ -1002,7 +1002,7 @@ export default function AdminCompanyDetail() {
       {/* Top Company Header Bar */}
       <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-start gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-red-600 via-red-700 to-slate-900 text-white font-black text-xl flex items-center justify-center shadow-lg shadow-red-600/20 shrink-0">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-slate-900 text-white font-black text-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 shrink-0">
             {company.name.charAt(0).toUpperCase()}
           </div>
           <div>
@@ -1035,7 +1035,7 @@ export default function AdminCompanyDetail() {
           <button
             type="button"
             onClick={handleOpenEditCompany}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/20 transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
           >
             <Pencil className="w-3.5 h-3.5" />
             <span>Editar empresa</span>
@@ -1059,7 +1059,9 @@ export default function AdminCompanyDetail() {
                   key={c.id}
                   onClick={() => navigate(`/admin/empresa/${c.id}`)}
                   className={`rounded-xl text-xs font-semibold cursor-pointer ${
-                    c.id === company.id ? 'bg-red-50 text-red-600 font-bold' : 'text-slate-700'
+                    c.id === company.id
+                      ? 'bg-indigo-50 text-indigo-600 font-bold'
+                      : 'text-slate-700'
                   }`}
                 >
                   <Building2 className="w-4 h-4 mr-2" />
@@ -1079,7 +1081,6 @@ export default function AdminCompanyDetail() {
           </button>
         </div>
       </div>
-
       {/* Tabs Navigation Bar */}
       <div className="flex items-center gap-2 border-b border-slate-200/80 pb-3 overflow-x-auto">
         <button
@@ -1099,7 +1100,7 @@ export default function AdminCompanyDetail() {
           onClick={() => setActiveTab('freelancers')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
             activeTab === 'freelancers'
-              ? 'bg-red-600 text-white shadow-sm shadow-red-600/20'
+              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
@@ -1123,7 +1124,7 @@ export default function AdminCompanyDetail() {
           onClick={() => setActiveTab('gestores')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
             activeTab === 'gestores'
-              ? 'bg-red-600 text-white shadow-sm shadow-red-600/20'
+              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
@@ -1145,7 +1146,7 @@ export default function AdminCompanyDetail() {
           onClick={() => setActiveTab('historico')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
             activeTab === 'historico'
-              ? 'bg-red-600 text-white shadow-sm shadow-red-600/20'
+              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
@@ -1153,7 +1154,6 @@ export default function AdminCompanyDetail() {
           <span>Histórico</span>
         </button>
       </div>
-
       {/* TAB 1: VISÃO GERAL */}
       {activeTab === 'overview' && (
         <div className="space-y-6 animate-fade-in">
@@ -1170,7 +1170,7 @@ export default function AdminCompanyDetail() {
                 </p>
                 <p className="text-xs text-slate-500 mt-1">Vinculados a esta unidade</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                 <Users className="w-6 h-6" />
               </div>
             </div>
@@ -1214,7 +1214,7 @@ export default function AdminCompanyDetail() {
             <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
@@ -1237,7 +1237,7 @@ export default function AdminCompanyDetail() {
                 </button>
                 <Link
                   to={`/admin/empresa/${company.id}/freelancers/novo`}
-                  className="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>+ Novo</span>
@@ -1249,7 +1249,7 @@ export default function AdminCompanyDetail() {
             <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                     <Shield className="w-5 h-5" />
                   </div>
                   <div>
@@ -1273,7 +1273,7 @@ export default function AdminCompanyDetail() {
                 <button
                   type="button"
                   onClick={handleOpenCreateMgr}
-                  className="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>+ Novo</span>
@@ -1301,7 +1301,7 @@ export default function AdminCompanyDetail() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('historico')}
-                  className="w-full py-2.5 px-4 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
                   <History className="w-4 h-4" />
                   <span>Consultar Histórico</span>
@@ -1311,7 +1311,6 @@ export default function AdminCompanyDetail() {
           </div>
         </div>
       )}
-
       {/* TAB 2: FREELANCERS */}
       {activeTab === 'freelancers' && (
         <div className="space-y-4 animate-fade-in">
@@ -1334,7 +1333,7 @@ export default function AdminCompanyDetail() {
               </button>
               <Link
                 to={`/admin/empresa/${id}/freelancers/novo`}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/20 transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>Novo Freelancer</span>
@@ -1351,7 +1350,7 @@ export default function AdminCompanyDetail() {
                 value={freelancerSearch}
                 onChange={(e) => setFreelancerSearch(e.target.value)}
                 placeholder="Buscar por nome, telefone ou cargo..."
-                className="w-full h-10 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-600 focus:bg-white"
+                className="w-full h-10 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white"
               />
             </div>
             <span className="text-xs font-bold text-slate-500">
@@ -1362,7 +1361,7 @@ export default function AdminCompanyDetail() {
           {/* Table */}
           {loadingFreelancers ? (
             <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm flex flex-col items-center justify-center">
-              <Loader2 className="w-8 h-8 text-red-600 animate-spin mb-3" />
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
               <p className="text-sm font-semibold text-slate-700">Carregando freelancers...</p>
             </div>
           ) : filteredFreelancers.length === 0 ? (
@@ -1376,7 +1375,7 @@ export default function AdminCompanyDetail() {
               </p>
               <Link
                 to={`/admin/empresa/${id}/freelancers/novo`}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-bold text-xs rounded-xl"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>Cadastrar agora</span>
@@ -1532,7 +1531,7 @@ export default function AdminCompanyDetail() {
                             <button
                               type="button"
                               onClick={() => handleOpenRemoveFl(fl)}
-                              className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer"
                               title="Remover vínculo com esta empresa"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1548,7 +1547,6 @@ export default function AdminCompanyDetail() {
           )}
         </div>
       )}
-
       {/* TAB 3: GESTORES */}
       {activeTab === 'gestores' && (
         <div className="space-y-4 animate-fade-in">
@@ -1572,7 +1570,7 @@ export default function AdminCompanyDetail() {
               <button
                 type="button"
                 onClick={handleOpenCreateMgr}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/20 transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Novo Gestor</span>
@@ -1589,7 +1587,7 @@ export default function AdminCompanyDetail() {
                 value={managerSearch}
                 onChange={(e) => setManagerSearch(e.target.value)}
                 placeholder="Buscar por nome ou e-mail..."
-                className="w-full h-10 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-600 focus:bg-white"
+                className="w-full h-10 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white"
               />
             </div>
             <span className="text-xs font-bold text-slate-500">
@@ -1600,7 +1598,7 @@ export default function AdminCompanyDetail() {
           {/* Table */}
           {loadingManagers ? (
             <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm flex flex-col items-center justify-center">
-              <Loader2 className="w-8 h-8 text-red-600 animate-spin mb-3" />
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
               <p className="text-sm font-semibold text-slate-700">Carregando gestores...</p>
             </div>
           ) : filteredManagers.length === 0 ? (
@@ -1613,7 +1611,7 @@ export default function AdminCompanyDetail() {
               <button
                 type="button"
                 onClick={handleOpenCreateMgr}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-bold text-xs rounded-xl"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl"
               >
                 <Plus className="w-4 h-4" />
                 <span>+ Novo Gestor</span>
@@ -1636,7 +1634,7 @@ export default function AdminCompanyDetail() {
                       <tr key={mgr.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="py-4 px-4 sm:px-6">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-red-600 to-slate-900 text-white font-black text-xs flex items-center justify-center shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-slate-900 text-white font-black text-xs flex items-center justify-center shrink-0">
                               {mgr.name.charAt(0).toUpperCase()}
                             </div>
                             <div>
@@ -1655,7 +1653,7 @@ export default function AdminCompanyDetail() {
 
                         <td className="py-4 px-4">
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full uppercase">
-                            <Shield className="w-3 h-3 text-red-600" />
+                            <Shield className="w-3 h-3 text-indigo-600" />
                             <span>{mgr.role || 'Administrador'}</span>
                           </span>
                         </td>
@@ -1685,7 +1683,7 @@ export default function AdminCompanyDetail() {
                             <button
                               type="button"
                               onClick={() => handleOpenRemoveMgr(mgr)}
-                              className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer"
                               title="Desvincular gestor da empresa"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1701,7 +1699,6 @@ export default function AdminCompanyDetail() {
           )}
         </div>
       )}
-
       {/* TAB 4: HISTÓRICO */}
       {activeTab === 'historico' && (
         <div className="space-y-4 animate-fade-in">
@@ -1727,7 +1724,7 @@ export default function AdminCompanyDetail() {
           <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-red-600" />
+                <Filter className="w-4 h-4 text-indigo-600" />
                 <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                   Filtros
                 </span>
@@ -1745,7 +1742,7 @@ export default function AdminCompanyDetail() {
                     setHistStartDate('')
                     setHistEndDate('')
                   }}
-                  className="text-xs font-bold text-red-600 hover:text-red-700 cursor-pointer"
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
                 >
                   Limpar Filtros
                 </button>
@@ -1817,7 +1814,7 @@ export default function AdminCompanyDetail() {
                   type="date"
                   value={histStartDate}
                   onChange={(e) => setHistStartDate(e.target.value)}
-                  className="w-full h-10 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-10 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
 
@@ -1830,7 +1827,7 @@ export default function AdminCompanyDetail() {
                   type="date"
                   value={histEndDate}
                   onChange={(e) => setHistEndDate(e.target.value)}
-                  className="w-full h-10 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-10 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
             </div>
@@ -1839,7 +1836,7 @@ export default function AdminCompanyDetail() {
           {/* History Table */}
           {loadingHistory ? (
             <div className="bg-white rounded-3xl p-16 text-center border border-slate-200/80 shadow-sm flex flex-col items-center justify-center">
-              <Loader2 className="w-8 h-8 text-red-600 animate-spin mb-3" />
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
               <p className="text-sm font-semibold text-slate-700">Carregando histórico...</p>
             </div>
           ) : history.length === 0 ? (
@@ -1912,7 +1909,7 @@ export default function AdminCompanyDetail() {
                               record.lng !== undefined &&
                               (record.lat !== 0 || record.lng !== 0) ? (
                                 <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-slate-100 px-2 py-1 rounded-lg text-slate-700">
-                                  <MapPin className="w-3 h-3 text-red-600 shrink-0" />
+                                  <MapPin className="w-3 h-3 text-indigo-600 shrink-0" />
                                   <span>
                                     {Number(record.lat).toFixed(4)}, {Number(record.lng).toFixed(4)}
                                   </span>
@@ -1939,13 +1936,12 @@ export default function AdminCompanyDetail() {
           )}
         </div>
       )}
-
       {/* --- MODAIS DE FREELANCER --- */}
       {/* Edit Freelancer Modal */}
       <Dialog open={editFlModalOpen} onOpenChange={setEditFlModalOpen}>
         <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
           <DialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
               <Pencil className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900">
@@ -1970,7 +1966,7 @@ export default function AdminCompanyDetail() {
                   required
                   value={editFlName}
                   onChange={(e) => setEditFlName(e.target.value)}
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
               {flEditErrors.name && (
@@ -1992,7 +1988,7 @@ export default function AdminCompanyDetail() {
                     required
                     value={editFlPhone}
                     onChange={(e) => setEditFlPhone(e.target.value)}
-                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                   />
                 </div>
                 {flEditErrors.phone && (
@@ -2013,7 +2009,7 @@ export default function AdminCompanyDetail() {
                     value={editFlDocument}
                     onChange={(e) => setEditFlDocument(e.target.value)}
                     placeholder="000.000.000-00"
-                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                   />
                 </div>
               </div>
@@ -2033,7 +2029,7 @@ export default function AdminCompanyDetail() {
                     value={editFlEmail}
                     onChange={(e) => setEditFlEmail(e.target.value)}
                     placeholder="freelancer@exemplo.com"
-                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                   />
                 </div>
               </div>
@@ -2051,7 +2047,7 @@ export default function AdminCompanyDetail() {
                     value={editFlRoleTitle}
                     onChange={(e) => setEditFlRoleTitle(e.target.value)}
                     placeholder="Ex: Garçom, Barista"
-                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                   />
                 </div>
               </div>
@@ -2068,7 +2064,7 @@ export default function AdminCompanyDetail() {
               <button
                 type="submit"
                 disabled={savingFlEdit}
-                className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
               >
                 {savingFlEdit ? (
                   <>
@@ -2083,12 +2079,11 @@ export default function AdminCompanyDetail() {
           </form>
         </DialogContent>
       </Dialog>
-
       {/* Duplicate Freelancer Modal */}
       <Dialog open={dupFlModalOpen} onOpenChange={setDupFlModalOpen}>
         <DialogContent className="max-w-sm rounded-3xl p-6 bg-white border border-slate-100">
           <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
               <Copy className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900 text-center">
@@ -2135,7 +2130,7 @@ export default function AdminCompanyDetail() {
               type="button"
               disabled={duplicatingFl || !targetDupFlCompId || availableOtherCompanies.length === 0}
               onClick={handleConfirmDupFl}
-              className="w-full h-11 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {duplicatingFl ? (
                 <>
@@ -2156,12 +2151,11 @@ export default function AdminCompanyDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* --- MODAL DE EDIÇÃO DA EMPRESA --- */}
       <Dialog open={editCompanyModalOpen} onOpenChange={setEditCompanyModalOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 bg-white border border-slate-200 shadow-2xl">
           <DialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
               <Building2 className="w-6 h-6" />
             </div>
             <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight">
@@ -2193,11 +2187,11 @@ export default function AdminCompanyDetail() {
                         if (compEditErrors.name)
                           setCompEditErrors((prev) => ({ ...prev, name: '' }))
                       }}
-                      placeholder="Ex: Biz Check Matriz"
+                      placeholder="Ex: Freela Check Matriz"
                       className={`w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all ${
                         compEditErrors.name
-                          ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
-                          : 'border-slate-200 focus:border-red-600'
+                          ? 'border-red-500 focus:border-indigo-600 ring-2 ring-red-500/10'
+                          : 'border-slate-200 focus:border-indigo-600'
                       }`}
                     />
                   </div>
@@ -2230,8 +2224,8 @@ export default function AdminCompanyDetail() {
                       placeholder="00.000.000/0001-00 ou alfanumérico"
                       className={`w-full h-11 pl-10 pr-4 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all font-mono ${
                         compEditErrors.cnpj
-                          ? 'border-red-500 focus:border-red-600 ring-2 ring-red-500/10'
-                          : 'border-slate-200 focus:border-red-600'
+                          ? 'border-red-500 focus:border-indigo-600 ring-2 ring-red-500/10'
+                          : 'border-slate-200 focus:border-indigo-600'
                       }`}
                     />
                   </div>
@@ -2263,7 +2257,7 @@ export default function AdminCompanyDetail() {
                     className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white ${
                       compEditErrors.street
                         ? 'border-red-500'
-                        : 'border-slate-200 focus:border-red-600'
+                        : 'border-slate-200 focus:border-indigo-600'
                     }`}
                   />
                   {compEditErrors.street && (
@@ -2288,7 +2282,7 @@ export default function AdminCompanyDetail() {
                     className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white ${
                       compEditErrors.number
                         ? 'border-red-500'
-                        : 'border-slate-200 focus:border-red-600'
+                        : 'border-slate-200 focus:border-indigo-600'
                     }`}
                   />
                   {compEditErrors.number && (
@@ -2321,10 +2315,10 @@ export default function AdminCompanyDetail() {
                         }
                       }}
                       placeholder="00000-000"
-                      className="w-full h-11 pl-3 pr-10 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white font-mono"
+                      className="w-full h-11 pl-3 pr-10 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-mono"
                     />
                     {isLookingUpCep && (
-                      <div className="absolute right-3 text-red-600 pointer-events-none">
+                      <div className="absolute right-3 text-indigo-600 pointer-events-none">
                         <Loader2 className="w-4 h-4 animate-spin" />
                       </div>
                     )}
@@ -2343,7 +2337,7 @@ export default function AdminCompanyDetail() {
                     value={editCompNeighborhood}
                     onChange={(e) => setEditCompNeighborhood(e.target.value)}
                     placeholder="Ex: Bela Vista"
-                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                   />
                 </div>
               </div>
@@ -2366,7 +2360,7 @@ export default function AdminCompanyDetail() {
                     className={`w-full h-11 px-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 focus:outline-none focus:bg-white ${
                       compEditErrors.city
                         ? 'border-red-500'
-                        : 'border-slate-200 focus:border-red-600'
+                        : 'border-slate-200 focus:border-indigo-600'
                     }`}
                   />
                   {compEditErrors.city && (
@@ -2389,7 +2383,7 @@ export default function AdminCompanyDetail() {
                         setCompEditErrors((prev) => ({ ...prev, state: '' }))
                     }}
                     placeholder="SP"
-                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 uppercase focus:outline-none focus:border-red-600 focus:bg-white text-center"
+                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 uppercase focus:outline-none focus:border-indigo-600 focus:bg-white text-center"
                   />
                 </div>
 
@@ -2456,7 +2450,7 @@ export default function AdminCompanyDetail() {
                         )
                       }
                     }}
-                    className="text-xs font-bold text-red-600 hover:text-red-700 underline"
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline"
                   >
                     Recalcular GPS
                   </button>
@@ -2475,7 +2469,7 @@ export default function AdminCompanyDetail() {
                         setEditHasCoordinates(Boolean(e.target.value && editCompLng))
                       }}
                       placeholder="-23.5505"
-                      className="w-full h-9 px-3 bg-white rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-red-600"
+                      className="w-full h-9 px-3 bg-white rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-indigo-600"
                     />
                   </div>
                   <div>
@@ -2490,7 +2484,7 @@ export default function AdminCompanyDetail() {
                         setEditHasCoordinates(Boolean(editCompLat && e.target.value))
                       }}
                       placeholder="-46.6333"
-                      className="w-full h-9 px-3 bg-white rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-red-600"
+                      className="w-full h-9 px-3 bg-white rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-indigo-600"
                     />
                   </div>
                 </div>
@@ -2515,7 +2509,7 @@ export default function AdminCompanyDetail() {
               <button
                 type="submit"
                 disabled={savingCompanyEdit}
-                className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 transition-all flex items-center justify-center gap-2 order-1 sm:order-2 cursor-pointer disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 order-1 sm:order-2 cursor-pointer disabled:opacity-50"
               >
                 {savingCompanyEdit ? (
                   <>
@@ -2533,7 +2527,6 @@ export default function AdminCompanyDetail() {
           </form>
         </DialogContent>
       </Dialog>
-
       {/* Manual Attendance Registration Modal */}
       <Dialog open={manualAttendanceModalOpen} onOpenChange={setManualAttendanceModalOpen}>
         <DialogContent className="max-w-xs sm:max-w-sm rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
@@ -2542,7 +2535,7 @@ export default function AdminCompanyDetail() {
               className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 ${
                 manualAttType === 'check_in'
                   ? 'bg-emerald-50 text-emerald-600'
-                  : 'bg-red-50 text-red-600'
+                  : 'bg-indigo-50 text-indigo-600'
               }`}
             >
               {manualAttType === 'check_in' ? (
@@ -2566,7 +2559,7 @@ export default function AdminCompanyDetail() {
               <span className="font-semibold text-slate-500">Tipo de ação:</span>
               <span
                 className={`font-bold ${
-                  manualAttType === 'check_in' ? 'text-emerald-700' : 'text-red-700'
+                  manualAttType === 'check_in' ? 'text-emerald-700' : 'text-indigo-700'
                 }`}
               >
                 {manualAttType === 'check_in' ? 'Entrada (Check-in)' : 'Saída (Check-out)'}
@@ -2594,7 +2587,7 @@ export default function AdminCompanyDetail() {
               className={`w-full h-11 rounded-xl active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50 ${
                 manualAttType === 'check_in'
                   ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
-                  : 'bg-red-600 hover:bg-red-700 shadow-red-600/20'
+                  : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
               }`}
             >
               {registeringManual ? (
@@ -2618,7 +2611,6 @@ export default function AdminCompanyDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Clear Device Modal */}
       <Dialog open={clearDeviceModalOpen} onOpenChange={setClearDeviceModalOpen}>
         <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
@@ -2660,12 +2652,11 @@ export default function AdminCompanyDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Remove Freelancer Modal */}
       <Dialog open={removeFlModalOpen} onOpenChange={setRemoveFlModalOpen}>
         <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">
           <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
               <Trash2 className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900 text-center">
@@ -2682,7 +2673,7 @@ export default function AdminCompanyDetail() {
               type="button"
               disabled={removingFl}
               onClick={handleConfirmRemoveFl}
-              className="w-full h-11 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               {removingFl ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sim, desvincular'}
             </button>
@@ -2696,13 +2687,12 @@ export default function AdminCompanyDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* --- MODAIS DE GESTOR --- */}
       {/* Create Manager Modal */}
       <Dialog open={createMgrModalOpen} onOpenChange={setCreateMgrModalOpen}>
         <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
           <DialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
               <Shield className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900">
@@ -2731,7 +2721,7 @@ export default function AdminCompanyDetail() {
                     if (mgrCreateErrors.name) setMgrCreateErrors((prev) => ({ ...prev, name: '' }))
                   }}
                   placeholder="Ex: Ana Gerente"
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
               {mgrCreateErrors.name && (
@@ -2757,7 +2747,7 @@ export default function AdminCompanyDetail() {
                       setMgrCreateErrors((prev) => ({ ...prev, email: '' }))
                   }}
                   placeholder="gestor@exemplo.com"
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
               {mgrCreateErrors.email && (
@@ -2783,7 +2773,7 @@ export default function AdminCompanyDetail() {
                       setMgrCreateErrors((prev) => ({ ...prev, password: '' }))
                   }}
                   placeholder="Mínimo 6 caracteres"
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
               {mgrCreateErrors.password && (
@@ -2802,7 +2792,7 @@ export default function AdminCompanyDetail() {
               <button
                 type="submit"
                 disabled={creatingMgr}
-                className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
               >
                 {creatingMgr ? (
                   <>
@@ -2817,12 +2807,11 @@ export default function AdminCompanyDetail() {
           </form>
         </DialogContent>
       </Dialog>
-
       {/* Edit Manager Modal */}
       <Dialog open={editMgrModalOpen} onOpenChange={setEditMgrModalOpen}>
         <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
           <DialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
               <Pencil className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900">Editar Gestor</DialogTitle>
@@ -2845,7 +2834,7 @@ export default function AdminCompanyDetail() {
                   required
                   value={editMgrName}
                   onChange={(e) => setEditMgrName(e.target.value)}
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
               {mgrEditErrors.name && (
@@ -2866,7 +2855,7 @@ export default function AdminCompanyDetail() {
                   required
                   value={editMgrEmail}
                   onChange={(e) => setEditMgrEmail(e.target.value)}
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
               {mgrEditErrors.email && (
@@ -2890,7 +2879,7 @@ export default function AdminCompanyDetail() {
                   value={editMgrPassword}
                   onChange={(e) => setEditMgrPassword(e.target.value)}
                   placeholder="Mínimo 6 caracteres"
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-red-600 focus:bg-white"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
               {mgrEditErrors.password && (
@@ -2909,7 +2898,7 @@ export default function AdminCompanyDetail() {
               <button
                 type="submit"
                 disabled={savingMgrEdit}
-                className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
               >
                 {savingMgrEdit ? (
                   <>
@@ -2924,12 +2913,11 @@ export default function AdminCompanyDetail() {
           </form>
         </DialogContent>
       </Dialog>
-
       {/* Duplicate Manager Modal */}
       <Dialog open={dupMgrModalOpen} onOpenChange={setDupMgrModalOpen}>
         <DialogContent className="max-w-sm rounded-3xl p-6 bg-white border border-slate-100">
           <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
               <Copy className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900 text-center">
@@ -2979,7 +2967,7 @@ export default function AdminCompanyDetail() {
                 duplicatingMgr || !targetDupMgrCompId || availableOtherCompanies.length === 0
               }
               onClick={handleConfirmDupMgr}
-              className="w-full h-11 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {duplicatingMgr ? (
                 <>
@@ -3000,12 +2988,11 @@ export default function AdminCompanyDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Remove Manager Modal */}
       <Dialog open={removeMgrModalOpen} onOpenChange={setRemoveMgrModalOpen}>
         <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">
           <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
               <Trash2 className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900 text-center">
@@ -3022,7 +3009,379 @@ export default function AdminCompanyDetail() {
               type="button"
               disabled={removingMgr}
               onClick={handleConfirmRemoveMgr}
-              className="w-full h-11 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {removingMgr ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sim, desvincular'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRemoveMgrModalOpen(false)}
+              className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer"
+            >
+              Cancelar
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      =======
+      {/* Remove Freelancer Modal */}
+      <Dialog open={removeFlModalOpen} onOpenChange={setRemoveFlModalOpen}>
+        <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">
+          <DialogHeader className="text-center sm:text-center">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-black text-slate-900 text-center">
+              Desvincular Freelancer?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 text-center pt-1">
+              Tem certeza que deseja remover o vínculo de <strong>{flToRemove?.name}</strong> com
+              esta empresa? O cadastro global continuará salvo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-4">
+            <button
+              type="button"
+              disabled={removingFl}
+              onClick={handleConfirmRemoveFl}
+              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {removingFl ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sim, desvincular'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRemoveFlModalOpen(false)}
+              className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer"
+            >
+              Cancelar
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* --- MODAIS DE GESTOR --- */}
+      {/* Create Manager Modal */}
+      <Dialog open={createMgrModalOpen} onOpenChange={setCreateMgrModalOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
+              <Shield className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-black text-slate-900">
+              Cadastrar Novo Gestor
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Crie ou vincule um gestor para administrar a empresa <strong>{company.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateMgrSubmit} className="space-y-4 pt-2">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Nome completo <span className="text-red-600">*</span>
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                  <User className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={newMgrName}
+                  onChange={(e) => {
+                    setNewMgrName(e.target.value)
+                    if (mgrCreateErrors.name) setMgrCreateErrors((prev) => ({ ...prev, name: '' }))
+                  }}
+                  placeholder="Ex: Ana Gerente"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
+              </div>
+              {mgrCreateErrors.name && (
+                <p className="text-xs text-red-600 mt-1">{mgrCreateErrors.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                E-mail de Acesso <span className="text-red-600">*</span>
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <input
+                  type="email"
+                  required
+                  value={newMgrEmail}
+                  onChange={(e) => {
+                    setNewMgrEmail(e.target.value)
+                    if (mgrCreateErrors.email)
+                      setMgrCreateErrors((prev) => ({ ...prev, email: '' }))
+                  }}
+                  placeholder="gestor@exemplo.com"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
+              </div>
+              {mgrCreateErrors.email && (
+                <p className="text-xs text-red-600 mt-1">{mgrCreateErrors.email}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Senha Inicial <span className="text-red-600">*</span>
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <input
+                  type="password"
+                  required
+                  value={newMgrPassword}
+                  onChange={(e) => {
+                    setNewMgrPassword(e.target.value)
+                    if (mgrCreateErrors.password)
+                      setMgrCreateErrors((prev) => ({ ...prev, password: '' }))
+                  }}
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
+              </div>
+              {mgrCreateErrors.password && (
+                <p className="text-xs text-red-600 mt-1">{mgrCreateErrors.password}</p>
+              )}
+            </div>
+
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCreateMgrModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs order-2 sm:order-1 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={creatingMgr}
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
+              >
+                {creatingMgr ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Cadastrando...</span>
+                  </>
+                ) : (
+                  <span>Criar e Vincular Gestor</span>
+                )}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {/* Edit Manager Modal */}
+      <Dialog open={editMgrModalOpen} onOpenChange={setEditMgrModalOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
+              <Pencil className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-black text-slate-900">Editar Gestor</DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Atualize as informações cadastrais de <strong>{editingMgr?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveEditMgr} className="space-y-4 pt-2">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Nome completo <span className="text-red-600">*</span>
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                  <User className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={editMgrName}
+                  onChange={(e) => setEditMgrName(e.target.value)}
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
+              </div>
+              {mgrEditErrors.name && (
+                <p className="text-xs text-red-600 mt-1">{mgrEditErrors.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                E-mail de Acesso <span className="text-red-600">*</span>
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <input
+                  type="email"
+                  required
+                  value={editMgrEmail}
+                  onChange={(e) => setEditMgrEmail(e.target.value)}
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
+              </div>
+              {mgrEditErrors.email && (
+                <p className="text-xs text-red-600 mt-1">{mgrEditErrors.email}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Nova Senha{' '}
+                <span className="text-slate-400 font-normal">
+                  (deixe em branco para não alterar)
+                </span>
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <input
+                  type="password"
+                  value={editMgrPassword}
+                  onChange={(e) => setEditMgrPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
+              </div>
+              {mgrEditErrors.password && (
+                <p className="text-xs text-red-600 mt-1">{mgrEditErrors.password}</p>
+              )}
+            </div>
+
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditMgrModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs order-2 sm:order-1 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={savingMgrEdit}
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50 cursor-pointer"
+              >
+                {savingMgrEdit ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Salvando...</span>
+                  </>
+                ) : (
+                  <span>Salvar Alterações</span>
+                )}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {/* Duplicate Manager Modal */}
+      <Dialog open={dupMgrModalOpen} onOpenChange={setDupMgrModalOpen}>
+        <DialogContent className="max-w-sm rounded-3xl p-6 bg-white border border-slate-100">
+          <DialogHeader className="text-center sm:text-center">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+              <Copy className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-black text-slate-900 text-center">
+              Duplicar Gestor
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 text-center pt-1">
+              Conceda acesso de <strong>{selectedDupMgr?.name}</strong> a outra empresa sob sua
+              gestão.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                Empresa de destino
+              </label>
+
+              {availableOtherCompanies.length === 0 ? (
+                <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded-xl">
+                  Você gerencia apenas esta empresa no momento.
+                </p>
+              ) : (
+                <Select value={targetDupMgrCompId} onValueChange={setTargetDupMgrCompId}>
+                  <SelectTrigger className="w-full h-11 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
+                    <SelectValue placeholder="Selecione a empresa destino" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white rounded-2xl border border-slate-200">
+                    {availableOtherCompanies.map((c) => (
+                      <SelectItem
+                        key={c.id}
+                        value={c.id}
+                        className="text-xs font-medium cursor-pointer"
+                      >
+                        {c.name} ({c.city})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-2">
+            <button
+              type="button"
+              disabled={
+                duplicatingMgr || !targetDupMgrCompId || availableOtherCompanies.length === 0
+              }
+              onClick={handleConfirmDupMgr}
+              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+            >
+              {duplicatingMgr ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Vinculando...</span>
+                </>
+              ) : (
+                <span>Confirmar Vínculo</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDupMgrModalOpen(false)}
+              className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer"
+            >
+              Cancelar
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Remove Manager Modal */}
+      <Dialog open={removeMgrModalOpen} onOpenChange={setRemoveMgrModalOpen}>
+        <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">
+          <DialogHeader className="text-center sm:text-center">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-black text-slate-900 text-center">
+              Desvincular Gestor?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 text-center pt-1">
+              Tem certeza que deseja remover o acesso de <strong>{mgrToRemove?.name}</strong> a esta
+              empresa? O usuário não será excluído.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-4">
+            <button
+              type="button"
+              disabled={removingMgr}
+              onClick={handleConfirmRemoveMgr}
+              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               {removingMgr ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sim, desvincular'}
             </button>

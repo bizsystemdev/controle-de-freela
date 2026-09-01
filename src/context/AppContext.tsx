@@ -45,7 +45,7 @@ export interface Company {
   location: CompanyLocation
   initial: string
   gradient: string
-  colorTheme: 'red' | 'dark'
+  colorTheme: 'red' | 'dark' | 'indigo'
 }
 
 export interface UserProfile {
@@ -242,7 +242,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           location: compApi.location,
           initial: companyInitial(compApi.name),
           gradient: getCompanyGradient(compApi.id),
-          colorTheme: 'red',
+          colorTheme: 'indigo',
         }
         setSelectedCompany(comp)
         const checkInDate = new Date(status.checkInTime)

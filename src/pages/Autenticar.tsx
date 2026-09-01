@@ -186,7 +186,7 @@ export default function Autenticar() {
       <Dialog open={dialogMode === 'unsupported'} onOpenChange={(o) => !o && setDialogMode(null)}>
         <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">
           <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
               <ShieldAlert className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-extrabold text-slate-900 text-center">

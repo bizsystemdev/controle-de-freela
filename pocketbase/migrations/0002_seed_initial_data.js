@@ -16,7 +16,7 @@ migrate(
       adminUser.setEmail('admin@bizcheck.com')
       adminUser.setPassword('admin123')
       adminUser.setVerified(true)
-      adminUser.set('name', 'Administrador Biz Check')
+      adminUser.set('name', 'Administrador Freela Check')
       app.save(adminUser)
     }
 

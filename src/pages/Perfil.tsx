@@ -185,15 +185,15 @@ export default function Perfil() {
           <button
             type="button"
             onClick={() => setShowLogoutDialog(true)}
-            className="w-full p-4 flex items-center justify-between text-left hover:bg-red-50/50 transition-colors active:bg-red-50"
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-indigo-50/50 transition-colors active:bg-indigo-50"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                 <LogOut className="w-4 h-4" />
               </div>
-              <span className="text-sm font-semibold text-red-600">Sair da conta</span>
+              <span className="text-sm font-semibold text-indigo-600">Sair da conta</span>
             </div>
-            <ChevronRight className="w-4 h-4 text-red-300" />
+            <ChevronRight className="w-4 h-4 text-indigo-300" />
           </button>
         </div>
       </div>
@@ -207,7 +207,7 @@ export default function Perfil() {
       <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <DialogContent className="max-w-xs rounded-3xl p-6 bg-white border border-slate-100">
           <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
               <LogOut className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-extrabold text-slate-900 text-center">
@@ -223,7 +223,7 @@ export default function Perfil() {
             <button
               type="button"
               onClick={handleLogoutConfirm}
-              className="w-full h-12 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-sm shadow-md shadow-red-600/20 transition-all flex items-center justify-center"
+              className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-sm shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center"
             >
               Sim, sair agora
             </button>

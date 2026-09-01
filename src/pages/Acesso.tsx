@@ -111,7 +111,7 @@ export default function Acesso() {
           <div
             className={`relative flex items-center rounded-2xl border-2 bg-slate-50/60 transition-all duration-200 ${
               hasError || authError
-                ? 'border-red-500 bg-red-50/30 animate-shake ring-4 ring-red-500/10'
+                ? 'border-indigo-500 bg-indigo-50/30 animate-shake ring-4 ring-indigo-500/10'
                 : isValid
                   ? 'border-indigo-600 bg-white ring-4 ring-indigo-600/10'
                   : 'border-slate-200 focus-within:border-indigo-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-600/10'
@@ -121,7 +121,7 @@ export default function Acesso() {
               <Phone
                 className={`w-5 h-5 transition-colors ${
                   hasError || authError
-                    ? 'text-red-500'
+                    ? 'text-indigo-500'
                     : isValid
                       ? 'text-indigo-600'
                       : 'text-slate-400'
@@ -153,7 +153,7 @@ export default function Acesso() {
 
           {/* Validation Feedback */}
           {errorMessage ? (
-            <p className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-red-600 pt-1 animate-fade-in">
+            <p className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-indigo-600 pt-1 animate-fade-in">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>
             </p>

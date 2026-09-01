@@ -276,13 +276,13 @@ export const DebugPanel: React.FC = () => {
               <button
                 type="button"
                 onClick={handleClearAuthData}
-                className="w-full p-3 rounded-xl bg-red-950/40 border border-red-800/40 hover:bg-red-950/60 text-left flex items-center justify-between text-xs font-semibold text-red-300"
+                className="w-full p-3 rounded-xl bg-indigo-950/40 border border-indigo-800/40 hover:bg-indigo-950/60 text-left flex items-center justify-between text-xs font-semibold text-indigo-300"
               >
                 <div className="flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4 text-red-400" />
+                  <RotateCcw className="w-4 h-4 text-indigo-400" />
                   <span>Limpar Biometria & Resetar Sessão</span>
                 </div>
-                <Trash2 className="w-4 h-4 text-red-400" />
+                <Trash2 className="w-4 h-4 text-indigo-400" />
               </button>
             </div>
           )}
@@ -296,7 +296,7 @@ export const DebugPanel: React.FC = () => {
                     clearLogs()
                     setLogs([])
                   }}
-                  className="text-[10px] text-red-400 hover:text-red-300 font-bold flex items-center gap-1"
+                  className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1"
                 >
                   <Trash2 className="w-3 h-3" />
                   <span>Limpar Logs</span>
@@ -312,7 +312,7 @@ export const DebugPanel: React.FC = () => {
                       key={i}
                       className={`p-2 rounded-lg ${
                         l.level === 'error'
-                          ? 'bg-red-950/60 text-red-300 border border-red-800/40'
+                          ? 'bg-rose-950/60 text-rose-300 border border-rose-800/40'
                           : l.level === 'warn'
                             ? 'bg-amber-950/60 text-amber-300 border border-amber-800/40'
                             : 'bg-slate-800/60 text-slate-300'
