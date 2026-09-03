@@ -1312,21 +1312,36 @@ export async function createCompanyManager(
         }
 
         let user
+        const isGerente = payload.profile === 'gerente'
+        const generatedToken =
+          Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+        const tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        const userPassword =
+          payload.password || 'Pass@' + Math.random().toString(36).substring(2, 10) + '!'
+
         try {
           const existing = await pb
             .collection('users')
             .getFirstListItem(`email = "${payload.email}"`)
           user = existing
-          if (payload.name) {
-            await pb.collection('users').update(user.id, { name: payload.name })
-          }
+          await pb.collection('users').update(user.id, {
+            name: payload.name || user.name,
+            profile: payload.profile || (isGerente ? 'gerente' : 'gestor'),
+            invite_token: generatedToken,
+            invite_status: 'pending',
+            invite_expires: tokenExpires,
+          })
         } catch {
           user = await pb.collection('users').create({
             email: payload.email,
-            password: payload.password || 'Skip@Pass',
-            passwordConfirm: payload.password || 'Skip@Pass',
+            password: userPassword,
+            passwordConfirm: userPassword,
             name: payload.name,
             verified: true,
+            profile: payload.profile || (isGerente ? 'gerente' : 'gestor'),
+            invite_token: generatedToken,
+            invite_status: 'pending',
+            invite_expires: tokenExpires,
           })
         }
 
@@ -1341,18 +1356,15 @@ export async function createCompanyManager(
           const lm = await pb.collection('license_managers').create({
             license_id: licenseId,
             user_id: user.id,
-            role: payload.role || 'owner',
+            role: payload.role || (isGerente ? 'viewer' : 'owner'),
           })
           lmId = lm.id
         }
 
-        const isGerente = payload.profile === 'gerente'
-        const inviteToken = isGerente ? Math.random().toString(36).substring(2, 18) : undefined
-
         return {
           success: true,
-          inviteToken,
-          inviteLink: inviteToken ? `/admin/convite?token=${inviteToken}` : undefined,
+          inviteToken: generatedToken,
+          inviteLink: `/admin/convite?token=${generatedToken}`,
           manager: {
             id: user.id,
             licenseManagerId: lmId,
@@ -1361,7 +1373,7 @@ export async function createCompanyManager(
             email: user.email,
             role: payload.role || (isGerente ? 'viewer' : 'owner'),
             profile: payload.profile || (isGerente ? 'gerente' : 'gestor'),
-            inviteToken,
+            inviteToken: generatedToken,
             created: user.created,
           },
         }

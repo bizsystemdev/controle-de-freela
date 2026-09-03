@@ -70,9 +70,7 @@ export const AdminLayout: React.FC = () => {
 
   // Breadcrumbs generator
   const getBreadcrumbs = () => {
-    const crumbs = isGerente
-      ? []
-      : [{ label: 'Dashboard', path: '/admin' }]
+    const crumbs = isGerente ? [] : [{ label: 'Dashboard', path: '/admin' }]
 
     if (currentCompanyId) {
       const matchedCompany = managerCompanies.find((c) => c.id === currentCompanyId)

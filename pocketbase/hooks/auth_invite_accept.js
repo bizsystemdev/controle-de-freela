@@ -39,7 +39,8 @@ routerAdd('POST', '/api/auth/invite/accept', (e) => {
     60 * 60 * 24 * 7,
   )
 
-  const userProfile = user.getString('profile') || 'gerente'
+  const userProfile = user.getString('profile') || 'gestor'
+  const targetRole = userProfile === 'gerente' ? 'viewer' : 'owner'
 
   return e.json(200, {
     success: true,
@@ -49,7 +50,7 @@ routerAdd('POST', '/api/auth/invite/accept', (e) => {
       id: user.id,
       name: user.getString('name'),
       email: user.getString('email'),
-      role: 'viewer',
+      role: targetRole,
       profile: userProfile,
     },
   })

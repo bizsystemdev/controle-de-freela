@@ -1,5 +1,7 @@
-routerAdd('POST', '/api/admin/freelancers/:id/duplicate', (e) => {
-  const freelancerId = String(e.requestInfo().pathParams['id'] || '').trim()
+routerAdd('POST', '/api/admin/freelancers/{id}/duplicate', (e) => {
+  const freelancerId = String(
+    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
+  ).trim()
   const body = e.requestInfo().body || {}
   const singleTargetId = String(body.targetCompanyId || body.companyId || '').trim()
   const rawTargetIds = Array.isArray(body.targetCompanyIds) ? body.targetCompanyIds : []

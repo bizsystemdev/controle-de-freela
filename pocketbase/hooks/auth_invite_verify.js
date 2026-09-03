@@ -54,7 +54,7 @@ routerAdd('GET', '/api/auth/invite/verify', (e) => {
       id: user.id,
       name: user.getString('name'),
       email: user.getString('email'),
-      profile: user.getString('profile') || 'gerente',
+      profile: user.getString('profile') || 'gestor',
       inviteStatus: user.getString('invite_status'),
     },
     companies: companiesList,

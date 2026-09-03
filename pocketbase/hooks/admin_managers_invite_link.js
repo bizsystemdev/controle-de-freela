@@ -1,5 +1,7 @@
-routerAdd('POST', '/api/admin/managers/:id/invite-link', (e) => {
-  const managerId = String(e.requestInfo().pathParams['id'] || '').trim()
+routerAdd('POST', '/api/admin/managers/{id}/invite-link', (e) => {
+  const managerId = String(
+    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
+  ).trim()
 
   if (!managerId) {
     return e.json(400, { error: 'ID do usuário obrigatório.' })

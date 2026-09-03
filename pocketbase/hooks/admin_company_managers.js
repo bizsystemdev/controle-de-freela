@@ -1,5 +1,7 @@
-routerAdd('GET', '/api/admin/company/:id/managers', (e) => {
-  const companyId = String(e.requestInfo().pathParams['id'] || '').trim()
+routerAdd('GET', '/api/admin/company/{id}/managers', (e) => {
+  const companyId = String(
+    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
+  ).trim()
 
   if (!companyId) {
     return e.json(400, { error: 'ID da empresa obrigatório.' })

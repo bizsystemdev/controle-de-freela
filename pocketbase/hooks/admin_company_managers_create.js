@@ -1,5 +1,7 @@
-routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
-  const companyId = String(e.requestInfo().pathParams['id'] || '').trim()
+routerAdd('POST', '/api/admin/company/{id}/managers', (e) => {
+  const companyId = String(
+    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
+  ).trim()
   const body = e.requestInfo().body || {}
 
   if (!companyId) {
@@ -26,15 +28,10 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
     return e.json(400, { error: 'E-mail é inválido.' })
   }
 
-  // Se for gerente, senha inicial pode ser aleatória / temporária para ser definida pelo link de convite
-  if (!isGerente) {
-    if (!password || password.length < 6) {
-      return e.json(400, { error: 'Senha deve ter no mínimo 6 caracteres.' })
-    }
-  } else {
-    if (!password) {
-      password = 'G-' + $security.randomString(16) + 'A1!'
-    }
+  // Para qualquer perfil (gestor ou gerente), se a senha não foi fornecida, geramos uma temporária segura
+  // permitindo que o usuário defina sua própria senha através do link de convite gerado.
+  if (!password || password.length < 6) {
+    password = (isGerente ? 'G-' : 'M-') + $security.randomString(16) + 'A1!'
   }
 
   const role = isGerente ? 'viewer' : String(body.role || 'owner').trim()
@@ -72,14 +69,11 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
     }
   }
 
-  // 2. Find or create user
+  // 2. Find or create user and generate invite token for ANY profile (gestor or gerente)
   let user
   let isExisting = false
-  let inviteToken = ''
-
-  if (isGerente) {
-    inviteToken = $security.randomString(32)
-  }
+  const inviteToken = $security.randomString(32)
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
   try {
     user = $app.findAuthRecordByEmail('_pb_users_auth_', email)
@@ -88,12 +82,9 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
       user.set('name', name)
     }
     user.set('profile', profile)
-    if (isGerente) {
-      user.set('invite_token', inviteToken)
-      user.set('invite_status', 'pending')
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      user.set('invite_expires', expiresAt)
-    }
+    user.set('invite_token', inviteToken)
+    user.set('invite_status', 'pending')
+    user.set('invite_expires', expiresAt)
     $app.save(user)
   } catch (_) {
     const userCol = $app.findCollectionByNameOrId('_pb_users_auth_')
@@ -103,12 +94,9 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
     user.setVerified(true)
     user.set('name', name)
     user.set('profile', profile)
-    if (isGerente) {
-      user.set('invite_token', inviteToken)
-      user.set('invite_status', 'pending')
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      user.set('invite_expires', expiresAt)
-    }
+    user.set('invite_token', inviteToken)
+    user.set('invite_status', 'pending')
+    user.set('invite_expires', expiresAt)
     $app.save(user)
   }
 
@@ -133,12 +121,8 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
     $app.save(lmRecord)
   }
 
-  // Link de convite apenas gerado/retornado para o gerente (NUNCA enviar e-mail)
-  let inviteLink = ''
-  if (isGerente && inviteToken) {
-    inviteLink = '/admin/convite?token=' + inviteToken
-  }
-
+  // Link de convite gerado para QUALQUER perfil (gestor ou gerente) para definição de senha
+  const inviteLink = '/admin/convite?token=' + inviteToken
   const successLabel = isGerente ? 'Gerente' : 'Gestor'
 
   return e.json(200, {
@@ -146,8 +130,8 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
     message: isExisting
       ? successLabel + ' existente vinculado à empresa!'
       : successLabel + ' cadastrado e vinculado com sucesso!',
-    inviteToken: inviteToken || undefined,
-    inviteLink: inviteLink || undefined,
+    inviteToken: inviteToken,
+    inviteLink: inviteLink,
     manager: {
       id: user.id,
       licenseManagerId: lmRecord.id,
