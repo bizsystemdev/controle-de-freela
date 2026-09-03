@@ -1,10 +1,34 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp, type Company } from '@/context/AppContext'
-import { ChevronRight, CheckCircle2, Building2, AlertTriangle, ArrowLeft } from 'lucide-react'
+import {
+  ChevronRight,
+  CheckCircle2,
+  Building2,
+  AlertTriangle,
+  ArrowLeft,
+  Loader2,
+} from 'lucide-react'
 
 export default function Empresas() {
   const navigate = useNavigate()
-  const { companies, selectedCompany, setSelectedCompany, authMessage } = useApp()
+  const { companies, selectedCompany, setSelectedCompany, authMessage, loadUserCompanies } =
+    useApp()
+  const [isLoadingCompanies, setIsLoadingCompanies] = useState(false)
+
+  // If companies list is empty on mount, attempt to reload from backend
+  useEffect(() => {
+    if (companies.length === 0) {
+      let isMounted = true
+      setIsLoadingCompanies(true)
+      loadUserCompanies().finally(() => {
+        if (isMounted) setIsLoadingCompanies(false)
+      })
+      return () => {
+        isMounted = false
+      }
+    }
+  }, [companies.length, loadUserCompanies])
 
   const handleSelectCompany = (company: Company) => {
     setSelectedCompany(company)
@@ -33,8 +57,15 @@ export default function Empresas() {
           Escolha a unidade onde você realizará o registro de ponto.
         </p>
 
-        {/* Company Cards List */}
-        {companies.length > 0 ? (
+        {/* Loading state */}
+        {isLoadingCompanies ? (
+          <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-sm my-6">
+            <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
+            <p className="text-sm font-semibold text-slate-700">
+              Carregando suas empresas vinculadas...
+            </p>
+          </div>
+        ) : companies.length > 0 ? (
           <div className="flex flex-col gap-3.5">
             {companies.map((comp) => {
               const isCurrent = selectedCompany?.id === comp.id

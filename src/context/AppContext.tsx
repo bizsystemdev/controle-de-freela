@@ -14,7 +14,7 @@ import {
   registerAttendance,
   type AttendanceStatusResponse,
 } from '@/services/attendance'
-import { getCompany } from '@/services/companies'
+import { getCompany, getFreelancerCompanies } from '@/services/companies'
 import { storage, STORAGE_KEYS } from '@/lib/storage'
 import {
   registerCredential,
@@ -110,6 +110,7 @@ interface AppContextType {
   submitPhone: (phone: string) => Promise<void>
   startBiometricFlow: () => Promise<void>
   restoreSession: () => Promise<void>
+  loadUserCompanies: (targetUserId?: string) => Promise<Company[]>
   performCheckIn: (company: Company) => Promise<CheckInResult>
   performCheckOut: () => Promise<CheckOutResult>
   loginAsManager: (email: string, pass: string) => Promise<void>
@@ -296,34 +297,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const storedUserId = storage.get(STORAGE_KEYS.userId)
       const storedUserName = storage.get(STORAGE_KEYS.userName)
 
-      if (!storedCredId || !storedUserId || !storedUserName) {
-        refreshStoredCredential()
+      refreshStoredCredential()
+
+      if (!storedUserId) {
         setRole('freelancer')
-        setAuthState(storedCredId ? 'needs-biometric' : 'needs-phone')
+        setAuthState('needs-phone')
         return
       }
 
-      setUser({
-        id: storedUserId,
-        name: storedUserName,
-        phone: storage.get(STORAGE_KEYS.userPhone) || '',
-        maskedPhone: maskPhone(storage.get(STORAGE_KEYS.userPhone) || ''),
-        initials:
-          storedUserName
-            .trim()
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((p) => p[0])
-            .join('')
-            .toUpperCase() || 'U',
-      })
-      setHasStoredCredential(true)
+      // Check if there is an active/open check-in for this user
+      let openStatus: AttendanceStatusResponse | null = null
+      try {
+        openStatus = await getAttendanceStatus(storedUserId)
+      } catch (err) {
+        logWarn('restore', 'Falha ao checar status de presença no restoreSession', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+
+      const hasOpenCheckIn = !!(
+        openStatus?.active &&
+        openStatus.empresaId &&
+        openStatus.checkInTime
+      )
+
+      if (!hasOpenCheckIn) {
+        // Regra do usuário: SEM check-in aberto -> SEMPRE cair na tela inicial /acesso
+        // Limpar dados temporários de sessão de trabalho e manter apenas o telefone salvo
+        setRole('freelancer')
+        setUser(null)
+        setApiUser(null)
+        setCompanies([])
+        setSelectedCompany(null)
+        setPresenceStatus('awaiting')
+        setCurrentRecord(null)
+        setAuthState('needs-phone')
+        return
+      }
+
+      // Usuário COM check-in aberto confirmado no backend:
+      // Pode seguir direto para a autenticação biométrica e posteriormente check-out
+      if (storedUserName) {
+        setUser({
+          id: storedUserId,
+          name: storedUserName,
+          phone: storage.get(STORAGE_KEYS.userPhone) || '',
+          maskedPhone: maskPhone(storage.get(STORAGE_KEYS.userPhone) || ''),
+          initials:
+            storedUserName
+              .trim()
+              .split(/\s+/)
+              .slice(0, 2)
+              .map((p) => p[0])
+              .join('')
+              .toUpperCase() || 'U',
+        })
+      }
+
+      // Carregar empresas vinculadas de forma resiliente
+      try {
+        const compsData = await getFreelancerCompanies(storedUserId)
+        const mappedComps = compsData.map((c) => ({
+          id: c.id,
+          name: c.name,
+          city: c.cidade,
+          state: c.estado,
+          address: c.endereco,
+          location: c.location,
+          initial: companyInitial(c.name),
+          gradient: getCompanyGradient(c.id),
+          colorTheme: 'indigo' as const,
+        }))
+        setCompanies(mappedComps)
+      } catch (compsErr) {
+        logWarn('restore', 'Falha ao carregar empresas vinculadas no restoreSession', {
+          error: compsErr instanceof Error ? compsErr.message : String(compsErr),
+        })
+      }
+
+      // Aplicar status de check-in aberto
+      if (openStatus) {
+        await applyAttendanceStatus(openStatus)
+      }
+
+      setHasStoredCredential(!!storedCredId)
       setRole('freelancer')
       setAuthState('needs-biometric')
     } finally {
       setIsAuthBusy(false)
     }
-  }, [refreshStoredCredential])
+  }, [applyAttendanceStatus, refreshStoredCredential])
 
   // First-mount bootstrap
   useEffect(() => {
@@ -342,10 +405,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await validatePhone(phone)
       setApiUser(res.user)
       setUser(toUserProfile(res.user))
-      setCompanies(res.companies.map(mapCompany))
+      const mappedComps = res.companies.map(mapCompany)
+      setCompanies(mappedComps)
       setRole('freelancer')
 
-      if (res.companies.length === 0) {
+      if (mappedComps.length === 1) {
+        setSelectedCompany(mappedComps[0])
+      } else if (mappedComps.length === 0) {
         setAuthMessage(
           'Nenhuma empresa vinculada ao seu telefone. Verifique com a empresa contratante.',
         )
@@ -374,6 +440,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsAuthBusy(false)
     }
   }, [])
+
+  // ----- Helper to load/refresh freelancer companies -----------------------
+  const loadUserCompanies = useCallback(
+    async (targetUserId?: string): Promise<Company[]> => {
+      const uid = targetUserId || apiUser?.id || user?.id || storage.get(STORAGE_KEYS.userId) || ''
+      if (!uid) return []
+
+      try {
+        const compsData = await getFreelancerCompanies(uid)
+        const mapped: Company[] = compsData.map((c) => ({
+          id: c.id,
+          name: c.name,
+          city: c.cidade,
+          state: c.estado,
+          address: c.endereco,
+          location: c.location,
+          initial: companyInitial(c.name),
+          gradient: getCompanyGradient(c.id),
+          colorTheme: 'indigo',
+        }))
+        setCompanies(mapped)
+        return mapped
+      } catch (err) {
+        logWarn('companies', 'Falha ao buscar empresas vinculadas', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+        return []
+      }
+    },
+    [apiUser, user],
+  )
 
   // ----- Biometric register / login (Freelancer) ----------------------------
   const startBiometricFlow = useCallback(async () => {
@@ -425,6 +522,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setApiUser((prev) => (prev ? { ...prev, deviceId: reg.deviceId } : prev))
       }
 
+      // Always guarantee linked companies are loaded
+      let currentComps = companies
+      if (currentComps.length === 0 && userId) {
+        currentComps = await loadUserCompanies(userId)
+      }
+
       try {
         const status = await getAttendanceStatus(userId)
         await applyAttendanceStatus(status)
@@ -432,6 +535,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logWarn('auth', 'Falha ao buscar status de presença, prosseguindo com estado padrão', {
           error: statusErr instanceof Error ? statusErr.message : String(statusErr),
         })
+      }
+
+      // Auto-select company if only 1 and none selected
+      if (currentComps.length === 1 && !selectedCompany) {
+        setSelectedCompany(currentComps[0])
       }
 
       setRole('freelancer')
@@ -445,7 +553,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsAuthBusy(false)
     }
-  }, [apiUser, applyAttendanceStatus, refreshStoredCredential])
+  }, [
+    apiUser,
+    applyAttendanceStatus,
+    companies,
+    loadUserCompanies,
+    refreshStoredCredential,
+    selectedCompany,
+  ])
 
   // ----- Manager login -----------------------------------------------------
   const loginAsManager = useCallback(async (email: string, pass: string) => {
@@ -732,6 +847,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         submitPhone,
         startBiometricFlow,
         restoreSession,
+        loadUserCompanies,
         performCheckIn,
         performCheckOut,
         loginAsManager,

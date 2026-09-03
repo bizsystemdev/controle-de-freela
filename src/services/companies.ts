@@ -75,3 +75,50 @@ export async function listActiveCompanies(): Promise<CompanyData[]> {
     throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao listar empresas.')
   }
 }
+
+/**
+ * Busca as empresas ativas vinculadas a um freelancer pelo seu ID
+ */
+export async function getFreelancerCompanies(freelancerId: string): Promise<CompanyData[]> {
+  if (!freelancerId) return []
+
+  try {
+    const fcs = await pb.collection('freelancer_companies').getFullList({
+      filter: `freelancer_id = "${freelancerId}" && active = true`,
+      expand: 'company_id',
+    })
+
+    const comps: CompanyData[] = []
+    for (const fc of fcs) {
+      const comp =
+        fc.expand?.company_id ||
+        (await pb
+          .collection('companies')
+          .getOne(fc.company_id)
+          .catch(() => null))
+
+      if (comp && comp.active !== false) {
+        comps.push({
+          id: comp.id,
+          name: comp.name,
+          cidade: comp.city || comp.cidade || '',
+          estado: comp.state || comp.estado || '',
+          endereco: comp.address || comp.endereco || '',
+          cep: comp.cep || '',
+          number: comp.number || '',
+          neighborhood: comp.neighborhood || comp.bairro || '',
+          cnpj: comp.cnpj || '',
+          location: {
+            lat: comp.lat || 0,
+            lng: comp.lng || 0,
+          },
+          active: true,
+        })
+      }
+    }
+    return comps
+  } catch (err: unknown) {
+    const pbErr = err as { data?: { error?: string }; message?: string }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao buscar empresas vinculadas.')
+  }
+}

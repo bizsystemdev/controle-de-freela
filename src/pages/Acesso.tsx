@@ -29,7 +29,9 @@ export default function Acesso() {
       inputRef.current.focus()
     }
   }, [])
-  // Redirect to biometric screen once phone is validated.
+
+  // Redirect to biometric screen only when phone was submitted in this flow (pendingPhone set)
+  // or user explicitly moved to needs-biometric
   useEffect(() => {
     if (authState === 'needs-biometric') {
       navigate('/autenticar')
