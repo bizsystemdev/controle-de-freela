@@ -1313,8 +1313,10 @@ export async function createCompanyManager(
 
         let user
         const isGerente = payload.profile === 'gerente'
+        const targetProfile = isGerente ? 'gerente' : 'gestor'
         const generatedToken =
           Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+        // PocketBase DateField armazena formato YYYY-MM-DD HH:MM:SS.sssZ ou ISO
         const tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
         const userPassword =
           payload.password && payload.password.length >= 8
@@ -1324,11 +1326,11 @@ export async function createCompanyManager(
         try {
           const existing = await pb
             .collection('users')
-            .getFirstListItem(`email = "${payload.email}"`)
+            .getFirstListItem(`email = "${payload.email.toLowerCase().trim()}"`)
           user = existing
           const updateData: Record<string, unknown> = {
             name: payload.name || user.name,
-            profile: payload.profile || (isGerente ? 'gerente' : 'gestor'),
+            profile: targetProfile,
             invite_token: generatedToken,
             invite_status: 'pending',
             invite_expires: tokenExpires,
@@ -1339,13 +1341,14 @@ export async function createCompanyManager(
           }
           await pb.collection('users').update(user.id, updateData)
         } catch {
+          // NÃO enviar 'verified: true' via client SDK: auth collections rejeitam com 400
+          // quando não-superuser tenta definir 'verified' no create
           user = await pb.collection('users').create({
-            email: payload.email,
+            email: payload.email.toLowerCase().trim(),
             password: userPassword,
             passwordConfirm: userPassword,
-            name: payload.name,
-            verified: true,
-            profile: payload.profile || (isGerente ? 'gerente' : 'gestor'),
+            name: payload.name.trim(),
+            profile: targetProfile,
             invite_token: generatedToken,
             invite_status: 'pending',
             invite_expires: tokenExpires,
