@@ -19,6 +19,7 @@ export default function Index() {
           navigate('/inicio')
         }
       } else if (authState === 'needs-biometric') {
+        alert('entrou aqui')
         navigate('/autenticar')
       } else if (authState !== 'loading') {
         navigate('/acesso')
