@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { createFreelancer } from '@/services/admin'
+import { createFreelancer, getAdminCompanies, type CompanyAdminItem } from '@/services/admin'
 import { getCompany, type CompanyData } from '@/services/companies'
 import { maskBrazilianPhone, isValidBrazilianPhone } from '@/lib/phoneMask'
 import { toast } from '@/hooks/use-toast'
@@ -14,6 +14,9 @@ import {
   Mail,
   FileText,
   Briefcase,
+  Building2,
+  CheckSquare,
+  Square,
 } from 'lucide-react'
 
 export default function AdminFreelancerNew() {
@@ -21,6 +24,8 @@ export default function AdminFreelancerNew() {
   const navigate = useNavigate()
 
   const [company, setCompany] = useState<CompanyData | null>(null)
+  const [managerCompanies, setManagerCompanies] = useState<CompanyAdminItem[]>([])
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>(id ? [id] : [])
   const [loadingCompany, setLoadingCompany] = useState(true)
 
   // Form fields
@@ -37,11 +42,17 @@ export default function AdminFreelancerNew() {
     if (!id) return
     async function load() {
       try {
-        const comp = await getCompany(id!)
+        const [comp, adminComps] = await Promise.all([getCompany(id!), getAdminCompanies()])
         setCompany(comp)
+        setManagerCompanies(adminComps)
+        // Ensure current company is selected by default
+        setSelectedCompanyIds((prev) => {
+          if (prev.includes(id!)) return prev
+          return [id!, ...prev]
+        })
       } catch {
         toast({
-          title: 'Empresa não encontrada',
+          title: 'Erro ao carregar dados da empresa',
           variant: 'destructive',
         })
       } finally {
@@ -72,6 +83,9 @@ export default function AdminFreelancerNew() {
     } else if (!isValidBrazilianPhone(phone)) {
       newErrors.phone = 'Informe um telefone celular válido com DDD.'
     }
+    if (selectedCompanyIds.length === 0) {
+      newErrors.companies = 'Selecione ao menos uma empresa para vincular o freelancer.'
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
@@ -82,6 +96,7 @@ export default function AdminFreelancerNew() {
     try {
       await createFreelancer({
         companyId: id,
+        companyIds: selectedCompanyIds,
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim() || undefined,
@@ -89,9 +104,15 @@ export default function AdminFreelancerNew() {
         roleTitle: roleTitle.trim() || undefined,
       })
 
+      const count = selectedCompanyIds.length
+      const feedbackDesc =
+        count === 1
+          ? `${name} foi vinculado à empresa ${company?.name || 'selecionada'}.`
+          : `${name} foi vinculado a ${count} empresas com sucesso.`
+
       toast({
         title: 'Freelancer cadastrado com sucesso!',
-        description: `${name} foi vinculado à empresa ${company?.name}.`,
+        description: feedbackDesc,
       })
       navigate(`/admin/empresa/${id}?tab=freelancers`)
     } catch (err) {
@@ -246,6 +267,155 @@ export default function AdminFreelancerNew() {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Seleção de Empresas (N:N freelancer_companies) */}
+          <div className="pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Empresas em que o freelancer irá trabalhar <span className="text-red-600">*</span>
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  Selecione todas as unidades do seu painel onde este profissional atuará.
+                </p>
+              </div>
+
+              {managerCompanies.length > 1 && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedCompanyIds.length === managerCompanies.length) {
+                        // Keep at least current company
+                        setSelectedCompanyIds(id ? [id] : [])
+                      } else {
+                        setSelectedCompanyIds(managerCompanies.map((c) => c.id))
+                      }
+                      if (errors.companies) {
+                        setErrors((prev) => ({ ...prev, companies: '' }))
+                      }
+                    }}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    {selectedCompanyIds.length === managerCompanies.length
+                      ? 'Desmarcar outras'
+                      : 'Selecionar todas'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCompanyIds(id ? [id] : [])
+                      if (errors.companies) {
+                        setErrors((prev) => ({ ...prev, companies: '' }))
+                      }
+                    }}
+                    className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    Apenas atual
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Lista de empresas com checkboxes */}
+            <div className="space-y-2 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200/80">
+              {loadingCompany ? (
+                <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                  <span>Carregando empresas disponíveis...</span>
+                </div>
+              ) : managerCompanies.length === 0 ? (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200">
+                  <div className="flex items-center gap-2.5">
+                    <Building2 className="w-4 h-4 text-indigo-600" />
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">
+                        {company?.name || 'Empresa atual'}
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        {company?.cidade
+                          ? `${company.cidade} - ${company.estado}`
+                          : 'Unidade ativa'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">
+                    Atual
+                  </span>
+                </div>
+              ) : (
+                managerCompanies.map((c) => {
+                  const isCurrent = c.id === id
+                  const isChecked = selectedCompanyIds.includes(c.id)
+                  return (
+                    <label
+                      key={c.id}
+                      className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                        isChecked
+                          ? 'bg-white border-indigo-300 shadow-sm ring-1 ring-indigo-500/10'
+                          : 'bg-white/60 border-slate-200/70 hover:bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedCompanyIds((prev) => [...prev, c.id])
+                            } else {
+                              setSelectedCompanyIds((prev) => prev.filter((item) => item !== c.id))
+                            }
+                            if (errors.companies) {
+                              setErrors((prev) => ({ ...prev, companies: '' }))
+                            }
+                          }}
+                          className="sr-only"
+                        />
+                        <div className="shrink-0 text-indigo-600">
+                          {isChecked ? (
+                            <CheckSquare className="w-5 h-5 text-indigo-600" />
+                          ) : (
+                            <Square className="w-5 h-5 text-slate-300" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">{c.name}</p>
+                          <p className="text-[11px] text-slate-500">
+                            {c.city
+                              ? `${c.city}${c.state ? ` - ${c.state}` : ''}`
+                              : 'Unidade cadastrada'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isCurrent && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/60 px-2 py-0.5 rounded-md">
+                            Atual
+                          </span>
+                        )}
+                        {isChecked && !isCurrent && (
+                          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                            Vinculada
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+            {errors.companies && (
+              <p className="text-xs text-red-600 mt-1.5 font-medium">{errors.companies}</p>
+            )}
+            <p className="text-[11px] text-slate-400 mt-1.5">
+              {selectedCompanyIds.length}{' '}
+              {selectedCompanyIds.length === 1 ? 'empresa selecionada' : 'empresas selecionadas'}. O
+              cadastro cria o vínculo automático em todas as empresas marcadas.
+            </p>
           </div>
 
           {/* Actions */}

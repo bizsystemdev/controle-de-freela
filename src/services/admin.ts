@@ -215,7 +215,8 @@ export interface AdminFreelancer {
 }
 
 export interface CreateFreelancerPayload {
-  companyId: string
+  companyId?: string
+  companyIds?: string[]
   name: string
   phone: string
   email?: string
@@ -827,13 +828,43 @@ export async function getCompanyFreelancers(companyId: string): Promise<AdminFre
 /**
  * Cadastra novo freelancer e vincula à empresa
  */
+export interface DuplicateFreelancerResult {
+  success: boolean
+  message: string
+  freelancerId?: string
+  targetCompanyIds?: string[]
+  targetCompanyNames?: string[]
+}
+
 export async function createFreelancer(
   payload: CreateFreelancerPayload,
-): Promise<{ success: boolean; freelancer: unknown }> {
+): Promise<{ success: boolean; freelancer: unknown; linkedCompanyIds?: string[] }> {
+  const targetIds: string[] = []
+  if (payload.companyId) {
+    targetIds.push(payload.companyId)
+  }
+  if (Array.isArray(payload.companyIds)) {
+    for (const cid of payload.companyIds) {
+      if (cid && !targetIds.includes(cid)) {
+        targetIds.push(cid)
+      }
+    }
+  }
+
+  const normalizedPayload = {
+    ...payload,
+    companyId: targetIds[0] || payload.companyId || '',
+    companyIds: targetIds,
+  }
+
   try {
-    const res = await pb.send<{ success: boolean; freelancer: unknown }>('/api/admin/freelancers', {
+    const res = await pb.send<{
+      success: boolean
+      freelancer: unknown
+      linkedCompanyIds?: string[]
+    }>('/api/admin/freelancers', {
       method: 'POST',
-      body: payload,
+      body: normalizedPayload,
     })
     return res
   } catch (err: unknown) {
@@ -870,25 +901,28 @@ export async function createFreelancer(
           })
         }
 
-        // Link to company
-        const fcCheck = await pb.collection('freelancer_companies').getList(1, 1, {
-          filter: `freelancer_id = "${fl.id}" && company_id = "${payload.companyId}"`,
-        })
-        if (fcCheck.items.length === 0) {
-          await pb.collection('freelancer_companies').create({
-            freelancer_id: fl.id,
-            company_id: payload.companyId,
-            active: true,
+        // Link to all target companies
+        for (const cId of targetIds) {
+          const fcCheck = await pb.collection('freelancer_companies').getList(1, 1, {
+            filter: `freelancer_id = "${fl.id}" && company_id = "${cId}"`,
           })
-        } else if (!fcCheck.items[0].active) {
-          await pb.collection('freelancer_companies').update(fcCheck.items[0].id, {
-            active: true,
-          })
+          if (fcCheck.items.length === 0) {
+            await pb.collection('freelancer_companies').create({
+              freelancer_id: fl.id,
+              company_id: cId,
+              active: true,
+            })
+          } else if (!fcCheck.items[0].active) {
+            await pb.collection('freelancer_companies').update(fcCheck.items[0].id, {
+              active: true,
+            })
+          }
         }
 
         return {
           success: true,
           freelancer: fl,
+          linkedCompanyIds: targetIds,
         }
       } catch (fallbackErr: unknown) {
         const fbErr = fallbackErr as { message?: string }
@@ -900,18 +934,31 @@ export async function createFreelancer(
 }
 
 /**
- * Duplica / vincula freelancer existente a outra empresa
+ * Duplica / vincula freelancer existente a uma ou mais outras empresas
  */
 export async function duplicateFreelancer(
   freelancerId: string,
-  targetCompanyId: string,
-): Promise<{ success: boolean; message: string }> {
+  targetCompanyIds: string | string[],
+): Promise<DuplicateFreelancerResult> {
+  const ids: string[] = Array.isArray(targetCompanyIds)
+    ? targetCompanyIds.filter(Boolean)
+    : targetCompanyIds
+      ? [targetCompanyIds]
+      : []
+
+  if (ids.length === 0) {
+    throw new Error('Nenhuma empresa de destino fornecida.')
+  }
+
   try {
-    const res = await pb.send<{ success: boolean; message: string }>(
+    const res = await pb.send<DuplicateFreelancerResult>(
       `/api/admin/freelancers/${encodeURIComponent(freelancerId)}/duplicate`,
       {
         method: 'POST',
-        body: { targetCompanyId },
+        body: {
+          targetCompanyId: ids[0],
+          targetCompanyIds: ids,
+        },
       },
     )
     return res
@@ -923,23 +970,40 @@ export async function duplicateFreelancer(
       pbErr?.message?.includes('File not found')
     ) {
       try {
-        const fcCheck = await pb.collection('freelancer_companies').getList(1, 1, {
-          filter: `freelancer_id = "${freelancerId}" && company_id = "${targetCompanyId}"`,
-        })
-        if (fcCheck.items.length === 0) {
-          await pb.collection('freelancer_companies').create({
-            freelancer_id: freelancerId,
-            company_id: targetCompanyId,
-            active: true,
+        const linkedNames: string[] = []
+        for (const tId of ids) {
+          const fcCheck = await pb.collection('freelancer_companies').getList(1, 1, {
+            filter: `freelancer_id = "${freelancerId}" && company_id = "${tId}"`,
           })
-        } else if (!fcCheck.items[0].active) {
-          await pb.collection('freelancer_companies').update(fcCheck.items[0].id, {
-            active: true,
-          })
+          if (fcCheck.items.length === 0) {
+            await pb.collection('freelancer_companies').create({
+              freelancer_id: freelancerId,
+              company_id: tId,
+              active: true,
+            })
+          } else if (!fcCheck.items[0].active) {
+            await pb.collection('freelancer_companies').update(fcCheck.items[0].id, {
+              active: true,
+            })
+          }
+          try {
+            const comp = await pb.collection('companies').getOne(tId)
+            linkedNames.push(comp.name)
+          } catch {
+            linkedNames.push(tId)
+          }
         }
+        const message =
+          linkedNames.length === 1
+            ? `Freelancer vinculado com sucesso à empresa ${linkedNames[0]}.`
+            : `Freelancer vinculado com sucesso a ${linkedNames.length} empresas (${linkedNames.join(', ')}).`
+
         return {
           success: true,
-          message: 'Freelancer vinculado com sucesso à empresa selecionada.',
+          message,
+          freelancerId,
+          targetCompanyIds: ids,
+          targetCompanyNames: linkedNames,
         }
       } catch (fallbackErr: unknown) {
         const fbErr = fallbackErr as { message?: string }

@@ -43,13 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { CheckSquare, Square } from 'lucide-react'
 
 export default function AdminFreelancersList() {
   const { id } = useParams<{ id: string }>()
@@ -64,7 +58,7 @@ export default function AdminFreelancersList() {
   // Duplicate modal state
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false)
   const [selectedFreelancer, setSelectedFreelancer] = useState<AdminFreelancer | null>(null)
-  const [targetCompanyId, setTargetCompanyId] = useState('')
+  const [targetCompanyIds, setTargetCompanyIds] = useState<string[]>([])
   const [duplicating, setDuplicating] = useState(false)
 
   // Edit modal state
@@ -195,17 +189,17 @@ export default function AdminFreelancersList() {
 
   const handleOpenDuplicate = (fl: AdminFreelancer) => {
     setSelectedFreelancer(fl)
-    // Pre-select first available other company
-    const other = allCompanies.find((c) => c.id !== id)
-    setTargetCompanyId(other ? other.id : '')
+    // Pre-select all other available companies or the first one
+    const others = allCompanies.filter((c) => c.id !== id)
+    setTargetCompanyIds(others.length > 0 ? [others[0].id] : [])
     setDuplicateModalOpen(true)
   }
 
   const handleConfirmDuplicate = async () => {
-    if (!selectedFreelancer || !targetCompanyId) return
+    if (!selectedFreelancer || targetCompanyIds.length === 0) return
     setDuplicating(true)
     try {
-      const res = await duplicateFreelancer(selectedFreelancer.id, targetCompanyId)
+      const res = await duplicateFreelancer(selectedFreelancer.id, targetCompanyIds)
       toast({
         title: 'Freelancer vinculado com sucesso!',
         description: res.message,
@@ -742,7 +736,7 @@ export default function AdminFreelancersList() {
 
       {/* Duplicate Freelancer Modal */}
       <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
-        <DialogContent className="max-w-sm rounded-3xl p-6 bg-white border border-slate-100">
+        <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
           <DialogHeader className="text-center sm:text-center">
             <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
               <Copy className="w-6 h-6" />
@@ -751,61 +745,129 @@ export default function AdminFreelancersList() {
               Duplicar Freelancer
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-slate-500 text-center pt-1">
-              Vincule <strong>{selectedFreelancer?.name}</strong> a outra unidade que você gerencia.
+              Selecione as outras unidades sob sua gestão onde deseja disponibilizar{' '}
+              <strong>{selectedFreelancer?.name}</strong>.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Empresa de destino
+          <div className="space-y-3 py-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Empresas de destino
               </label>
-
-              {availableTargetCompanies.length === 0 ? (
-                <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded-xl">
-                  Você gerencia apenas esta empresa no momento.
-                </p>
-              ) : (
-                <Select value={targetCompanyId} onValueChange={setTargetCompanyId}>
-                  <SelectTrigger className="w-full h-11 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
-                    <SelectValue placeholder="Selecione a empresa destino" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white rounded-2xl border border-slate-200">
-                    {availableTargetCompanies.map((c) => (
-                      <SelectItem
-                        key={c.id}
-                        value={c.id}
-                        className="text-xs font-medium cursor-pointer"
-                      >
-                        {c.name} ({c.city})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {availableTargetCompanies.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (targetCompanyIds.length === availableTargetCompanies.length) {
+                      setTargetCompanyIds([])
+                    } else {
+                      setTargetCompanyIds(availableTargetCompanies.map((c) => c.id))
+                    }
+                  }}
+                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  {targetCompanyIds.length === availableTargetCompanies.length
+                    ? 'Desmarcar todas'
+                    : 'Selecionar todas'}
+                </button>
               )}
             </div>
+
+            {availableTargetCompanies.length === 0 ? (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 p-3.5 rounded-2xl">
+                Você gerencia apenas esta empresa no momento. Cadastre novas empresas no painel para
+                duplicar colaboradores.
+              </p>
+            ) : (
+              <div className="max-h-60 overflow-y-auto space-y-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80">
+                {availableTargetCompanies.map((c) => {
+                  const isChecked = targetCompanyIds.includes(c.id)
+                  return (
+                    <label
+                      key={c.id}
+                      className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                        isChecked
+                          ? 'bg-white border-indigo-300 shadow-sm ring-1 ring-indigo-500/10'
+                          : 'bg-white/60 border-slate-200/70 hover:bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setTargetCompanyIds((prev) => [...prev, c.id])
+                            } else {
+                              setTargetCompanyIds((prev) => prev.filter((item) => item !== c.id))
+                            }
+                          }}
+                          className="sr-only"
+                        />
+                        <div className="shrink-0 text-indigo-600">
+                          {isChecked ? (
+                            <CheckSquare className="w-5 h-5 text-indigo-600" />
+                          ) : (
+                            <Square className="w-5 h-5 text-slate-300" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">{c.name}</p>
+                          <p className="text-[11px] text-slate-500">
+                            {c.city
+                              ? `${c.city}${c.state ? ` - ${c.state}` : ''}`
+                              : 'Unidade gerenciada'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0">
+                        {isChecked && (
+                          <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                            Selecionada
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            <p className="text-[11px] text-slate-400">
+              {targetCompanyIds.length}{' '}
+              {targetCompanyIds.length === 1 ? 'unidade selecionada' : 'unidades selecionadas'}. O
+              freelancer será vinculado a todas de uma só vez.
+            </p>
           </div>
 
           <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-2">
             <button
               type="button"
-              disabled={duplicating || !targetCompanyId || availableTargetCompanies.length === 0}
+              disabled={
+                duplicating ||
+                targetCompanyIds.length === 0 ||
+                availableTargetCompanies.length === 0
+              }
               onClick={handleConfirmDuplicate}
-              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-md shadow-indigo-600/20"
             >
               {duplicating ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Vinculando...</span>
+                  <span>Vinculando empresas...</span>
                 </>
               ) : (
-                <span>Confirmar Vínculo</span>
+                <span>
+                  Vincular a {targetCompanyIds.length}{' '}
+                  {targetCompanyIds.length === 1 ? 'empresa' : 'empresas'}
+                </span>
               )}
             </button>
             <button
               type="button"
               onClick={() => setDuplicateModalOpen(false)}
-              className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs"
+              className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer"
             >
               Cancelar
             </button>
