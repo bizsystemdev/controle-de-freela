@@ -1243,7 +1243,14 @@ export async function getCompanyManagers(companyId: string): Promise<AdminManage
         const seenIds = new Set<string>()
 
         for (const lm of lms) {
-          const user = lm.expand?.user_id || (await pb.collection('users').getOne(lm.user_id))
+          let user = lm.expand?.user_id
+          if (!user && lm.user_id) {
+            try {
+              user = await pb.collection('users').getOne(lm.user_id)
+            } catch {
+              user = null
+            }
+          }
           if (user && !seenIds.has(user.id)) {
             seenIds.add(user.id)
             managers.push({
@@ -1253,6 +1260,11 @@ export async function getCompanyManagers(companyId: string): Promise<AdminManage
               name: user.name || 'Gestor',
               email: user.email,
               role: lm.role || 'owner',
+              profile: (user.profile as 'gestor' | 'gerente') || undefined,
+              inviteToken:
+                (user.invite_token as string) || (user.inviteToken as string) || undefined,
+              inviteStatus:
+                (user.invite_status as string) || (user.inviteStatus as string) || undefined,
               created: user.created,
             })
           }
