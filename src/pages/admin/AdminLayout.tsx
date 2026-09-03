@@ -115,7 +115,7 @@ export const AdminLayout: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* Top Navbar */}
       <header className="bg-slate-900 text-white sticky top-0 z-40 border-b border-slate-800 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 py-4 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link to="/admin" className="flex items-center gap-2.5">
               <AppLogo size="sm" variant="indigo" />
