@@ -1,7 +1,5 @@
 routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
-  const companyId = String(
-    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
-  ).trim()
+  const companyId = String(e.request.pathValue('id') || '').trim()
   const query = e.requestInfo().query || {}
   const freelancerId = String(query['freelancerId'] || '').trim()
   const startDate = String(query['startDate'] || '').trim()

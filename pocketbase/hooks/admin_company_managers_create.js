@@ -1,7 +1,5 @@
 routerAdd('POST', '/api/admin/company/{id}/managers', (e) => {
-  const companyId = String(
-    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
-  ).trim()
+  const companyId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
 
   if (!companyId) {

@@ -1,7 +1,5 @@
 routerAdd('PUT', '/api/admin/managers/{id}', (e) => {
-  const managerId = String(
-    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
-  ).trim()
+  const managerId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
 
   if (!managerId) {

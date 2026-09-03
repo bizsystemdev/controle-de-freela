@@ -1,7 +1,5 @@
 routerAdd('PUT', '/api/admin/freelancers/{id}', (e) => {
-  const freelancerId = String(
-    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
-  ).trim()
+  const freelancerId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
 
   if (!freelancerId) {

@@ -1,10 +1,6 @@
 routerAdd('POST', '/api/admin/company/{id}/managers/{managerId}/duplicate', (e) => {
-  const sourceCompanyId = String(
-    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
-  ).trim()
-  const managerId = String(
-    e.request.pathValue('managerId') || e.requestInfo().pathParams?.['managerId'] || '',
-  ).trim()
+  const sourceCompanyId = String(e.request.pathValue('id') || '').trim()
+  const managerId = String(e.request.pathValue('managerId') || '').trim()
   const body = e.requestInfo().body || {}
   const targetCompanyId = String(body.targetCompanyId || '').trim()
 

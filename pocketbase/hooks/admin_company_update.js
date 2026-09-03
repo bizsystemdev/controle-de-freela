@@ -1,7 +1,5 @@
 routerAdd('PUT', '/api/admin/company/{id}', (e) => {
-  const companyId = String(
-    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
-  ).trim()
+  const companyId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
 
   if (!companyId) {

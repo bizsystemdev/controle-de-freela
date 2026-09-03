@@ -1,10 +1,6 @@
 routerAdd('DELETE', '/api/admin/company/{id}/managers/{managerId}', (e) => {
-  const companyId = String(
-    e.request.pathValue('id') || e.requestInfo().pathParams?.['id'] || '',
-  ).trim()
-  const managerId = String(
-    e.request.pathValue('managerId') || e.requestInfo().pathParams?.['managerId'] || '',
-  ).trim()
+  const companyId = String(e.request.pathValue('id') || '').trim()
+  const managerId = String(e.request.pathValue('managerId') || '').trim()
 
   if (!companyId || !managerId) {
     return e.json(400, { error: 'ID da empresa e ID do gestor são obrigatórios.' })
