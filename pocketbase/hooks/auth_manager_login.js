@@ -40,6 +40,10 @@ routerAdd('POST', '/api/auth/manager-login', (e) => {
     60 * 60 * 24 * 7,
   )
 
+  const userProfile =
+    user.getString('profile') ||
+    (mgrRecords[0].getString('role') === 'viewer' ? 'gerente' : 'gestor')
+
   return e.json(200, {
     token: token,
     user: {
@@ -47,6 +51,7 @@ routerAdd('POST', '/api/auth/manager-login', (e) => {
       name: user.getString('name'),
       email: user.getString('email'),
       role: mgrRecords[0].getString('role') || 'admin',
+      profile: userProfile,
     },
   })
 })

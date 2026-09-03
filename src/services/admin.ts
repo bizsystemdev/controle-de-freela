@@ -292,6 +292,9 @@ export interface AdminManager {
   name: string
   email: string
   role?: string
+  profile?: 'gestor' | 'gerente'
+  inviteToken?: string
+  inviteStatus?: string
   created: string
 }
 
@@ -301,12 +304,22 @@ export interface CreateManagerPayload {
   email: string
   password?: string
   role?: string
+  profile?: 'gestor' | 'gerente'
+}
+
+export interface CreateManagerResponse {
+  success: boolean
+  message?: string
+  inviteToken?: string
+  inviteLink?: string
+  manager: AdminManager
 }
 
 export interface UpdateManagerPayload {
   name?: string
   email?: string
   password?: string
+  profile?: 'gestor' | 'gerente'
 }
 
 export interface HistoryFilterParams {
@@ -1259,9 +1272,9 @@ export async function getCompanyManagers(companyId: string): Promise<AdminManage
  */
 export async function createCompanyManager(
   payload: CreateManagerPayload,
-): Promise<{ success: boolean; manager: AdminManager }> {
+): Promise<CreateManagerResponse> {
   try {
-    const res = await pb.send<{ success: boolean; manager: AdminManager }>(
+    const res = await pb.send<CreateManagerResponse>(
       `/api/admin/company/${encodeURIComponent(payload.companyId)}/managers`,
       {
         method: 'POST',
@@ -1333,15 +1346,22 @@ export async function createCompanyManager(
           lmId = lm.id
         }
 
+        const isGerente = payload.profile === 'gerente'
+        const inviteToken = isGerente ? Math.random().toString(36).substring(2, 18) : undefined
+
         return {
           success: true,
+          inviteToken,
+          inviteLink: inviteToken ? `/admin/convite?token=${inviteToken}` : undefined,
           manager: {
             id: user.id,
             licenseManagerId: lmId,
             licenseId,
-            name: user.name || payload.name,
+            name: user.name || (isGerente ? 'Gerente' : 'Gestor'),
             email: user.email,
-            role: payload.role || 'owner',
+            role: payload.role || (isGerente ? 'viewer' : 'owner'),
+            profile: payload.profile || (isGerente ? 'gerente' : 'gestor'),
+            inviteToken,
             created: user.created,
           },
         }
@@ -1377,6 +1397,7 @@ export async function updateManager(
         const updateObj: Record<string, unknown> = {}
         if (payload.name) updateObj.name = payload.name
         if (payload.email) updateObj.email = payload.email
+        if (payload.profile) updateObj.profile = payload.profile
         if (payload.password) {
           updateObj.password = payload.password
           updateObj.passwordConfirm = payload.password
@@ -1438,6 +1459,28 @@ export async function removeManagerFromCompany(
 /**
  * Duplica gestor para outra empresa
  */
+/**
+ * Gera ou recupera link de convite para um Gerente
+ */
+export async function getManagerInviteLink(
+  managerId: string,
+): Promise<{ success: boolean; inviteToken: string; inviteLink: string; expiresAt?: string }> {
+  try {
+    const res = await pb.send<{
+      success: boolean
+      inviteToken: string
+      inviteLink: string
+      expiresAt?: string
+    }>(`/api/admin/managers/${encodeURIComponent(managerId)}/invite-link`, {
+      method: 'POST',
+    })
+    return res
+  } catch (err: unknown) {
+    const pbErr = err as { data?: { error?: string }; message?: string }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao gerar link de convite.')
+  }
+}
+
 export async function duplicateManager(
   sourceCompanyId: string,
   managerId: string,

@@ -17,10 +17,15 @@ routerAdd('PUT', '/api/admin/managers/:id', (e) => {
   const email = String(body.email || '')
     .trim()
     .toLowerCase()
+  const profile = body.profile !== undefined ? String(body.profile).trim().toLowerCase() : ''
   const password = String(body.password || '').trim()
 
   if (name) {
     user.set('name', name)
+  }
+
+  if (profile === 'gerente' || profile === 'gestor') {
+    user.set('profile', profile)
   }
 
   if (email && email !== user.getString('email')) {
@@ -43,6 +48,25 @@ routerAdd('PUT', '/api/admin/managers/:id', (e) => {
 
   try {
     $app.save(user)
+
+    // Se o perfil mudou, sincroniza na role de license_managers
+    if (profile === 'gerente' || profile === 'gestor') {
+      const targetRole = profile === 'gerente' ? 'viewer' : 'owner'
+      const lms = $app.findRecordsByFilter(
+        'license_managers',
+        `user_id = '${managerId}'`,
+        '',
+        50,
+        0,
+      )
+      for (let i = 0; i < lms.length; i++) {
+        lms[i].set('role', targetRole)
+        try {
+          $app.save(lms[i])
+        } catch (_) {}
+      }
+    }
+
     return e.json(200, {
       success: true,
       message: 'Gestor atualizado com sucesso.',
@@ -50,6 +74,7 @@ routerAdd('PUT', '/api/admin/managers/:id', (e) => {
         id: user.id,
         name: user.getString('name'),
         email: user.getString('email'),
+        profile: user.getString('profile') || 'gestor',
       },
     })
   } catch (err) {

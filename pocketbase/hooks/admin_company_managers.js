@@ -37,13 +37,18 @@ routerAdd('GET', '/api/admin/company/:id/managers', (e) => {
 
     try {
       const user = $app.findRecordById('_pb_users_auth_', userId)
+      const profile =
+        user.getString('profile') || (lm.getString('role') === 'viewer' ? 'gerente' : 'gestor')
       managers.push({
         id: user.id,
         licenseManagerId: lm.id,
         licenseId: lm.getString('license_id'),
-        name: user.getString('name') || 'Gestor',
+        name: user.getString('name') || (profile === 'gerente' ? 'Gerente' : 'Gestor'),
         email: user.getString('email'),
         role: lm.getString('role') || 'owner',
+        profile: profile,
+        inviteToken: user.getString('invite_token'),
+        inviteStatus: user.getString('invite_status'),
         created: user.getString('created'),
       })
     } catch (_) {}

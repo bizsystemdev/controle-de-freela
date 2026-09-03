@@ -22,6 +22,7 @@ const AdminCompanyDetail = lazy(() => import('./pages/admin/AdminCompanyDetail')
 const AdminFreelancersList = lazy(() => import('./pages/admin/AdminFreelancersList'))
 const AdminFreelancerNew = lazy(() => import('./pages/admin/AdminFreelancerNew'))
 const AdminAttendanceHistory = lazy(() => import('./pages/admin/AdminAttendanceHistory'))
+const AdminInviteAccept = lazy(() => import('./pages/admin/AdminInviteAccept'))
 
 const AdminSuspenseFallback = () => (
   <div className="min-h-screen w-full bg-slate-900 flex flex-col items-center justify-center p-6">
@@ -53,6 +54,16 @@ export default function App() {
               element={
                 <Suspense fallback={<AdminSuspenseFallback />}>
                   <AdminLogin />
+                </Suspense>
+              }
+            />
+
+            {/* Admin Convite de Gerente */}
+            <Route
+              path="/admin/convite"
+              element={
+                <Suspense fallback={<AdminSuspenseFallback />}>
+                  <AdminInviteAccept />
                 </Suspense>
               }
             />

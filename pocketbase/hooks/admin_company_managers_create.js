@@ -10,18 +10,34 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
   const email = String(body.email || '')
     .trim()
     .toLowerCase()
-  const password = String(body.password || '').trim()
-  const role = String(body.role || 'owner').trim()
+  const profile =
+    String(body.profile || '')
+      .trim()
+      .toLowerCase() === 'gerente'
+      ? 'gerente'
+      : 'gestor'
+  let password = String(body.password || '').trim()
+  const isGerente = profile === 'gerente'
 
   if (!name) {
-    return e.json(400, { error: 'Nome do gestor é obrigatório.' })
+    return e.json(400, { error: 'Nome é obrigatório.' })
   }
   if (!email || !email.includes('@')) {
-    return e.json(400, { error: 'E-mail do gestor é inválido.' })
+    return e.json(400, { error: 'E-mail é inválido.' })
   }
-  if (!password || password.length < 6) {
-    return e.json(400, { error: 'Senha deve ter no mínimo 6 caracteres.' })
+
+  // Se for gerente, senha inicial pode ser aleatória / temporária para ser definida pelo link de convite
+  if (!isGerente) {
+    if (!password || password.length < 6) {
+      return e.json(400, { error: 'Senha deve ter no mínimo 6 caracteres.' })
+    }
+  } else {
+    if (!password) {
+      password = 'G-' + $security.randomString(16) + 'A1!'
+    }
   }
+
+  const role = isGerente ? 'viewer' : String(body.role || 'owner').trim()
 
   // 1. Find active license for company
   const licenses = $app.findRecordsByFilter(
@@ -59,14 +75,26 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
   // 2. Find or create user
   let user
   let isExisting = false
+  let inviteToken = ''
+
+  if (isGerente) {
+    inviteToken = $security.randomString(32)
+  }
+
   try {
     user = $app.findAuthRecordByEmail('_pb_users_auth_', email)
     isExisting = true
-    // Update name if needed
     if (name) {
       user.set('name', name)
-      $app.save(user)
     }
+    user.set('profile', profile)
+    if (isGerente) {
+      user.set('invite_token', inviteToken)
+      user.set('invite_status', 'pending')
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      user.set('invite_expires', expiresAt)
+    }
+    $app.save(user)
   } catch (_) {
     const userCol = $app.findCollectionByNameOrId('_pb_users_auth_')
     user = new Record(userCol)
@@ -74,6 +102,13 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
     user.setPassword(password)
     user.setVerified(true)
     user.set('name', name)
+    user.set('profile', profile)
+    if (isGerente) {
+      user.set('invite_token', inviteToken)
+      user.set('invite_status', 'pending')
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      user.set('invite_expires', expiresAt)
+    }
     $app.save(user)
   }
 
@@ -98,11 +133,21 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
     $app.save(lmRecord)
   }
 
+  // Link de convite apenas gerado/retornado para o gerente (NUNCA enviar e-mail)
+  let inviteLink = ''
+  if (isGerente && inviteToken) {
+    inviteLink = '/admin/convite?token=' + inviteToken
+  }
+
+  const successLabel = isGerente ? 'Gerente' : 'Gestor'
+
   return e.json(200, {
     success: true,
     message: isExisting
-      ? 'Gestor existente vinculado à empresa!'
-      : 'Gestor cadastrado e vinculado com sucesso!',
+      ? successLabel + ' existente vinculado à empresa!'
+      : successLabel + ' cadastrado e vinculado com sucesso!',
+    inviteToken: inviteToken || undefined,
+    inviteLink: inviteLink || undefined,
     manager: {
       id: user.id,
       licenseManagerId: lmRecord.id,
@@ -110,6 +155,9 @@ routerAdd('POST', '/api/admin/company/:id/managers', (e) => {
       name: user.getString('name'),
       email: user.getString('email'),
       role: lmRecord.getString('role'),
+      profile: user.getString('profile') || profile,
+      inviteToken: user.getString('invite_token'),
+      inviteStatus: user.getString('invite_status'),
     },
   })
 })

@@ -16,6 +16,7 @@ import {
   updateManager,
   removeManagerFromCompany,
   duplicateManager,
+  getManagerInviteLink,
   updateAdminCompany,
   type CompanyStats,
   type CompanyAdminItem,
@@ -62,6 +63,8 @@ import {
   RotateCcw,
   CheckSquare,
   Square,
+  UserCheck,
+  Link as LinkIcon,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -187,15 +190,26 @@ export default function AdminCompanyDetail() {
   const [createMgrModalOpen, setCreateMgrModalOpen] = useState(false)
   const [newMgrName, setNewMgrName] = useState('')
   const [newMgrEmail, setNewMgrEmail] = useState('')
+  const [newMgrProfile, setNewMgrProfile] = useState<'gestor' | 'gerente'>('gestor')
   const [newMgrPassword, setNewMgrPassword] = useState('')
   const [creatingMgr, setCreatingMgr] = useState(false)
   const [mgrCreateErrors, setMgrCreateErrors] = useState<Record<string, string>>({})
+
+  // Modal para exibir Link de Convite gerado (Gerente)
+  const [inviteModalOpen, setInviteModalOpen] = useState(false)
+  const [generatedInviteLink, setGeneratedInviteLink] = useState('')
+  const [createdManagerInfo, setCreatedManagerInfo] = useState<{
+    name: string
+    email: string
+  } | null>(null)
+  const [copiedInvite, setCopiedInvite] = useState(false)
 
   // Manager Edit Modal
   const [editMgrModalOpen, setEditMgrModalOpen] = useState(false)
   const [editingMgr, setEditingMgr] = useState<AdminManager | null>(null)
   const [editMgrName, setEditMgrName] = useState('')
   const [editMgrEmail, setEditMgrEmail] = useState('')
+  const [editMgrProfile, setEditMgrProfile] = useState<'gestor' | 'gerente'>('gestor')
   const [editMgrPassword, setEditMgrPassword] = useState('')
   const [savingMgrEdit, setSavingMgrEdit] = useState(false)
   const [mgrEditErrors, setMgrEditErrors] = useState<Record<string, string>>({})
@@ -834,6 +848,7 @@ export default function AdminCompanyDetail() {
   const handleOpenCreateMgr = () => {
     setNewMgrName('')
     setNewMgrEmail('')
+    setNewMgrProfile('gestor')
     setNewMgrPassword('')
     setMgrCreateErrors({})
     setCreateMgrModalOpen(true)
@@ -844,10 +859,12 @@ export default function AdminCompanyDetail() {
     if (!id) return
 
     const errs: Record<string, string> = {}
-    if (!newMgrName.trim()) errs.name = 'Nome do gestor é obrigatório.'
+    if (!newMgrName.trim()) errs.name = 'Nome é obrigatório.'
     if (!newMgrEmail.trim() || !newMgrEmail.includes('@')) errs.email = 'E-mail inválido.'
-    if (!newMgrPassword || newMgrPassword.length < 6) {
-      errs.password = 'Senha deve ter no mínimo 6 dígitos.'
+    if (newMgrProfile === 'gestor') {
+      if (!newMgrPassword || newMgrPassword.length < 6) {
+        errs.password = 'Senha deve ter no mínimo 6 dígitos.'
+      }
     }
 
     if (Object.keys(errs).length > 0) {
@@ -862,19 +879,33 @@ export default function AdminCompanyDetail() {
         companyId: id,
         name: newMgrName.trim(),
         email: newMgrEmail.trim().toLowerCase(),
-        password: newMgrPassword,
-        role: 'owner',
+        password: newMgrPassword || undefined,
+        profile: newMgrProfile,
+        role: newMgrProfile === 'gerente' ? 'viewer' : 'owner',
       })
 
+      const isGerente = newMgrProfile === 'gerente'
+
       toast({
-        title: 'Gestor vinculado!',
-        description: `O gestor ${res.manager.name} foi adicionado à empresa.`,
+        title: isGerente ? 'Gerente cadastrado!' : 'Gestor vinculado!',
+        description: `${res.manager.name} foi vinculado à empresa com sucesso.`,
       })
 
       setCreateMgrModalOpen(false)
       await loadManagers()
+
+      // Se for Gerente e tiver link de convite gerado, abre modal com link pronto para copiar
+      if (isGerente && (res.inviteLink || res.inviteToken)) {
+        const fullLink = res.inviteLink
+          ? `${window.location.origin}${res.inviteLink}`
+          : `${window.location.origin}/admin/convite?token=${res.inviteToken}`
+        setGeneratedInviteLink(fullLink)
+        setCreatedManagerInfo({ name: res.manager.name, email: res.manager.email })
+        setCopiedInvite(false)
+        setInviteModalOpen(true)
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Falha ao cadastrar gestor.'
+      const msg = err instanceof Error ? err.message : 'Falha ao cadastrar.'
       toast({
         title: 'Erro ao cadastrar',
         description: msg,
@@ -889,6 +920,7 @@ export default function AdminCompanyDetail() {
     setEditingMgr(mgr)
     setEditMgrName(mgr.name || '')
     setEditMgrEmail(mgr.email || '')
+    setEditMgrProfile(mgr.profile === 'gerente' || mgr.role === 'viewer' ? 'gerente' : 'gestor')
     setEditMgrPassword('')
     setMgrEditErrors({})
     setEditMgrModalOpen(true)
@@ -916,11 +948,12 @@ export default function AdminCompanyDetail() {
       await updateManager(editingMgr.id, {
         name: editMgrName.trim(),
         email: editMgrEmail.trim().toLowerCase(),
+        profile: editMgrProfile,
         password: editMgrPassword || undefined,
       })
 
       toast({
-        title: 'Gestor atualizado!',
+        title: 'Usuário atualizado!',
         description: `Dados de ${editMgrName} atualizados com sucesso.`,
       })
 
@@ -931,6 +964,8 @@ export default function AdminCompanyDetail() {
                 ...m,
                 name: editMgrName.trim(),
                 email: editMgrEmail.trim().toLowerCase(),
+                profile: editMgrProfile,
+                role: editMgrProfile === 'gerente' ? 'viewer' : 'owner',
               }
             : m,
         ),
@@ -938,7 +973,7 @@ export default function AdminCompanyDetail() {
       setEditMgrModalOpen(false)
     } catch (err) {
       toast({
-        title: 'Erro ao atualizar gestor',
+        title: 'Erro ao atualizar',
         description: err instanceof Error ? err.message : 'Falha na atualização.',
         variant: 'destructive',
       })
@@ -1761,19 +1796,54 @@ export default function AdminCompanyDetail() {
                         </td>
 
                         <td className="py-4 px-4">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full uppercase">
-                            <Shield className="w-3 h-3 text-indigo-600" />
-                            <span>{mgr.role || 'Administrador'}</span>
-                          </span>
+                          {mgr.profile === 'gerente' || mgr.role === 'viewer' ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full uppercase">
+                              <UserCheck className="w-3 h-3 text-amber-600" />
+                              <span>Gerente</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full uppercase">
+                              <Shield className="w-3 h-3 text-indigo-600" />
+                              <span>Gestor</span>
+                            </span>
+                          )}
                         </td>
 
                         <td className="py-4 px-4 sm:px-6 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {(mgr.profile === 'gerente' || mgr.role === 'viewer') && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    const res = await getManagerInviteLink(mgr.id)
+                                    const fullLink = `${window.location.origin}${res.inviteLink}`
+                                    setGeneratedInviteLink(fullLink)
+                                    setCreatedManagerInfo({ name: mgr.name, email: mgr.email })
+                                    setCopiedInvite(false)
+                                    setInviteModalOpen(true)
+                                  } catch (err) {
+                                    toast({
+                                      title: 'Erro ao gerar link',
+                                      description:
+                                        err instanceof Error ? err.message : 'Falha ao obter link.',
+                                      variant: 'destructive',
+                                    })
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
+                                title="Obter link de convite"
+                              >
+                                <LinkIcon className="w-3.5 h-3.5 text-amber-600" />
+                                <span className="hidden sm:inline">Link de Convite</span>
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => handleOpenEditMgr(mgr)}
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
-                              title="Editar gestor"
+                              title="Editar perfil ou dados"
                             >
                               <Pencil className="w-3.5 h-3.5 text-slate-500" />
                               <span className="hidden sm:inline">Editar</span>
@@ -3121,6 +3191,49 @@ export default function AdminCompanyDetail() {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Perfil de Acesso <span className="text-red-600">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewMgrProfile('gestor')}
+                  className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                    newMgrProfile === 'gestor'
+                      ? 'bg-indigo-50/70 border-indigo-500 ring-2 ring-indigo-500/20'
+                      : 'bg-slate-50 border-slate-200 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                    <Shield className="w-4 h-4 text-indigo-600" />
+                    <span>Gestor</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 leading-tight">
+                    Acesso completo (empresas, gestores, freelancers e histórico).
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setNewMgrProfile('gerente')}
+                  className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                    newMgrProfile === 'gerente'
+                      ? 'bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20'
+                      : 'bg-slate-50 border-slate-200 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                    <UserCheck className="w-4 h-4 text-amber-600" />
+                    <span>Gerente</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 leading-tight">
+                    Apenas freelancers (criação e atribuição) e relatório de check-in/out.
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
                 E-mail de Acesso <span className="text-red-600">*</span>
               </label>
               <div className="relative flex items-center">
@@ -3136,7 +3249,7 @@ export default function AdminCompanyDetail() {
                     if (mgrCreateErrors.email)
                       setMgrCreateErrors((prev) => ({ ...prev, email: '' }))
                   }}
-                  placeholder="gestor@exemplo.com"
+                  placeholder="acesso@exemplo.com"
                   className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
                 />
               </div>
@@ -3145,31 +3258,44 @@ export default function AdminCompanyDetail() {
               )}
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Senha Inicial <span className="text-red-600">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                  <Lock className="w-4 h-4" />
+            {newMgrProfile === 'gestor' ? (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Senha Inicial <span className="text-red-600">*</span>
+                </label>
+                <div className="relative flex items-center">
+                  <div className="absolute left-3 text-slate-400 pointer-events-none">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={newMgrPassword}
+                    onChange={(e) => {
+                      setNewMgrPassword(e.target.value)
+                      if (mgrCreateErrors.password)
+                        setMgrCreateErrors((prev) => ({ ...prev, password: '' }))
+                    }}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                  />
                 </div>
-                <input
-                  type="password"
-                  required
-                  value={newMgrPassword}
-                  onChange={(e) => {
-                    setNewMgrPassword(e.target.value)
-                    if (mgrCreateErrors.password)
-                      setMgrCreateErrors((prev) => ({ ...prev, password: '' }))
-                  }}
-                  placeholder="Mínimo 6 caracteres"
-                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
-                />
+                {mgrCreateErrors.password && (
+                  <p className="text-xs text-red-600 mt-1">{mgrCreateErrors.password}</p>
+                )}
               </div>
-              {mgrCreateErrors.password && (
-                <p className="text-xs text-red-600 mt-1">{mgrCreateErrors.password}</p>
-              )}
-            </div>
+            ) : (
+              <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-800 space-y-1">
+                <p className="font-bold flex items-center gap-1.5">
+                  <LinkIcon className="w-4 h-4 text-amber-600" />
+                  Link de Convite será gerado
+                </p>
+                <p className="text-[11px] text-amber-700">
+                  O gerente definirá sua própria senha através do link de convite gerado após a
+                  criação. Nenhum e-mail será enviado.
+                </p>
+              </div>
+            )}
 
             <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
               <button
@@ -3230,6 +3356,49 @@ export default function AdminCompanyDetail() {
               {mgrEditErrors.name && (
                 <p className="text-xs text-red-600 mt-1">{mgrEditErrors.name}</p>
               )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Perfil de Acesso <span className="text-red-600">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditMgrProfile('gestor')}
+                  className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                    editMgrProfile === 'gestor'
+                      ? 'bg-indigo-50/70 border-indigo-500 ring-2 ring-indigo-500/20'
+                      : 'bg-slate-50 border-slate-200 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                    <Shield className="w-4 h-4 text-indigo-600" />
+                    <span>Gestor</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 leading-tight">
+                    Acesso completo a todas as áreas administrativas.
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditMgrProfile('gerente')}
+                  className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                    editMgrProfile === 'gerente'
+                      ? 'bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20'
+                      : 'bg-slate-50 border-slate-200 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                    <UserCheck className="w-4 h-4 text-amber-600" />
+                    <span>Gerente</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 leading-tight">
+                    Apenas freelancers e relatório de presença.
+                  </span>
+                </button>
+              </div>
             </div>
 
             <div>
@@ -3303,6 +3472,85 @@ export default function AdminCompanyDetail() {
           </form>
         </DialogContent>
       </Dialog>
+      {/* Modal de Exibição do Link de Convite Gerado para Gerente */}
+      <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
+          <DialogHeader className="text-center sm:text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3">
+              <UserCheck className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-black text-slate-900 text-center">
+              Link de Convite do Gerente
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 text-center pt-1 leading-relaxed">
+              O acesso para <strong className="text-slate-800">{createdManagerInfo?.name}</strong>{' '}
+              foi criado com perfil <strong className="text-amber-700">GERENTE</strong>. Copie o
+              link abaixo e envie diretamente ao gerente para ele definir sua senha.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                Link de ativação exclusivo:
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={generatedInviteLink}
+                  className="w-full h-10 px-3 bg-white rounded-xl border border-slate-200 text-xs font-mono text-slate-700 select-all focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedInviteLink)
+                    setCopiedInvite(true)
+                    toast({
+                      title: 'Link copiado!',
+                      description: 'Link de convite copiado para a área de transferência.',
+                    })
+                    setTimeout(() => setCopiedInvite(false), 3000)
+                  }}
+                  className={`px-3.5 h-10 rounded-xl font-bold text-xs flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer ${
+                    copiedInvite
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  }`}
+                >
+                  {copiedInvite ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Copiado</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span>Copiar Link</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-400 text-center">
+              Nenhum e-mail foi disparado. Compartilhe esse link pelo WhatsApp ou canal interno da
+              sua empresa.
+            </p>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <button
+              type="button"
+              onClick={() => setInviteModalOpen(false)}
+              className="w-full h-11 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer"
+            >
+              Concluir
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Duplicate Manager Modal */}
       <Dialog open={dupMgrModalOpen} onOpenChange={setDupMgrModalOpen}>
         <DialogContent className="max-w-sm rounded-3xl p-6 bg-white border border-slate-100">

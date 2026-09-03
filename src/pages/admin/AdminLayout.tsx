@@ -29,6 +29,7 @@ export const AdminLayout: React.FC = () => {
   const navigate = useNavigate()
   const { manager, logout } = useApp()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const isGerente = manager?.profile === 'gerente' || manager?.role === 'viewer'
 
   // Extract selected company ID if inside `/admin/empresa/:id/...`
   const companyIdMatch = location.pathname.match(/\/admin\/empresa\/([^/]+)/)
@@ -98,10 +99,10 @@ export const AdminLayout: React.FC = () => {
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
               >
-                Visão Geral
+                {isGerente ? 'Minhas Empresas' : 'Visão Geral'}
               </Link>
 
-              {currentCompanyId && (
+              {currentCompanyId && !isGerente && (
                 <>
                   <Link
                     to={`/admin/empresa/${currentCompanyId}`}
@@ -157,6 +158,34 @@ export const AdminLayout: React.FC = () => {
                   </Link>
                 </>
               )}
+
+              {currentCompanyId && isGerente && (
+                <>
+                  <Link
+                    to={`/admin/empresa/${currentCompanyId}?tab=freelancers`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      location.pathname.includes('/freelancers') ||
+                      location.search.includes('tab=freelancers') ||
+                      location.pathname === `/admin/empresa/${currentCompanyId}`
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    Freelancers
+                  </Link>
+                  <Link
+                    to={`/admin/empresa/${currentCompanyId}?tab=historico`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      location.pathname.includes('/historico') ||
+                      location.search.includes('tab=historico')
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    Histórico Check-in/out
+                  </Link>
+                </>
+              )}
             </nav>
           </div>
 
@@ -175,15 +204,30 @@ export const AdminLayout: React.FC = () => {
             {/* Profile Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-800 transition-colors focus:outline-none">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">
+                <div
+                  className={`w-8 h-8 rounded-lg text-white font-black text-xs flex items-center justify-center shadow-sm ${
+                    isGerente ? 'bg-amber-600' : 'bg-indigo-600'
+                  }`}
+                >
                   {manager?.name?.charAt(0) || 'G'}
                 </div>
                 <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-xs font-bold text-white truncate max-w-[140px]">
-                    {manager?.name || 'Gestor'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-white truncate max-w-[140px]">
+                      {manager?.name || (isGerente ? 'Gerente' : 'Gestor')}
+                    </span>
+                    <span
+                      className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase ${
+                        isGerente
+                          ? 'bg-amber-500/20 text-amber-300'
+                          : 'bg-indigo-500/20 text-indigo-300'
+                      }`}
+                    >
+                      {isGerente ? 'Gerente' : 'Gestor'}
+                    </span>
+                  </div>
                   <span className="text-[10px] text-slate-400 font-medium truncate max-w-[140px]">
-                    {manager?.email || 'admin@bizcheck.com'}
+                    {manager?.email || 'gestor@bizcheck.com'}
                   </span>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -193,8 +237,17 @@ export const AdminLayout: React.FC = () => {
                 className="w-56 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-200"
               >
                 <DropdownMenuLabel className="px-2 py-1.5">
-                  <p className="text-xs font-bold text-slate-900">{manager?.name || 'Gestor'}</p>
-                  <p className="text-[11px] text-slate-500 font-normal truncate">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-900">{manager?.name || 'Gestor'}</p>
+                    <span
+                      className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
+                        isGerente ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800'
+                      }`}
+                    >
+                      {isGerente ? 'Gerente' : 'Gestor'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-normal truncate mt-0.5">
                     {manager?.email}
                   </p>
                 </DropdownMenuLabel>
@@ -239,7 +292,7 @@ export const AdminLayout: React.FC = () => {
               <Building2 className="w-4 h-4 text-indigo-400" />
               <span>Todas as Empresas</span>
             </Link>
-            {currentCompanyId && (
+            {currentCompanyId && !isGerente && (
               <>
                 <Link
                   to={`/admin/empresa/${currentCompanyId}`}
@@ -280,6 +333,27 @@ export const AdminLayout: React.FC = () => {
                 >
                   <RotateCcw className="w-4 h-4 text-slate-400" />
                   <span>Liberações de Dispositivo</span>
+                </Link>
+              </>
+            )}
+
+            {currentCompanyId && isGerente && (
+              <>
+                <Link
+                  to={`/admin/empresa/${currentCompanyId}?tab=freelancers`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold text-slate-200 hover:bg-slate-900"
+                >
+                  <Users className="w-4 h-4 text-slate-400" />
+                  <span>Freelancers</span>
+                </Link>
+                <Link
+                  to={`/admin/empresa/${currentCompanyId}?tab=historico`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold text-slate-200 hover:bg-slate-900"
+                >
+                  <History className="w-4 h-4 text-slate-400" />
+                  <span>Histórico de Presença</span>
                 </Link>
               </>
             )}

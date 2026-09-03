@@ -113,6 +113,7 @@ interface AppContextType {
   performCheckIn: (company: Company) => Promise<CheckInResult>
   performCheckOut: () => Promise<CheckOutResult>
   loginAsManager: (email: string, pass: string) => Promise<void>
+  restoreManagerSession: (token: string, user: ManagerUser) => void
   logout: () => void
 }
 
@@ -279,9 +280,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const rec = pb.authStore.record
         const storedMgr: ManagerUser = {
           id: rec.id,
-          name: rec.name || 'Gestor',
+          name: rec.name || (rec.profile === 'gerente' ? 'Gerente' : 'Gestor'),
           email: rec.email,
           role: 'admin',
+          profile: (rec.profile as 'gestor' | 'gerente') || 'gestor',
         }
         setManager(storedMgr)
         setRole('manager')
@@ -461,6 +463,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsAuthBusy(false)
     }
+  }, [])
+
+  const restoreManagerSession = useCallback((token: string, user: ManagerUser) => {
+    setManager(user)
+    setRole('manager')
+    setAuthState('authenticated')
   }, [])
 
   const resetAuthError = useCallback(() => {
@@ -727,6 +735,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         performCheckIn,
         performCheckOut,
         loginAsManager,
+        restoreManagerSession,
         logout,
       }}
     >

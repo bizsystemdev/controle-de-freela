@@ -35,9 +35,34 @@ export interface ManagerUser {
   name: string
   email: string
   role: 'owner' | 'admin' | 'viewer'
+  profile?: 'gestor' | 'gerente'
 }
 
 export interface ManagerLoginResponse {
+  token: string
+  user: ManagerUser
+}
+
+export interface VerifyInviteResponse {
+  valid: boolean
+  user: {
+    id: string
+    name: string
+    email: string
+    profile: 'gestor' | 'gerente'
+    inviteStatus?: string
+  }
+  companies: Array<{
+    id: string
+    name: string
+    city: string
+    state: string
+  }>
+}
+
+export interface AcceptInviteResponse {
+  success: boolean
+  message: string
   token: string
   user: ManagerUser
 }
@@ -336,11 +361,16 @@ export async function loginManager(email: string, password: string): Promise<Man
     }
 
     const role = (lm.items[0].role as 'owner' | 'admin' | 'viewer') || 'admin'
+    const profile =
+      (authData.record.profile as 'gestor' | 'gerente') ||
+      (role === 'viewer' ? 'gerente' : 'gestor')
+
     const managerUser: ManagerUser = {
       id: authData.record.id,
-      name: authData.record.name || 'Gestor',
+      name: authData.record.name || (profile === 'gerente' ? 'Gerente' : 'Gestor'),
       email: authData.record.email,
       role,
+      profile,
     }
 
     return {
@@ -374,5 +404,40 @@ export async function requestPasswordReset(email: string): Promise<boolean> {
     throw new Error(
       pbErr?.data?.message || pbErr?.message || 'Falha ao solicitar recuperação de senha.',
     )
+  }
+}
+
+/**
+ * Valida o token de convite gerado para um Gerente
+ */
+export async function verifyInviteToken(token: string): Promise<VerifyInviteResponse> {
+  try {
+    const res = await pb.send<VerifyInviteResponse>(
+      `/api/auth/invite/verify?token=${encodeURIComponent(token)}`,
+      { method: 'GET' },
+    )
+    return res
+  } catch (err: unknown) {
+    const pbErr = err as { data?: { error?: string }; message?: string }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Convite inválido ou expirado.')
+  }
+}
+
+/**
+ * Define a senha do Gerente a partir do token de convite
+ */
+export async function acceptInviteToken(
+  token: string,
+  password: string,
+): Promise<AcceptInviteResponse> {
+  try {
+    const res = await pb.send<AcceptInviteResponse>('/api/auth/invite/accept', {
+      method: 'POST',
+      body: { token, password },
+    })
+    return res
+  } catch (err: unknown) {
+    const pbErr = err as { data?: { error?: string }; message?: string }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao ativar acesso.')
   }
 }
