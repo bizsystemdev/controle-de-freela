@@ -1,0 +1,14 @@
+services:
+  freelacheck:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: freelacheck-app
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: npm run dev -- --host 0.0.0.0
