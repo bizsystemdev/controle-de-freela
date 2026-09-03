@@ -861,10 +861,8 @@ export default function AdminCompanyDetail() {
     const errs: Record<string, string> = {}
     if (!newMgrName.trim()) errs.name = 'Nome é obrigatório.'
     if (!newMgrEmail.trim() || !newMgrEmail.includes('@')) errs.email = 'E-mail inválido.'
-    if (newMgrProfile === 'gestor') {
-      if (!newMgrPassword || newMgrPassword.length < 6) {
-        errs.password = 'Senha deve ter no mínimo 6 dígitos.'
-      }
+    if (newMgrPassword && newMgrPassword.length < 8) {
+      errs.password = 'A senha deve ter no mínimo 8 caracteres caso informada.'
     }
 
     if (Object.keys(errs).length > 0) {
@@ -879,7 +877,7 @@ export default function AdminCompanyDetail() {
         companyId: id,
         name: newMgrName.trim(),
         email: newMgrEmail.trim().toLowerCase(),
-        password: newMgrPassword || undefined,
+        password: newMgrPassword.trim() || undefined,
         profile: newMgrProfile,
         role: newMgrProfile === 'gerente' ? 'viewer' : 'owner',
       })
@@ -887,20 +885,23 @@ export default function AdminCompanyDetail() {
       const isGerente = newMgrProfile === 'gerente'
 
       toast({
-        title: isGerente ? 'Gerente cadastrado!' : 'Gestor vinculado!',
+        title: isGerente ? 'Gerente cadastrado!' : 'Gestor cadastrado!',
         description: `${res.manager.name} foi vinculado à empresa com sucesso.`,
       })
 
       setCreateMgrModalOpen(false)
       await loadManagers()
 
-      // Se for Gerente e tiver link de convite gerado, abre modal com link pronto para copiar
-      if (isGerente && (res.inviteLink || res.inviteToken)) {
+      // Exibe modal com link de convite para QUALQUER perfil (Gestor ou Gerente)
+      if (res.inviteLink || res.inviteToken) {
         const fullLink = res.inviteLink
           ? `${window.location.origin}${res.inviteLink}`
           : `${window.location.origin}/admin/convite?token=${res.inviteToken}`
         setGeneratedInviteLink(fullLink)
-        setCreatedManagerInfo({ name: res.manager.name, email: res.manager.email })
+        setCreatedManagerInfo({
+          name: res.manager.name,
+          email: res.manager.email,
+        })
         setCopiedInvite(false)
         setInviteModalOpen(true)
       }
@@ -1811,33 +1812,31 @@ export default function AdminCompanyDetail() {
 
                         <td className="py-4 px-4 sm:px-6 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {(mgr.profile === 'gerente' || mgr.role === 'viewer') && (
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    const res = await getManagerInviteLink(mgr.id)
-                                    const fullLink = `${window.location.origin}${res.inviteLink}`
-                                    setGeneratedInviteLink(fullLink)
-                                    setCreatedManagerInfo({ name: mgr.name, email: mgr.email })
-                                    setCopiedInvite(false)
-                                    setInviteModalOpen(true)
-                                  } catch (err) {
-                                    toast({
-                                      title: 'Erro ao gerar link',
-                                      description:
-                                        err instanceof Error ? err.message : 'Falha ao obter link.',
-                                      variant: 'destructive',
-                                    })
-                                  }
-                                }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
-                                title="Obter link de convite"
-                              >
-                                <LinkIcon className="w-3.5 h-3.5 text-amber-600" />
-                                <span className="hidden sm:inline">Link de Convite</span>
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const res = await getManagerInviteLink(mgr.id)
+                                  const fullLink = `${window.location.origin}${res.inviteLink}`
+                                  setGeneratedInviteLink(fullLink)
+                                  setCreatedManagerInfo({ name: mgr.name, email: mgr.email })
+                                  setCopiedInvite(false)
+                                  setInviteModalOpen(true)
+                                } catch (err) {
+                                  toast({
+                                    title: 'Erro ao gerar link',
+                                    description:
+                                      err instanceof Error ? err.message : 'Falha ao obter link.',
+                                    variant: 'destructive',
+                                  })
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 transition-colors cursor-pointer"
+                              title="Obter link de convite"
+                            >
+                              <LinkIcon className="w-3.5 h-3.5 text-indigo-600" />
+                              <span className="hidden sm:inline">Link de Convite</span>
+                            </button>
 
                             <button
                               type="button"
@@ -3258,44 +3257,47 @@ export default function AdminCompanyDetail() {
               )}
             </div>
 
-            {newMgrProfile === 'gestor' ? (
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Senha Inicial <span className="text-red-600">*</span>
-                </label>
-                <div className="relative flex items-center">
-                  <div className="absolute left-3 text-slate-400 pointer-events-none">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="password"
-                    required
-                    value={newMgrPassword}
-                    onChange={(e) => {
-                      setNewMgrPassword(e.target.value)
-                      if (mgrCreateErrors.password)
-                        setMgrCreateErrors((prev) => ({ ...prev, password: '' }))
-                    }}
-                    placeholder="Mínimo 6 caracteres"
-                    className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
-                  />
+            <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-100 text-xs text-indigo-900 space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <LinkIcon className="w-4 h-4 text-indigo-600" />
+                Link de ativação/convite automático
+              </p>
+              <p className="text-[11px] text-indigo-700">
+                Um link de convite será gerado automaticamente para o usuário (
+                {newMgrProfile === 'gerente' ? 'Gerente' : 'Gestor'}) ativar e definir sua própria
+                senha.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Senha inicial <span className="text-slate-400 font-normal">(opcional)</span>
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                  <Lock className="w-4 h-4" />
                 </div>
-                {mgrCreateErrors.password && (
-                  <p className="text-xs text-red-600 mt-1">{mgrCreateErrors.password}</p>
-                )}
+                <input
+                  type="password"
+                  value={newMgrPassword}
+                  onChange={(e) => {
+                    setNewMgrPassword(e.target.value)
+                    if (mgrCreateErrors.password)
+                      setMgrCreateErrors((prev) => ({ ...prev, password: '' }))
+                  }}
+                  placeholder="Deixe em branco para gerar senha temporária automática"
+                  className="w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
               </div>
-            ) : (
-              <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-800 space-y-1">
-                <p className="font-bold flex items-center gap-1.5">
-                  <LinkIcon className="w-4 h-4 text-amber-600" />
-                  Link de Convite será gerado
+              {mgrCreateErrors.password ? (
+                <p className="text-xs text-red-600 mt-1">{mgrCreateErrors.password}</p>
+              ) : (
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Se não informada, o sistema gera uma senha provisória e fornece o link de convite
+                  para ativação.
                 </p>
-                <p className="text-[11px] text-amber-700">
-                  O gerente definirá sua própria senha através do link de convite gerado após a
-                  criação. Nenhum e-mail será enviado.
-                </p>
-              </div>
-            )}
+              )}
+            </div>
 
             <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
               <button
@@ -3472,20 +3474,20 @@ export default function AdminCompanyDetail() {
           </form>
         </DialogContent>
       </Dialog>
-      {/* Modal de Exibição do Link de Convite Gerado para Gerente */}
+      {/* Modal de Exibição do Link de Convite Gerado para Gestor ou Gerente */}
       <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
         <DialogContent className="max-w-md rounded-3xl p-6 bg-white border border-slate-100 shadow-2xl">
           <DialogHeader className="text-center sm:text-center">
-            <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3">
-              <UserCheck className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+              <LinkIcon className="w-6 h-6" />
             </div>
             <DialogTitle className="text-xl font-black text-slate-900 text-center">
-              Link de Convite do Gerente
+              Link de Convite e Ativação
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500 text-center pt-1 leading-relaxed">
               O acesso para <strong className="text-slate-800">{createdManagerInfo?.name}</strong>{' '}
-              foi criado com perfil <strong className="text-amber-700">GERENTE</strong>. Copie o
-              link abaixo e envie diretamente ao gerente para ele definir sua senha.
+              foi cadastrado com sucesso. Copie o link abaixo e envie ao usuário para ele definir ou
+              alterar sua senha de acesso.
             </DialogDescription>
           </DialogHeader>
 

@@ -1317,20 +1317,27 @@ export async function createCompanyManager(
           Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
         const tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
         const userPassword =
-          payload.password || 'Pass@' + Math.random().toString(36).substring(2, 10) + '!'
+          payload.password && payload.password.length >= 8
+            ? payload.password
+            : 'Pass@' + Math.random().toString(36).substring(2, 10) + 'X9!'
 
         try {
           const existing = await pb
             .collection('users')
             .getFirstListItem(`email = "${payload.email}"`)
           user = existing
-          await pb.collection('users').update(user.id, {
+          const updateData: Record<string, unknown> = {
             name: payload.name || user.name,
             profile: payload.profile || (isGerente ? 'gerente' : 'gestor'),
             invite_token: generatedToken,
             invite_status: 'pending',
             invite_expires: tokenExpires,
-          })
+          }
+          if (payload.password && payload.password.length >= 8) {
+            updateData.password = payload.password
+            updateData.passwordConfirm = payload.password
+          }
+          await pb.collection('users').update(user.id, updateData)
         } catch {
           user = await pb.collection('users').create({
             email: payload.email,

@@ -29,8 +29,8 @@ routerAdd('POST', '/api/admin/company/{id}/managers', (e) => {
   }
 
   // Para qualquer perfil (gestor ou gerente), se a senha não foi fornecida, geramos uma temporária segura
-  // permitindo que o usuário defina sua própria senha através do link de convite gerado.
-  if (!password || password.length < 6) {
+  // com pelo menos 10 caracteres, letras maiúsculas/minúsculas e números
+  if (!password || password.length < 8) {
     password = (isGerente ? 'G-' : 'M-') + $security.randomString(16) + 'A1!'
   }
 
@@ -85,6 +85,10 @@ routerAdd('POST', '/api/admin/company/{id}/managers', (e) => {
     user.set('invite_token', inviteToken)
     user.set('invite_status', 'pending')
     user.set('invite_expires', expiresAt)
+    // Se foi fornecida senha explicitamente para usuário existente, atualiza
+    if (body.password && String(body.password).trim().length >= 8) {
+      user.setPassword(String(body.password).trim())
+    }
     $app.save(user)
   } catch (_) {
     const userCol = $app.findCollectionByNameOrId('_pb_users_auth_')
