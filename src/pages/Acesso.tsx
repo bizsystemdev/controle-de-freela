@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { AppLogo } from '@/components/AppLogo'
 import { useApp } from '@/context/AppContext'
 import { maskBrazilianPhone, isValidBrazilianPhone } from '@/lib/phoneMask'
-import { Check, Phone, Loader2, Sparkles, AlertCircle, ShieldCheck } from 'lucide-react'
+import { Check, Phone, Loader2, AlertCircle, ShieldCheck } from 'lucide-react'
 
 export default function Acesso() {
   const navigate = useNavigate()
@@ -50,15 +50,6 @@ export default function Acesso() {
     }
   }
 
-  const handleFillDemo = (demoPhone = '(11) 98765-4321') => {
-    setPhone(demoPhone)
-    setLocalError('')
-    resetAuthError()
-    if (inputRef.current) {
-      inputRef.current.focus()
-    }
-  }
-
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (isSubmitting) return
@@ -84,15 +75,6 @@ export default function Acesso() {
       <div className="flex flex-col items-center sm:items-start pt-2">
         <div className="mb-6 flex items-center justify-between w-full">
           <AppLogo size="sm" showText />
-          <button
-            type="button"
-            onClick={() => handleFillDemo('(11) 98765-4321')}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors active:scale-95"
-            title="Preencher com dados de teste"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Modo demo</span>
-          </button>
         </div>
 
         <h1 className="text-3xl sm:text-[32px] font-black tracking-tight text-slate-900 mb-2">
