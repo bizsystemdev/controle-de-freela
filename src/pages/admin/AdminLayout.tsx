@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { AppLogo } from '@/components/AppLogo'
 import { useApp } from '@/context/AppContext'
 import { getAdminCompanies, type CompanyAdminItem } from '@/services/admin'
+import { isGerente, isGerenteCompanyTabAllowed } from '@/lib/adminPermissions'
 import {
   Building2,
   Users,
@@ -29,10 +30,11 @@ import {
 export const AdminLayout: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
-  const { manager, logout } = useApp()
+  const { manager, logout, authState, role } = useApp()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [managerCompanies, setManagerCompanies] = useState<CompanyAdminItem[]>([])
-  const isGerente = manager?.profile === 'gerente' || manager?.role === 'viewer'
+  const [companiesLoaded, setCompaniesLoaded] = useState(false)
+  const gerente = isGerente(manager)
 
   // Extract selected company ID if inside `/admin/empresa/:id/...`
   const companyIdMatch = location.pathname.match(/\/admin\/empresa\/([^/]+)/)
@@ -41,6 +43,7 @@ export const AdminLayout: React.FC = () => {
   // Carrega empresas vinculadas para permitir alternância fácil pelo gerente e gestor
   useEffect(() => {
     let isMounted = true
+    setCompaniesLoaded(false)
     if (manager?.id) {
       void getAdminCompanies(manager.id)
         .then((data) => {
@@ -49,6 +52,11 @@ export const AdminLayout: React.FC = () => {
         .catch(() => {
           // silencioso
         })
+        .finally(() => {
+          if (isMounted) setCompaniesLoaded(true)
+        })
+    } else {
+      setCompaniesLoaded(true)
     }
     return () => {
       isMounted = false
@@ -60,23 +68,15 @@ export const AdminLayout: React.FC = () => {
     navigate('/admin/login')
   }
 
-  // Se for gerente e estiver em /admin (sem ID de empresa), seleciona a primeira empresa disponível
-  useEffect(() => {
-    if (isGerente && location.pathname === '/admin' && managerCompanies.length > 0) {
-      const targetCompany = managerCompanies[0]
-      navigate(`/admin/empresa/${targetCompany.id}?tab=freelancers`, { replace: true })
-    }
-  }, [isGerente, location.pathname, managerCompanies, navigate])
-
   // Breadcrumbs generator
   const getBreadcrumbs = () => {
-    const crumbs = isGerente ? [] : [{ label: 'Dashboard', path: '/admin' }]
+    const crumbs = gerente ? [] : [{ label: 'Dashboard', path: '/admin' }]
 
     if (currentCompanyId) {
       const matchedCompany = managerCompanies.find((c) => c.id === currentCompanyId)
       const companyLabel = matchedCompany ? matchedCompany.name : 'Empresa'
 
-      if (isGerente) {
+      if (gerente) {
         crumbs.push({
           label: companyLabel,
           path: `/admin/empresa/${currentCompanyId}?tab=freelancers`,
@@ -111,6 +111,75 @@ export const AdminLayout: React.FC = () => {
 
   const breadcrumbs = getBreadcrumbs()
 
+  if (authState === 'loading') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin" />
+      </div>
+    )
+  }
+
+  if (authState !== 'authenticated' || role !== 'manager' || !manager) {
+    return <Navigate to="/admin/login" replace />
+  }
+
+  if (gerente && !companiesLoaded) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-4 border-amber-200 border-t-amber-600 animate-spin" />
+      </div>
+    )
+  }
+
+  if (gerente && managerCompanies.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="max-w-md rounded-3xl border border-amber-200 bg-white p-8 text-center shadow-sm">
+          <Shield className="w-10 h-10 text-amber-600 mx-auto mb-3" />
+          <h1 className="text-lg font-black text-slate-900">Nenhuma empresa vinculada</h1>
+          <p className="text-sm text-slate-500 mt-2">
+            Solicite a um gestor o vínculo com uma empresa para acessar o painel.
+          </p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-5 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold"
+          >
+            Sair do Painel
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (gerente && managerCompanies.length > 0) {
+    const fallbackUrl = `/admin/empresa/${managerCompanies[0].id}?tab=freelancers`
+    const currentCompanyIsAllowed =
+      !currentCompanyId || managerCompanies.some((company) => company.id === currentCompanyId)
+    const isCompanyPage =
+      currentCompanyId !== null && location.pathname === `/admin/empresa/${currentCompanyId}`
+    const isAllowedNestedPage =
+      currentCompanyId !== null &&
+      (location.pathname === `/admin/empresa/${currentCompanyId}/freelancers` ||
+        location.pathname === `/admin/empresa/${currentCompanyId}/freelancers/novo` ||
+        location.pathname === `/admin/empresa/${currentCompanyId}/historico`)
+
+    if (location.pathname === '/admin' || !currentCompanyIsAllowed) {
+      return <Navigate to={fallbackUrl} replace />
+    }
+
+    if (
+      isCompanyPage &&
+      !isGerenteCompanyTabAllowed(new URLSearchParams(location.search).get('tab'))
+    ) {
+      return <Navigate to={`/admin/empresa/${currentCompanyId}?tab=freelancers`} replace />
+    }
+
+    if (!isCompanyPage && !isAllowedNestedPage) {
+      return <Navigate to={fallbackUrl} replace />
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* Top Navbar */}
@@ -131,7 +200,7 @@ export const AdminLayout: React.FC = () => {
 
             {/* Desktop Navigation Links */}
             <nav className="hidden md:flex items-center gap-1 pl-4 border-l border-slate-800">
-              {!isGerente && (
+              {!gerente && (
                 <Link
                   to="/admin"
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
@@ -151,7 +220,7 @@ export const AdminLayout: React.FC = () => {
                     <Building2 className="w-3.5 h-3.5 text-indigo-400" />
                     <span className="truncate max-w-[140px]">
                       {managerCompanies.find((c) => c.id === currentCompanyId)?.name ||
-                        (isGerente ? 'Selecionar Empresa' : 'Empresas')}
+                        (gerente ? 'Selecionar Empresa' : 'Empresas')}
                     </span>
                     <ChevronDown className="w-3 h-3 text-slate-400" />
                   </DropdownMenuTrigger>
@@ -160,12 +229,12 @@ export const AdminLayout: React.FC = () => {
                     className="w-60 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-200"
                   >
                     <DropdownMenuLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
-                      {isGerente ? 'Empresas Vinculadas' : 'Suas Empresas'}
+                      {gerente ? 'Empresas Vinculadas' : 'Suas Empresas'}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {managerCompanies.map((c) => {
                       const isSelected = c.id === currentCompanyId
-                      const targetUrl = isGerente
+                      const targetUrl = gerente
                         ? `/admin/empresa/${c.id}?tab=freelancers`
                         : `/admin/empresa/${c.id}`
                       return (
@@ -187,7 +256,7 @@ export const AdminLayout: React.FC = () => {
                 </DropdownMenu>
               )}
 
-              {currentCompanyId && !isGerente && (
+              {currentCompanyId && !gerente && (
                 <>
                   <Link
                     to={`/admin/empresa/${currentCompanyId}`}
@@ -245,7 +314,7 @@ export const AdminLayout: React.FC = () => {
                 </>
               )}
 
-              {currentCompanyId && isGerente && (
+              {currentCompanyId && gerente && (
                 <>
                   <Link
                     to={`/admin/empresa/${currentCompanyId}?tab=freelancers`}
@@ -270,6 +339,16 @@ export const AdminLayout: React.FC = () => {
                   >
                     Histórico Check-in/out
                   </Link>
+                  <Link
+                    to={`/admin/empresa/${currentCompanyId}?tab=liberacoes`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      location.search.includes('tab=liberacoes')
+                        ? 'bg-amber-600 text-white'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    Liberações
+                  </Link>
                 </>
               )}
             </nav>
@@ -292,7 +371,7 @@ export const AdminLayout: React.FC = () => {
               <DropdownMenuTrigger className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-800 transition-colors focus:outline-none">
                 <div
                   className={`w-8 h-8 rounded-lg text-white font-black text-xs flex items-center justify-center shadow-sm ${
-                    isGerente ? 'bg-amber-600' : 'bg-indigo-600'
+                    gerente ? 'bg-amber-600' : 'bg-indigo-600'
                   }`}
                 >
                   {manager?.name?.charAt(0) || 'G'}
@@ -300,16 +379,16 @@ export const AdminLayout: React.FC = () => {
                 <div className="hidden sm:flex flex-col text-left">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-white truncate max-w-[140px]">
-                      {manager?.name || (isGerente ? 'Gerente' : 'Gestor')}
+                      {manager?.name || (gerente ? 'Gerente' : 'Gestor')}
                     </span>
                     <span
                       className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase ${
-                        isGerente
+                        gerente
                           ? 'bg-amber-500/20 text-amber-300'
                           : 'bg-indigo-500/20 text-indigo-300'
                       }`}
                     >
-                      {isGerente ? 'Gerente' : 'Gestor'}
+                      {gerente ? 'Gerente' : 'Gestor'}
                     </span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-medium truncate max-w-[140px]">
@@ -327,10 +406,10 @@ export const AdminLayout: React.FC = () => {
                     <p className="text-xs font-bold text-slate-900">{manager?.name || 'Gestor'}</p>
                     <span
                       className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
-                        isGerente ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800'
+                        gerente ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800'
                       }`}
                     >
-                      {isGerente ? 'Gerente' : 'Gestor'}
+                      {gerente ? 'Gerente' : 'Gestor'}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 font-normal truncate mt-0.5">
@@ -338,14 +417,18 @@ export const AdminLayout: React.FC = () => {
                   </p>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => navigate('/admin')}
-                  className="rounded-xl text-xs font-semibold text-slate-700 cursor-pointer"
-                >
-                  <Building2 className="w-4 h-4 mr-2 text-slate-500" />
-                  <span>Minhas Empresas</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                {!gerente && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => navigate('/admin')}
+                      className="rounded-xl text-xs font-semibold text-slate-700 cursor-pointer"
+                    >
+                      <Building2 className="w-4 h-4 mr-2 text-slate-500" />
+                      <span>Minhas Empresas</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="rounded-xl text-xs font-semibold text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
@@ -370,7 +453,7 @@ export const AdminLayout: React.FC = () => {
         {/* Mobile Dropdown Nav */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-slate-950 border-t border-slate-800 p-4 space-y-2 animate-fade-in">
-            {!isGerente && (
+            {!gerente && (
               <Link
                 to="/admin"
                 onClick={() => setMobileMenuOpen(false)}
@@ -390,7 +473,7 @@ export const AdminLayout: React.FC = () => {
                 <div className="space-y-1">
                   {managerCompanies.map((c) => {
                     const isSelected = c.id === currentCompanyId
-                    const targetUrl = isGerente
+                    const targetUrl = gerente
                       ? `/admin/empresa/${c.id}?tab=freelancers`
                       : `/admin/empresa/${c.id}`
                     return (
@@ -416,7 +499,7 @@ export const AdminLayout: React.FC = () => {
               </div>
             )}
 
-            {currentCompanyId && !isGerente && (
+            {currentCompanyId && !gerente && (
               <>
                 <Link
                   to={`/admin/empresa/${currentCompanyId}`}
@@ -461,7 +544,7 @@ export const AdminLayout: React.FC = () => {
               </>
             )}
 
-            {currentCompanyId && isGerente && (
+            {currentCompanyId && gerente && (
               <>
                 <Link
                   to={`/admin/empresa/${currentCompanyId}?tab=freelancers`}
@@ -478,6 +561,14 @@ export const AdminLayout: React.FC = () => {
                 >
                   <History className="w-4 h-4 text-amber-400" />
                   <span>Histórico Check-in/out</span>
+                </Link>
+                <Link
+                  to={`/admin/empresa/${currentCompanyId}?tab=liberacoes`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold text-slate-200 hover:bg-slate-900"
+                >
+                  <RotateCcw className="w-4 h-4 text-amber-400" />
+                  <span>Liberações de Dispositivo</span>
                 </Link>
               </>
             )}
@@ -496,7 +587,7 @@ export const AdminLayout: React.FC = () => {
       </header>
 
       {/* Breadcrumbs Banner */}
-      <div className="bg-white border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 py-2.5">
+      {/* <div className="bg-white border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 py-2.5">
         <div className="max-w-7xl mx-auto flex items-center gap-2 text-xs text-slate-500 font-medium overflow-x-auto whitespace-nowrap">
           {breadcrumbs.map((crumb, idx) => {
             const isLast = idx === breadcrumbs.length - 1
@@ -514,7 +605,7 @@ export const AdminLayout: React.FC = () => {
             )
           })}
         </div>
-      </div>
+      </div> */}
 
       {/* Admin Content Viewport */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 animate-fade-in">

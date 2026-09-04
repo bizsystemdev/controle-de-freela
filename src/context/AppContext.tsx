@@ -280,12 +280,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Check PocketBase manager auth store first
       if (pb.authStore.isValid && pb.authStore.record) {
         const rec = pb.authStore.record
+        let managerRole: ManagerUser['role'] = 'admin'
+        try {
+          const managerLinks = await pb.collection('license_managers').getList(1, 1, {
+            filter: `user_id = "${rec.id}"`,
+          })
+          managerRole =
+            (managerLinks.items[0]?.role as ManagerUser['role'] | undefined) || managerRole
+        } catch {
+          // Mantém compatibilidade com sessões cuja consulta de vínculo esteja indisponível.
+        }
+        const managerProfile =
+          (rec.profile as ManagerUser['profile'] | undefined) ||
+          (managerRole === 'viewer' ? 'gerente' : 'gestor')
         const storedMgr: ManagerUser = {
           id: rec.id,
-          name: rec.name || (rec.profile === 'gerente' ? 'Gerente' : 'Gestor'),
+          name: rec.name || (managerProfile === 'gerente' ? 'Gerente' : 'Gestor'),
           email: rec.email,
-          role: 'admin',
-          profile: (rec.profile as 'gestor' | 'gerente') || 'gestor',
+          role: managerRole,
+          profile: managerProfile,
         }
         setManager(storedMgr)
         setRole('manager')

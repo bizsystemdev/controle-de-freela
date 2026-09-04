@@ -12,6 +12,8 @@ import {
   type CompanyAdminItem,
 } from '@/services/admin'
 import { getCompany, type CompanyData } from '@/services/companies'
+import { useApp } from '@/context/AppContext'
+import { isGerente } from '@/lib/adminPermissions'
 import { toast } from '@/hooks/use-toast'
 import {
   Users,
@@ -48,6 +50,8 @@ import { CheckSquare, Square } from 'lucide-react'
 export default function AdminFreelancersList() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { manager } = useApp()
+  const gerente = isGerente(manager)
 
   const [company, setCompany] = useState<CompanyData | null>(null)
   const [freelancers, setFreelancers] = useState<AdminFreelancer[]>([])
@@ -122,6 +126,7 @@ export default function AdminFreelancersList() {
   }, [id])
 
   const handleOpenEdit = (fl: AdminFreelancer) => {
+    if (gerente) return
     setEditingFreelancer(fl)
     setEditName(fl.name || '')
     setEditPhone(fl.phone || '')
@@ -134,6 +139,7 @@ export default function AdminFreelancersList() {
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (gerente) return
     if (!editingFreelancer) return
 
     const errs: Record<string, string> = {}
@@ -188,6 +194,7 @@ export default function AdminFreelancersList() {
   }
 
   const handleOpenDuplicate = (fl: AdminFreelancer) => {
+    if (gerente) return
     setSelectedFreelancer(fl)
     // Pre-select all other available companies or the first one
     const others = allCompanies.filter((c) => c.id !== id)
@@ -196,6 +203,7 @@ export default function AdminFreelancersList() {
   }
 
   const handleConfirmDuplicate = async () => {
+    if (gerente) return
     if (!selectedFreelancer || targetCompanyIds.length === 0) return
     setDuplicating(true)
     try {
@@ -217,11 +225,13 @@ export default function AdminFreelancersList() {
   }
 
   const handleOpenRemove = (fl: AdminFreelancer) => {
+    if (gerente) return
     setFreelancerToRemove(fl)
     setRemoveModalOpen(true)
   }
 
   const handleConfirmRemove = async () => {
+    if (gerente) return
     if (!freelancerToRemove || !id) return
     setRemoving(true)
     try {
@@ -289,12 +299,14 @@ export default function AdminFreelancersList() {
   }
 
   const handleOpenManualAttendance = (fl: AdminFreelancer) => {
+    if (gerente) return
     setFlForManualAtt(fl)
     setManualAttType(fl.hasOpenCheckIn ? 'check_out' : 'check_in')
     setManualAttendanceModalOpen(true)
   }
 
   const handleConfirmManualAttendance = async () => {
+    if (gerente) return
     if (!flForManualAtt || !id) return
     setRegisteringManual(true)
     try {
@@ -522,27 +534,28 @@ export default function AdminFreelancersList() {
                     <td className="py-4 px-4 sm:px-6 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {/* Quick Manual Check-in / Check-out Button */}
-                        {fl.hasOpenCheckIn ? (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenManualAttendance(fl)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-colors active:scale-95 cursor-pointer"
-                            title="Fazer Check-out manual para este freelancer"
-                          >
-                            <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Fazer Check-out</span>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenManualAttendance(fl)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 transition-colors active:scale-95 cursor-pointer"
-                            title="Fazer Check-in manual para este freelancer"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
-                            <span>Fazer Check-in</span>
-                          </button>
-                        )}
+                        {!gerente &&
+                          (fl.hasOpenCheckIn ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenManualAttendance(fl)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-colors active:scale-95 cursor-pointer"
+                              title="Fazer Check-out manual para este freelancer"
+                            >
+                              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Fazer Check-out</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenManualAttendance(fl)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 transition-colors active:scale-95 cursor-pointer"
+                              title="Fazer Check-in manual para este freelancer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>Fazer Check-in</span>
+                            </button>
+                          ))}
                         {Boolean(fl.deviceId) && (
                           <button
                             type="button"
@@ -555,34 +568,38 @@ export default function AdminFreelancersList() {
                           </button>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(fl)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors active:scale-95 cursor-pointer"
-                          title="Editar dados do freelancer"
-                        >
-                          <Pencil className="w-3.5 h-3.5 text-slate-500" />
-                          <span className="hidden sm:inline">Editar</span>
-                        </button>
+                        {!gerente && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(fl)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors active:scale-95 cursor-pointer"
+                              title="Editar dados do freelancer"
+                            >
+                              <Pencil className="w-3.5 h-3.5 text-slate-500" />
+                              <span className="hidden sm:inline">Editar</span>
+                            </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDuplicate(fl)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors active:scale-95 cursor-pointer"
-                          title="Duplicar para outra empresa"
-                        >
-                          <Copy className="w-3.5 h-3.5 text-slate-500" />
-                          <span className="hidden sm:inline">Duplicar</span>
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDuplicate(fl)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors active:scale-95 cursor-pointer"
+                              title="Duplicar para outra empresa"
+                            >
+                              <Copy className="w-3.5 h-3.5 text-slate-500" />
+                              <span className="hidden sm:inline">Duplicar</span>
+                            </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenRemove(fl)}
-                          className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors active:scale-95 cursor-pointer"
-                          title="Remover vínculo com esta empresa"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenRemove(fl)}
+                              className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors active:scale-95 cursor-pointer"
+                              title="Remover vínculo com esta empresa"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

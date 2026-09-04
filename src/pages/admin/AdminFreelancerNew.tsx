@@ -4,6 +4,7 @@ import { createFreelancer, getAdminCompanies, type CompanyAdminItem } from '@/se
 import { getCompany, type CompanyData } from '@/services/companies'
 import { maskBrazilianPhone, isValidBrazilianPhone } from '@/lib/phoneMask'
 import { toast } from '@/hooks/use-toast'
+import { useApp } from '@/context/AppContext'
 import {
   UserPlus,
   ArrowLeft,
@@ -22,6 +23,7 @@ import {
 export default function AdminFreelancerNew() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { manager } = useApp()
 
   const [company, setCompany] = useState<CompanyData | null>(null)
   const [managerCompanies, setManagerCompanies] = useState<CompanyAdminItem[]>([])
@@ -42,7 +44,10 @@ export default function AdminFreelancerNew() {
     if (!id) return
     async function load() {
       try {
-        const [comp, adminComps] = await Promise.all([getCompany(id!), getAdminCompanies()])
+        const [comp, adminComps] = await Promise.all([
+          getCompany(id!),
+          getAdminCompanies(manager?.id),
+        ])
         setCompany(comp)
         setManagerCompanies(adminComps)
         // Ensure current company is selected by default
@@ -60,7 +65,7 @@ export default function AdminFreelancerNew() {
       }
     }
     void load()
-  }, [id])
+  }, [id, manager?.id])
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const masked = maskBrazilianPhone(e.target.value)
