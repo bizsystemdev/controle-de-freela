@@ -27,6 +27,8 @@ import {
   type UpdateCompanyPayload,
 } from '@/services/admin'
 import { getCompany, type CompanyData } from '@/services/companies'
+import { useApp } from '@/context/AppContext'
+import { isGerente } from '@/lib/adminPermissions'
 import { toast } from '@/hooks/use-toast'
 import { maskAlphanumericCnpj, isValidAlphanumericCnpj, unmaskCnpj } from '@/lib/cnpj'
 import {
@@ -93,6 +95,8 @@ import {
 export default function AdminCompanyDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { manager } = useApp()
+  const gerente = isGerente(manager)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const activeTab = searchParams.get('tab') || 'overview'
@@ -247,8 +251,8 @@ export default function AdminCompanyDetail() {
     try {
       const [compData, statsData, allComps] = await Promise.all([
         getCompany(id),
-        getCompanyStats(id),
-        getAdminCompanies(),
+        gerente ? Promise.resolve(null) : getCompanyStats(id),
+        getAdminCompanies(manager?.id),
       ])
       setCompany(compData)
       setStats(statsData)
@@ -370,6 +374,7 @@ export default function AdminCompanyDetail() {
   }
 
   const handleOpenEditCompany = () => {
+    if (gerente) return
     if (!company) return
     const parsed = parseExistingAddress(company)
 
@@ -533,6 +538,7 @@ export default function AdminCompanyDetail() {
 
   const handleSaveCompanyEdit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (gerente) return
     if (!id || !company) return
 
     const errors: Record<string, string> = {}
@@ -630,6 +636,7 @@ export default function AdminCompanyDetail() {
 
   // --- Handlers: Freelancers ---
   const handleOpenEditFl = (fl: AdminFreelancer) => {
+    if (gerente) return
     setEditingFl(fl)
     setEditFlName(fl.name || '')
     setEditFlPhone(fl.phone || '')
@@ -642,6 +649,7 @@ export default function AdminCompanyDetail() {
 
   const handleSaveEditFl = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (gerente) return
     if (!editingFl) return
 
     const errs: Record<string, string> = {}
@@ -696,6 +704,7 @@ export default function AdminCompanyDetail() {
   }
 
   const handleOpenDupFl = (fl: AdminFreelancer) => {
+    if (gerente) return
     setSelectedDupFl(fl)
     const others = allCompanies.filter((c) => c.id !== id)
     setTargetDupFlCompIds(others.length > 0 ? [others[0].id] : [])
@@ -703,6 +712,7 @@ export default function AdminCompanyDetail() {
   }
 
   const handleConfirmDupFl = async () => {
+    if (gerente) return
     if (!selectedDupFl || targetDupFlCompIds.length === 0) return
     setDuplicatingFl(true)
     try {
@@ -724,11 +734,13 @@ export default function AdminCompanyDetail() {
   }
 
   const handleOpenRemoveFl = (fl: AdminFreelancer) => {
+    if (gerente) return
     setFlToRemove(fl)
     setRemoveFlModalOpen(true)
   }
 
   const handleConfirmRemoveFl = async () => {
+    if (gerente) return
     if (!flToRemove || !id) return
     setRemovingFl(true)
     try {
@@ -799,12 +811,14 @@ export default function AdminCompanyDetail() {
   }
 
   const handleOpenManualAttendance = (fl: AdminFreelancer) => {
+    if (gerente) return
     setFlForManualAtt(fl)
     setManualAttType(fl.hasOpenCheckIn ? 'check_out' : 'check_in')
     setManualAttendanceModalOpen(true)
   }
 
   const handleConfirmManualAttendance = async () => {
+    if (gerente) return
     if (!flForManualAtt || !id) return
     setRegisteringManual(true)
     try {
@@ -849,6 +863,7 @@ export default function AdminCompanyDetail() {
 
   // --- Handlers: Managers ---
   const handleOpenCreateMgr = () => {
+    if (gerente) return
     setNewMgrName('')
     setNewMgrEmail('')
     setNewMgrProfile('gestor')
@@ -859,6 +874,7 @@ export default function AdminCompanyDetail() {
 
   const handleCreateMgrSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (gerente) return
     if (!id) return
 
     const errs: Record<string, string> = {}
@@ -921,6 +937,7 @@ export default function AdminCompanyDetail() {
   }
 
   const handleOpenEditMgr = (mgr: AdminManager) => {
+    if (gerente) return
     setEditingMgr(mgr)
     setEditMgrName(mgr.name || '')
     setEditMgrEmail(mgr.email || '')
@@ -932,6 +949,7 @@ export default function AdminCompanyDetail() {
 
   const handleSaveEditMgr = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (gerente) return
     if (!editingMgr) return
 
     const errs: Record<string, string> = {}
@@ -987,6 +1005,7 @@ export default function AdminCompanyDetail() {
   }
 
   const handleOpenDupMgr = (mgr: AdminManager) => {
+    if (gerente) return
     setSelectedDupMgr(mgr)
     const other = allCompanies.find((c) => c.id !== id)
     setTargetDupMgrCompId(other ? other.id : '')
@@ -994,6 +1013,7 @@ export default function AdminCompanyDetail() {
   }
 
   const handleConfirmDupMgr = async () => {
+    if (gerente) return
     if (!selectedDupMgr || !id || !targetDupMgrCompId) return
     setDuplicatingMgr(true)
     try {
@@ -1015,11 +1035,13 @@ export default function AdminCompanyDetail() {
   }
 
   const handleOpenRemoveMgr = (mgr: AdminManager) => {
+    if (gerente) return
     setMgrToRemove(mgr)
     setRemoveMgrModalOpen(true)
   }
 
   const handleConfirmRemoveMgr = async () => {
+    if (gerente) return
     if (!mgrToRemove || !id) return
     setRemovingMgr(true)
     try {
@@ -1128,68 +1150,82 @@ export default function AdminCompanyDetail() {
 
         {/* Action Buttons: Edit Company & Switch */}
         <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
-          <button
-            type="button"
-            onClick={handleOpenEditCompany}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            <span>Editar empresa</span>
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition-colors cursor-pointer">
-              <Building2 className="w-4 h-4 text-slate-500" />
-              <span>Trocar Empresa</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-64 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-200"
+          {!gerente && (
+            <button
+              type="button"
+              onClick={handleOpenEditCompany}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
             >
-              <DropdownMenuLabel className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
-                Suas Empresas
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {allCompanies.map((c) => (
-                <DropdownMenuItem
-                  key={c.id}
-                  onClick={() => navigate(`/admin/empresa/${c.id}`)}
-                  className={`rounded-xl text-xs font-semibold cursor-pointer ${
-                    c.id === company.id
-                      ? 'bg-indigo-50 text-indigo-600 font-bold'
-                      : 'text-slate-700'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4 mr-2" />
-                  <span className="truncate">{c.name}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Editar empresa</span>
+            </button>
+          )}
+          {(!gerente || allCompanies.length > 1) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition-colors cursor-pointer">
+                <Building2 className="w-4 h-4 text-slate-500" />
+                <span>Trocar Empresa</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-64 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-200"
+              >
+                <DropdownMenuLabel className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
+                  Suas Empresas
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {allCompanies.map((c) => (
+                  <DropdownMenuItem
+                    key={c.id}
+                    onClick={() =>
+                      navigate(
+                        gerente
+                          ? `/admin/empresa/${c.id}?tab=freelancers`
+                          : `/admin/empresa/${c.id}`,
+                      )
+                    }
+                    className={`rounded-xl text-xs font-semibold cursor-pointer ${
+                      c.id === company.id
+                        ? 'bg-indigo-50 text-indigo-600 font-bold'
+                        : 'text-slate-700'
+                    }`}
+                  >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    <span className="truncate">{c.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
-          <button
-            type="button"
-            onClick={() => navigate('/admin')}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-            title="Voltar ao dashboard geral"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+          {!gerente && (
+            <button
+              type="button"
+              onClick={() => navigate('/admin')}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              title="Voltar ao dashboard geral"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
       {/* Tabs Navigation Bar */}
       <div className="flex items-center gap-2 border-b border-slate-200/80 pb-3 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-            activeTab === 'overview'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          Visão Geral
-        </button>
+        {!gerente && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'overview'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            Visão Geral
+          </button>
+        )}
 
         <button
           type="button"
@@ -1215,27 +1251,31 @@ export default function AdminCompanyDetail() {
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('gestores')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
-            activeTab === 'gestores'
-              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <Shield className="w-3.5 h-3.5" />
-          <span>Gestores</span>
-          {managers.length > 0 && (
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                activeTab === 'gestores' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-              }`}
-            >
-              {managers.length}
-            </span>
-          )}
-        </button>
+        {!gerente && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('gestores')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'gestores'
+                ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>Gestores</span>
+            {managers.length > 0 && (
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  activeTab === 'gestores'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200 text-slate-700'
+                }`}
+              >
+                {managers.length}
+              </span>
+            )}
+          </button>
+        )}
 
         <button
           type="button"
@@ -1275,7 +1315,7 @@ export default function AdminCompanyDetail() {
         </button>
       </div>
       {/* TAB 1: VISÃO GERAL */}
-      {activeTab === 'overview' && (
+      {activeTab === 'overview' && !gerente && (
         <div className="space-y-6 animate-fade-in">
           {/* Metrics Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1623,27 +1663,28 @@ export default function AdminCompanyDetail() {
                         <td className="py-4 px-4 sm:px-6 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             {/* Quick Manual Check-in / Check-out Button */}
-                            {fl.hasOpenCheckIn ? (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenManualAttendance(fl)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-700 hover:text-red-900 bg-red-50 hover:bg-red-100 border border-red-200/80 transition-colors active:scale-95 cursor-pointer"
-                                title="Fazer Check-out manual para este freelancer"
-                              >
-                                <Clock className="w-3.5 h-3.5 text-red-600" />
-                                <span>Fazer Check-out</span>
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenManualAttendance(fl)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-colors active:scale-95 cursor-pointer"
-                                title="Fazer Check-in manual para este freelancer"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Fazer Check-in</span>
-                              </button>
-                            )}
+                            {!gerente &&
+                              (fl.hasOpenCheckIn ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenManualAttendance(fl)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-700 hover:text-red-900 bg-red-50 hover:bg-red-100 border border-red-200/80 transition-colors active:scale-95 cursor-pointer"
+                                  title="Fazer Check-out manual para este freelancer"
+                                >
+                                  <Clock className="w-3.5 h-3.5 text-red-600" />
+                                  <span>Fazer Check-out</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenManualAttendance(fl)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-colors active:scale-95 cursor-pointer"
+                                  title="Fazer Check-in manual para este freelancer"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Fazer Check-in</span>
+                                </button>
+                              ))}
                             {Boolean(fl.deviceId) && (
                               <button
                                 type="button"
@@ -1656,34 +1697,38 @@ export default function AdminCompanyDetail() {
                               </button>
                             )}
 
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditFl(fl)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
-                              title="Editar freelancer"
-                            >
-                              <Pencil className="w-3.5 h-3.5 text-slate-500" />
-                              <span className="hidden sm:inline">Editar</span>
-                            </button>
+                            {!gerente && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditFl(fl)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                                  title="Editar freelancer"
+                                >
+                                  <Pencil className="w-3.5 h-3.5 text-slate-500" />
+                                  <span className="hidden sm:inline">Editar</span>
+                                </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDupFl(fl)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
-                              title="Duplicar para outra empresa"
-                            >
-                              <Copy className="w-3.5 h-3.5 text-slate-500" />
-                              <span className="hidden sm:inline">Duplicar</span>
-                            </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDupFl(fl)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                                  title="Duplicar para outra empresa"
+                                >
+                                  <Copy className="w-3.5 h-3.5 text-slate-500" />
+                                  <span className="hidden sm:inline">Duplicar</span>
+                                </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleOpenRemoveFl(fl)}
-                              className="p-1.5 rounded-lg text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer"
-                              title="Remover vínculo com esta empresa"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRemoveFl(fl)}
+                                  className="p-1.5 rounded-lg text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer"
+                                  title="Remover vínculo com esta empresa"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1696,7 +1741,7 @@ export default function AdminCompanyDetail() {
         </div>
       )}
       {/* TAB 3: GESTORES */}
-      {activeTab === 'gestores' && (
+      {activeTab === 'gestores' && !gerente && (
         <div className="space-y-4 animate-fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
