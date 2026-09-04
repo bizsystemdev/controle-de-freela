@@ -107,6 +107,7 @@ interface AppContextType {
   // Actions
   setSelectedCompany: (company: Company | null) => void
   resetAuthError: () => void
+  returnToPhoneStep: () => void
   submitPhone: (phone: string) => Promise<void>
   startBiometricFlow: () => Promise<void>
   restoreSession: () => Promise<void>
@@ -591,6 +592,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthMessage('')
   }, [])
 
+  const returnToPhoneStep = useCallback(() => {
+    setAuthError('')
+    setAuthMessage('')
+    setPendingPhone('')
+    setAuthState('needs-phone')
+  }, [])
+
   // ----- Check-in (with geolocation) --------------------------------------
   const performCheckIn = useCallback(
     async (company: Company): Promise<CheckInResult> => {
@@ -844,6 +852,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         savedPhone,
         setSelectedCompany,
         resetAuthError,
+        returnToPhoneStep,
         submitPhone,
         startBiometricFlow,
         restoreSession,

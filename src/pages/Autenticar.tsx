@@ -34,6 +34,7 @@ export default function Autenticar() {
     pendingPhone,
     startBiometricFlow,
     resetAuthError,
+    returnToPhoneStep,
     companies,
     selectedCompany,
   } = useApp()
@@ -75,7 +76,7 @@ export default function Autenticar() {
   }
 
   const handleBack = () => {
-    resetAuthError()
+    returnToPhoneStep()
     navigate('/acesso')
   }
 
