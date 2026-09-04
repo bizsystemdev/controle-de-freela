@@ -126,7 +126,9 @@ export default function AdminDashboard() {
 
     setIsLookingUpCep(true)
     try {
-      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
+      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`, {
+        signal: AbortSignal.timeout(6000),
+      })
       const data = await res.json()
       if (data.erro) {
         toast({
@@ -184,6 +186,7 @@ export default function AdminDashboard() {
         headers: {
           'Accept-Language': 'pt-BR',
         },
+        signal: AbortSignal.timeout(6000),
       })
       const results = await res.json()
 
@@ -199,7 +202,7 @@ export default function AdminDashboard() {
         const fallbackQuery = `${streetVal.trim()}, ${cityVal.trim()}, ${stateVal.trim()}, Brasil`
         const fbRes = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=1`,
-          { headers: { 'Accept-Language': 'pt-BR' } },
+          { headers: { 'Accept-Language': 'pt-BR' }, signal: AbortSignal.timeout(6000) },
         )
         const fbResults = await fbRes.json()
         if (fbResults && fbResults.length > 0 && fbResults[0].lat && fbResults[0].lon) {
