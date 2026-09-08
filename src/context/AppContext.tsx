@@ -23,7 +23,6 @@ import {
   getStoredCredentialId,
   saveDeviceId,
   getLocalDeviceId,
-  isPlatformAuthenticatorAvailable,
   isWebAuthnSupported,
   WebAuthnError,
 } from '@/lib/webauthn'
@@ -439,7 +438,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (!isWebAuthnSupported()) {
         setAuthError(
-          'Seu dispositivo não suporta autenticação biométrica/chave de segurança. Tente usar outro aparelho.',
+          'Este navegador não oferece suporte à autenticação segura do dispositivo (WebAuthn).',
         )
         setAuthState('needs-biometric')
         return
@@ -492,14 +491,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthMessage('')
     setIsAuthBusy(true)
     try {
-      const platformAvailable = await isPlatformAuthenticatorAvailable()
-      if (!platformAvailable) {
-        setAuthError(
-          'Seu dispositivo não suporta autenticação biométrica. Tente usar outro dispositivo.',
-        )
-        return
-      }
-
+      // A disponibilidade real é decidida pela cerimônia WebAuthn abaixo. A consulta
+      // prévia de autenticador de plataforma pode retornar falso mesmo com WebAuthn funcional.
       const localCredId = getStoredCredentialId()
       const localDeviceId = getLocalDeviceId()
       const userId = apiUser?.id || storage.get(STORAGE_KEYS.userId) || ''

@@ -25,6 +25,7 @@ export default function Autenticar() {
   const navigate = useNavigate()
   const {
     user,
+    role,
     authState,
     authError,
     authMessage,
@@ -44,15 +45,19 @@ export default function Autenticar() {
   // If authenticated, route to main flow
   useEffect(() => {
     if (authState === 'authenticated') {
-      if (companies.length > 1 && !selectedCompany) {
-        navigate('/empresas')
-      } else {
-        navigate('/inicio')
+      if (role === 'manager') {
+        navigate('/admin')
+      } else if (role === 'freelancer') {
+        if (companies.length > 1 && !selectedCompany) {
+          navigate('/empresas')
+        } else {
+          navigate('/inicio')
+        }
       }
     } else if (authState === 'needs-phone' || authState === 'unauthenticated') {
       navigate('/acesso')
     }
-  }, [authState, companies, selectedCompany, navigate])
+  }, [authState, role, companies, selectedCompany, navigate])
 
   // Surface WebAuthn unsupported / device mismatch / missing credential as a blocking modal.
   useEffect(() => {
@@ -118,8 +123,8 @@ export default function Autenticar() {
         </h1>
         <p className="text-base text-slate-500 max-w-[280px] leading-relaxed font-normal mb-1">
           {isRegisterFlow
-            ? 'Cadastre a autenticação biométrica do aparelho para acessar o Freela Check sem senha.'
-            : 'Autentique-se com biometria ou chave de segurança para continuar'}
+            ? 'Cadastre a autenticação segura do aparelho para acessar o Freela Check sem senha.'
+            : 'Use a autenticação nativa do dispositivo para continuar'}
         </p>
         {user?.name && <p className="text-sm font-bold text-indigo-600 mb-1">{user.name}</p>}
         {pendingPhone && (
@@ -194,7 +199,7 @@ export default function Autenticar() {
               Dispositivo incompatível
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-slate-500 text-center pt-1">
-              Seu dispositivo não suporta autenticação biométrica. Tente usar outro dispositivo.
+              Este navegador não oferece suporte à autenticação segura do dispositivo (WebAuthn).
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col gap-2 sm:flex-col mt-4">

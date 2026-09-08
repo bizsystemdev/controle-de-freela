@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import Layout from './components/Layout'
-import { AppProvider } from './context/AppContext'
+import { AppProvider, useApp } from './context/AppContext'
 import { Toaster } from './components/ui/toaster'
 import { Loader2 } from 'lucide-react'
 
@@ -33,6 +33,32 @@ const AdminSuspenseFallback = () => (
   </div>
 )
 
+const FreelancerRouteGuard = () => {
+  const { authState, role } = useApp()
+
+  if (authState === 'loading') {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+      </div>
+    )
+  }
+
+  if (authState === 'authenticated' && role === 'freelancer') {
+    return <Outlet />
+  }
+
+  if (authState === 'authenticated' && role === 'manager') {
+    return <Navigate to="/admin" replace />
+  }
+
+  if (authState === 'needs-biometric') {
+    return <Navigate to="/autenticar" replace />
+  }
+
+  return <Navigate to="/acesso" replace />
+}
+
 export default function App() {
   return (
     <Router>
@@ -44,9 +70,11 @@ export default function App() {
             <Route path="/" element={<Index />} />
             <Route path="/acesso" element={<Acesso />} />
             <Route path="/autenticar" element={<Autenticar />} />
-            <Route path="/empresas" element={<Empresas />} />
-            <Route path="/inicio" element={<Inicio />} />
-            <Route path="/perfil" element={<Perfil />} />
+            <Route element={<FreelancerRouteGuard />}>
+              <Route path="/empresas" element={<Empresas />} />
+              <Route path="/inicio" element={<Inicio />} />
+              <Route path="/perfil" element={<Perfil />} />
+            </Route>
 
             {/* Admin Login */}
             <Route
