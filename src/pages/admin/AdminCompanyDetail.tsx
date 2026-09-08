@@ -29,6 +29,7 @@ import {
 import { getCompany, type CompanyData } from '@/services/companies'
 import { useApp } from '@/context/AppContext'
 import { isGerente } from '@/lib/adminPermissions'
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation'
 import { toast } from '@/hooks/use-toast'
 import { maskAlphanumericCnpj, isValidAlphanumericCnpj, unmaskCnpj } from '@/lib/cnpj'
 import {
@@ -92,6 +93,29 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+function getGeolocationErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message === 'unsupported') {
+    return 'Este navegador ou dispositivo não oferece suporte à localização.'
+  }
+
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'number'
+      ? error.code
+      : null
+
+  if (code === 1) {
+    return 'A permissão de localização foi negada. Libere o acesso nas configurações do navegador e tente novamente.'
+  }
+  if (code === 2) {
+    return 'A localização atual está indisponível. Verifique se o GPS está ativo e tente novamente.'
+  }
+  if (code === 3) {
+    return 'A localização demorou mais que o esperado. Verifique o sinal do GPS e tente novamente.'
+  }
+
+  return 'Não foi possível obter sua localização. Verifique as permissões do dispositivo e tente novamente.'
+}
+
 export default function AdminCompanyDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -119,6 +143,7 @@ export default function AdminCompanyDetail() {
   const [allCompanies, setAllCompanies] = useState<CompanyAdminItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [updatingCompanyLocation, setUpdatingCompanyLocation] = useState(false)
 
   // Freelancers tab state
   const [freelancers, setFreelancers] = useState<AdminFreelancer[]>([])
@@ -261,6 +286,90 @@ export default function AdminCompanyDetail() {
       setError(err instanceof Error ? err.message : 'Falha ao carregar dados da empresa.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUpdateCompanyLocation = async () => {
+    if (!id || !company || updatingCompanyLocation) return
+
+    if (!isGeolocationAvailable()) {
+      toast({
+        title: 'Localização não disponível',
+        description: 'Este navegador ou dispositivo não oferece suporte à localização.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setUpdatingCompanyLocation(true)
+
+    try {
+      let coords
+      try {
+        coords = await getCurrentPosition()
+      } catch (err: unknown) {
+        toast({
+          title: 'Não foi possível obter a localização',
+          description: getGeolocationErrorMessage(err),
+          variant: 'destructive',
+        })
+        return
+      }
+
+      const coordinatesAreValid =
+        Number.isFinite(coords.latitude) &&
+        Number.isFinite(coords.longitude) &&
+        coords.latitude >= -90 &&
+        coords.latitude <= 90 &&
+        coords.longitude >= -180 &&
+        coords.longitude <= 180
+
+      if (!coordinatesAreValid) {
+        toast({
+          title: 'Não foi possível obter a localização',
+          description: 'O dispositivo retornou uma localização inválida. Tente novamente.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      try {
+        const response = await updateAdminCompany(id, {
+          lat: coords.latitude,
+          lng: coords.longitude,
+        })
+
+        if (!response.success) {
+          throw new Error('Falha ao atualizar a localização da empresa.')
+        }
+
+        setCompany((currentCompany) =>
+          currentCompany
+            ? { ...currentCompany, location: response.company.location }
+            : currentCompany,
+        )
+        setAllCompanies((currentCompanies) =>
+          currentCompanies.map((currentCompany) =>
+            currentCompany.id === id
+              ? { ...currentCompany, location: response.company.location }
+              : currentCompany,
+          ),
+        )
+
+        toast({
+          title: 'Localização da empresa atualizada!',
+          description: `As coordenadas de ${company.name} agora correspondem à localização atual deste dispositivo.`,
+        })
+      } catch {
+        toast({
+          title: 'Erro ao atualizar a localização',
+          description:
+            'Não foi possível salvar as novas coordenadas da empresa. Os dados anteriores foram preservados.',
+          variant: 'destructive',
+        })
+      }
+    } finally {
+      setUpdatingCompanyLocation(false)
     }
   }
 
@@ -1150,6 +1259,20 @@ export default function AdminCompanyDetail() {
 
         {/* Action Buttons: Edit Company & Switch */}
         <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={() => void handleUpdateCompanyLocation()}
+            disabled={updatingCompanyLocation}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {updatingCompanyLocation ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <MapPin className="w-3.5 h-3.5" />
+            )}
+            <span>{updatingCompanyLocation ? 'Atualizando...' : 'Atualizar localização'}</span>
+          </button>
+
           {!gerente && (
             <button
               type="button"

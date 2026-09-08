@@ -28,6 +28,10 @@ export function isWebAuthnSupported(): boolean {
   )
 }
 
+/**
+ * Advisory platform-authenticator hint. A false result does not mean WebAuthn
+ * itself is unavailable and must not be used to block create/get requests.
+ */
 export async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
   if (!isWebAuthnSupported()) return false
   if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function') {
@@ -69,15 +73,24 @@ function randomBuffer(length: number): ArrayBuffer {
 function wrapError(err: unknown): WebAuthnError {
   const e = err as { name?: string; message?: string }
   if (e?.name === 'NotAllowedError' || e?.name === 'AbortError') {
-    return new WebAuthnError('cancelled', 'Autenticação cancelada pelo usuário.')
+    return new WebAuthnError(
+      'cancelled',
+      'A autenticação não foi concluída ou foi cancelada. Toque para tentar novamente.',
+    )
   }
   if (e?.name === 'TimeoutError') {
     return new WebAuthnError('timeout', 'Tempo esgotado. Toque para tentar novamente.')
   }
-  if (e?.name === 'NotSupportedError' || e?.name === 'SecurityError') {
+  if (e?.name === 'NotSupportedError') {
     return new WebAuthnError(
       'unsupported',
-      'Seu dispositivo não suporta autenticação biométrica. Tente usar outro dispositivo.',
+      'A configuração de autenticação solicitada não é suportada neste navegador ou dispositivo.',
+    )
+  }
+  if (e?.name === 'SecurityError') {
+    return new WebAuthnError(
+      'unknown',
+      'Não foi possível iniciar a autenticação com segurança. Verifique o endereço de acesso e tente novamente.',
     )
   }
   return new WebAuthnError('unknown', 'Não foi possível concluir a autenticação. Tente novamente.')
@@ -91,7 +104,7 @@ export async function registerCredential(): Promise<StoredCredential> {
   if (!isWebAuthnSupported()) {
     throw new WebAuthnError(
       'unsupported',
-      'Seu dispositivo não suporta autenticação biométrica. Tente usar outro dispositivo.',
+      'Este navegador não oferece suporte à autenticação segura do dispositivo (WebAuthn).',
     )
   }
 
@@ -141,7 +154,7 @@ export async function authenticateCredential(credentialId: string): Promise<bool
   if (!isWebAuthnSupported()) {
     throw new WebAuthnError(
       'unsupported',
-      'Seu dispositivo não suporta autenticação biométrica. Tente usar outro dispositivo.',
+      'Este navegador não oferece suporte à autenticação segura do dispositivo (WebAuthn).',
     )
   }
 
