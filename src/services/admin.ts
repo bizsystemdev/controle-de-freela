@@ -220,7 +220,7 @@ export interface CreateFreelancerPayload {
   name: string
   phone: string
   email?: string
-  document?: string
+  document: string
   roleTitle?: string
 }
 
@@ -852,6 +852,11 @@ export interface DuplicateFreelancerResult {
 export async function createFreelancer(
   payload: CreateFreelancerPayload,
 ): Promise<{ success: boolean; freelancer: unknown; linkedCompanyIds?: string[] }> {
+  const document = (payload.document || '').trim()
+  if (!document) {
+    throw new Error('CPF / documento é obrigatório.')
+  }
+
   const targetIds: string[] = []
   if (payload.companyId) {
     targetIds.push(payload.companyId)
@@ -866,6 +871,7 @@ export async function createFreelancer(
 
   const normalizedPayload = {
     ...payload,
+    document,
     companyId: targetIds[0] || payload.companyId || '',
     companyIds: targetIds,
   }
@@ -899,7 +905,7 @@ export async function createFreelancer(
           await pb.collection('freelancers').update(fl.id, {
             name: payload.name,
             email: payload.email || fl.email,
-            document: payload.document || fl.document,
+            document,
             role_title: payload.roleTitle || fl.role_title,
             active: true,
           })
@@ -908,7 +914,7 @@ export async function createFreelancer(
             name: payload.name,
             phone: payload.phone,
             email: payload.email || '',
-            document: payload.document || '',
+            document,
             role_title: payload.roleTitle || '',
             active: true,
           })
