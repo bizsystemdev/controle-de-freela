@@ -88,6 +88,9 @@ export default function AdminFreelancerNew() {
     } else if (!isValidBrazilianPhone(phone)) {
       newErrors.phone = 'Informe um telefone celular válido com DDD.'
     }
+    if (!document.trim()) {
+      newErrors.document = 'CPF / documento é obrigatório.'
+    }
     if (selectedCompanyIds.length === 0) {
       newErrors.companies = 'Selecione ao menos uma empresa para vincular o freelancer.'
     }
@@ -105,7 +108,7 @@ export default function AdminFreelancerNew() {
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim() || undefined,
-        document: document.trim() || undefined,
+        document: document.trim(),
         roleTitle: roleTitle.trim() || undefined,
       })
 
@@ -233,12 +236,11 @@ export default function AdminFreelancerNew() {
             </div>
           </div>
 
-          {/* Documento / CPF (Opcional) */}
+          {/* Documento / CPF (Obrigatório) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                CPF / Documento{' '}
-                <span className="text-slate-400 font-normal text-[11px]">(opcional)</span>
+                CPF / Documento <span className="text-red-600">*</span>
               </label>
               <div className="relative flex items-center">
                 <div className="absolute left-3.5 text-slate-400 pointer-events-none">
@@ -246,12 +248,23 @@ export default function AdminFreelancerNew() {
                 </div>
                 <input
                   type="text"
+                  required
                   value={document}
-                  onChange={(e) => setDocument(e.target.value)}
+                  onChange={(e) => {
+                    setDocument(e.target.value)
+                    if (errors.document) setErrors((prev) => ({ ...prev, document: '' }))
+                  }}
                   placeholder="000.000.000-00"
-                  className="w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all font-mono"
+                  className={`w-full h-12 pl-10 pr-4 bg-slate-50 rounded-xl border text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white transition-all font-mono ${
+                    errors.document
+                      ? 'border-red-500 focus:border-indigo-600 ring-2 ring-red-500/10'
+                      : 'border-slate-200 focus:border-indigo-600'
+                  }`}
                 />
               </div>
+              {errors.document && (
+                <p className="text-xs text-red-600 mt-1">{errors.document}</p>
+              )}
             </div>
 
             {/* E-mail (Opcional) */}

@@ -7,6 +7,13 @@
 - O README veio do template Skip e está parcialmente desatualizado: indica Node 18+, porta 5173 e execução local com npm; o ambiente adotado neste projeto usa Docker, Node.js 24, serviço `freelacheck` e porta 8080.
 - Não existe `package-lock.json` atualmente. Há `pnpm-lock.yaml` e `bun.lockb`, mas a imagem Docker executa `npm install` e os comandos do projeto usam npm. Não crie, substitua ou atualize lockfiles sem necessidade explícita da tarefa.
 
+## Manutenção deste arquivo
+
+- Ao concluir cada tarefa, avalie se a alteração introduziu ou modificou uma regra permanente do projeto, arquitetura, fluxo, convenção, permissão, integração, comando de desenvolvimento ou comportamento de domínio relevante para futuros agentes.
+- Quando necessário, atualize este arquivo de forma concisa na seção apropriada e substitua informações que tenham se tornado obsoletas.
+- Mantenha este arquivo como representação do estado e das regras atuais do projeto, não como changelog. Não registre correções pontuais, bugs corrigidos, mudanças temporárias ou alterações puramente visuais.
+- No resumo final de cada tarefa, informe explicitamente se o `AGENTS.md` foi atualizado ou se nenhuma atualização de documentação permanente foi necessária.
+
 ## Visão do projeto
 
 - SPA de controle de presença (“Freela Check”) com dois fluxos: aplicativo mobile-first para freelancers e painel administrativo responsivo para gestores/gerentes.
@@ -55,6 +62,15 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - `pocketbase/migrations/`: schema e evolução das coleções (`companies`, `licenses`, `license_managers`, `freelancers`, `freelancer_companies`, `attendance_records` e `device_releases`).
 - `pocketbase/hooks/`: endpoints customizados `/api/auth/*`, `/api/attendance/*` e `/api/admin/*`. Os serviços frontend tentam esses endpoints e, em vários casos, possuem fallback direto pelo SDK quando recebem 404; preserve os dois caminhos quando modificar esse comportamento.
 
+## Autenticação e autorização administrativa
+
+- O `AppContext` usa `role: 'manager'` para o fluxo administrativo; o `AdminLayout` só aceita sessão autenticada com esse papel e um `manager` carregado.
+- Os perfis administrativos de domínio são `gestor` e `gerente`. Para compatibilidade com `license_managers`, `viewer` equivale a gerente; use `isGerente()` de `src/lib/adminPermissions.ts` em vez de duplicar essa identificação. Nos cadastros e sincronizações atuais, gerente usa `viewer` e gestor usa `owner`.
+- O gestor possui acesso integral ao dashboard e à administração das empresas às quais está vinculado, incluindo dados da empresa, gestores, freelancers e lançamentos manuais de presença.
+- O gerente fica restrito às empresas vinculadas e não acessa a visão geral do dashboard. Na empresa, suas abas permitidas são definidas por `GERENTE_ALLOWED_COMPANY_TABS`: `freelancers`, `historico` e `liberacoes`; preserve também os redirecionamentos correspondentes em `AdminLayout`.
+- O gerente pode consultar freelancers, cadastrar novos freelancers, liberar dispositivos, consultar históricos e atualizar as coordenadas da empresa. Não pode editar os demais dados da empresa, administrar gestores, editar/duplicar/remover freelancers nem lançar check-in/check-out manual.
+- Restrições de perfil devem continuar protegidas tanto na navegação/renderização quanto nos handlers aplicáveis; ocultar um botão não substitui a guarda da ação.
+
 ## Convenções de implementação
 
 - Use componentes funcionais e hooks React. Páginas são exports default; utilitários, serviços e componentes compartilhados normalmente usam exports nomeados.
@@ -64,6 +80,7 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - Modele payloads, respostas, estado e erros com tipos/interfaces explícitos. Embora o `tsconfig.app.json` não habilite `strict`, mantenha boa tipagem, trate erros recebidos como `unknown` e evite adicionar `any`.
 - Preserve os nomes de campos e os mapeamentos já necessários entre UI em português (`cidade`, `estado`, `endereco`) e registros PocketBase (`city`, `state`, `address`).
 - Preserve autenticação e autorização dos dois perfis: freelancer usa telefone, vínculo de dispositivo/WebAuthn e geolocalização; gestor/gerente usa autenticação PocketBase, licença, papel e perfil.
+- No cadastro administrativo de freelancer, nome, telefone celular válido, CPF/documento e ao menos uma empresa são obrigatórios; e-mail e cargo/função permanecem opcionais. Preserve a validação no formulário, no serviço e nos caminhos de persistência pelo hook e pelo fallback do SDK.
 - Dados locais devem passar pelos helpers de `src/lib/storage.ts` e pelas chaves `STORAGE_KEYS`. Não introduza acessos dispersos ao `localStorage` quando o helper atender ao caso.
 - Mantenha cleanup de effects, subscriptions e timers. Não faça subscriptions PocketBase inline quando `useRealtime` for aplicável.
 - Componentes administrativos grandes já concentram bastante UI e regras. Faça alterações focadas; não use uma tarefa pequena como pretexto para reorganizá-los.

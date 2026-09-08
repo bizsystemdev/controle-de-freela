@@ -29,6 +29,9 @@ routerAdd('POST', '/api/admin/freelancers', (e) => {
   if (!phone) {
     return e.json(400, { error: 'Telefone é obrigatório.' })
   }
+  if (!document) {
+    return e.json(400, { error: 'CPF / documento é obrigatório.' })
+  }
 
   // Verify companies exist
   const validCompanyIds = []
@@ -66,7 +69,7 @@ routerAdd('POST', '/api/admin/freelancers', (e) => {
     fl.set('name', name)
     fl.set('phone', phone)
     if (email) fl.set('email', email)
-    if (document) fl.set('document', document)
+    fl.set('document', document)
     if (roleTitle) fl.set('role_title', roleTitle)
     fl.set('active', true)
     $app.save(fl)
@@ -74,7 +77,7 @@ routerAdd('POST', '/api/admin/freelancers', (e) => {
     // Update data if provided
     if (name) fl.set('name', name)
     if (email) fl.set('email', email)
-    if (document) fl.set('document', document)
+    fl.set('document', document)
     if (roleTitle) fl.set('role_title', roleTitle)
     fl.set('active', true)
     $app.save(fl)
