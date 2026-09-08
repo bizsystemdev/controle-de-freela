@@ -262,9 +262,7 @@ export default function AdminFreelancerNew() {
                   }`}
                 />
               </div>
-              {errors.document && (
-                <p className="text-xs text-red-600 mt-1">{errors.document}</p>
-              )}
+              {errors.document && <p className="text-xs text-red-600 mt-1">{errors.document}</p>}
             </div>
 
             {/* E-mail (Opcional) */}
