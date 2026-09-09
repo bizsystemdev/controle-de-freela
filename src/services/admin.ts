@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { normalizeDateIso } from '@/lib/utils'
 
 export interface CompanyAdminItem {
   id: string
@@ -1775,20 +1776,9 @@ function consolidateAttendanceRecords(
   const shiftsByCheckInId = new Map<string, AttendanceShiftItem>()
   const legacyOpenByKey = new Map<string, AttendanceShiftItem>()
 
-  const normalizeIso = (val?: string | null): string => {
-    if (!val) return ''
-    const s = String(val).trim()
-    if (!s) return ''
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) {
-      const withT = s.replace(' ', 'T')
-      return withT.endsWith('Z') ? withT : withT + 'Z'
-    }
-    return s
-  }
-
   const toEvent = (record: RawAttendanceRecord): AttendanceEventDetails => ({
     id: record.id,
-    timestamp: normalizeIso(record.timestamp),
+    timestamp: normalizeDateIso(record.timestamp),
     manual: Boolean(record.manual),
     lat: typeof record.lat === 'number' ? record.lat : null,
     lng: typeof record.lng === 'number' ? record.lng : null,
@@ -1818,7 +1808,7 @@ function consolidateAttendanceRecords(
           ? Number(record.received_amount_cents || 0)
           : null,
         paymentConfirmedAt: record.payment_confirmed_at
-          ? normalizeIso(record.payment_confirmed_at)
+          ? normalizeDateIso(record.payment_confirmed_at)
           : null,
         paymentConfirmedBy: record.payment_confirmed_by || null,
         paymentConfirmedByName: record.payment_confirmed_by_name || null,
@@ -1829,10 +1819,9 @@ function consolidateAttendanceRecords(
       continue
     }
 
-    const linkedShift = record.shift_check_in_id
+    const shift = record.shift_check_in_id
       ? shiftsByCheckInId.get(record.shift_check_in_id)
-      : undefined
-    const shift = linkedShift || legacyOpenByKey.get(legacyKey)
+      : legacyOpenByKey.get(legacyKey)
     if (shift && !shift.checkOut) {
       shift.checkOutId = record.id
       shift.checkOut = toEvent(record)
@@ -1870,6 +1859,15 @@ function consolidateAttendanceRecords(
     if (aTimestamp > bTimestamp) return -1
     return 0
   })
+}
+
+function historyDateBoundary(value: string, isEnd: boolean): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return normalizeDateIso(value)
+  const [year, month, day] = value.split('-').map(Number)
+  const date = isEnd
+    ? new Date(year, month - 1, day, 23, 59, 59, 999)
+    : new Date(year, month - 1, day, 0, 0, 0, 0)
+  return date.toISOString()
 }
 
 export async function updateCompanyPaymentSettings(
@@ -1911,38 +1909,33 @@ export async function getCompanyAttendanceHistory(
   try {
     const params = new URLSearchParams()
     if (filters?.freelancerId) params.append('freelancerId', filters.freelancerId)
-    if (filters?.startDate) params.append('startDate', filters.startDate)
-    if (filters?.endDate) params.append('endDate', filters.endDate)
+    if (filters?.startDate) {
+      params.append('startDate', historyDateBoundary(filters.startDate, false))
+    }
+    if (filters?.endDate) {
+      params.append('endDate', historyDateBoundary(filters.endDate, true))
+    }
     if (filters?.status && filters.status !== 'all') params.append('status', filters.status)
 
     const queryString = params.toString() ? `?${params.toString()}` : ''
-    const res = await pb.send<any>(
+    const res = await pb.send<{ version?: number; history?: AttendanceShiftItem[] }>(
       `/api/admin/company/${encodeURIComponent(companyId)}/history${queryString}`,
       { method: 'GET' },
     )
-    const normalizeIso = (val?: string | null): string => {
-      if (!val) return ''
-      const s = String(val).trim()
-      if (!s) return ''
-      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) {
-        const withT = s.replace(' ', 'T')
-        return withT.endsWith('Z') ? withT : withT + 'Z'
-      }
-      return s
-    }
-
     const sanitizeHistoryItem = (shift: AttendanceShiftItem): AttendanceShiftItem => ({
       ...shift,
       checkIn: shift.checkIn
-        ? { ...shift.checkIn, timestamp: normalizeIso(shift.checkIn.timestamp) }
+        ? { ...shift.checkIn, timestamp: normalizeDateIso(shift.checkIn.timestamp) }
         : null,
       checkOut: shift.checkOut
-        ? { ...shift.checkOut, timestamp: normalizeIso(shift.checkOut.timestamp) }
+        ? { ...shift.checkOut, timestamp: normalizeDateIso(shift.checkOut.timestamp) }
         : null,
-      paymentConfirmedAt: shift.paymentConfirmedAt ? normalizeIso(shift.paymentConfirmedAt) : null,
+      paymentConfirmedAt: shift.paymentConfirmedAt
+        ? normalizeDateIso(shift.paymentConfirmedAt)
+        : null,
     })
 
-    if (res && Array.isArray(res.history)) {
+    if (res?.version === 3 && Array.isArray(res.history)) {
       const sanitized = (res.history as AttendanceShiftItem[]).map(sanitizeHistoryItem)
       sanitized.sort((a, b) => {
         const aT = a.checkIn?.timestamp || a.checkOut?.timestamp || ''
@@ -1953,18 +1946,9 @@ export async function getCompanyAttendanceHistory(
       })
       return sanitized
     }
-    if (Array.isArray(res)) {
-      const sanitized = (res as AttendanceShiftItem[]).map(sanitizeHistoryItem)
-      sanitized.sort((a, b) => {
-        const aT = a.checkIn?.timestamp || a.checkOut?.timestamp || ''
-        const bT = b.checkIn?.timestamp || b.checkOut?.timestamp || ''
-        if (aT < bT) return 1
-        if (aT > bT) return -1
-        return 0
-      })
-      return sanitized
-    }
-    throw new Error('Resposta inesperada do servidor de histórico.')
+    const staleResponseError = new Error('Versão desatualizada do histórico consolidado.')
+    ;(staleResponseError as Error & { status: number }).status = 404
+    throw staleResponseError
   } catch (err: unknown) {
     const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
     if (
@@ -1973,17 +1957,6 @@ export async function getCompanyAttendanceHistory(
       pbErr?.message?.includes('File not found')
     ) {
       try {
-        const normalizeIso = (val?: string | null): string => {
-          if (!val) return ''
-          const s = String(val).trim()
-          if (!s) return ''
-          if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) {
-            const withT = s.replace(' ', 'T')
-            return withT.endsWith('Z') ? withT : withT + 'Z'
-          }
-          return s
-        }
-
         let filter = `company_id = "${companyId}"`
         if (filters?.freelancerId) {
           filter += ` && freelancer_id = "${filters.freelancerId}"`
@@ -2004,21 +1977,20 @@ export async function getCompanyAttendanceHistory(
 
         let startMs: number | null = null
         if (filters?.startDate) {
-          const sDate = new Date(normalizeIso(filters.startDate))
+          const sDate = new Date(historyDateBoundary(filters.startDate, false))
           startMs = isNaN(sDate.getTime()) ? null : sDate.getTime()
         }
         let endMs: number | null = null
         if (filters?.endDate) {
-          const end = new Date(normalizeIso(filters.endDate))
+          const end = new Date(historyDateBoundary(filters.endDate, true))
           if (!isNaN(end.getTime())) {
-            if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999)
             endMs = end.getTime()
           }
         }
 
         shifts = shifts.filter((shift) => {
           const reference = shift.checkIn?.timestamp || shift.checkOut?.timestamp || ''
-          const refDate = new Date(normalizeIso(reference))
+          const refDate = new Date(normalizeDateIso(reference))
           const referenceMs = isNaN(refDate.getTime()) ? 0 : refDate.getTime()
           if (startMs !== null && referenceMs < startMs) return false
           if (endMs !== null && referenceMs > endMs) return false

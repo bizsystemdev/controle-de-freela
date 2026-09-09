@@ -24,7 +24,7 @@ export function normalizeDateIso(val: string | null | undefined): string {
   // Se for formato "YYYY-MM-DD HH:mm:ss[.SSS][Z]"
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) {
     const withT = s.replace(' ', 'T')
-    return withT.endsWith('Z') ? withT : withT + 'Z'
+    return /(?:Z|[+-]\d{2}:\d{2})$/i.test(withT) ? withT : withT + 'Z'
   }
   return s
 }
