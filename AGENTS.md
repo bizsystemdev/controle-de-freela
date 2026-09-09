@@ -65,6 +65,8 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 ## Turnos e recebimentos de freelancers
 
 - Um turno é enraizado no registro `check_in` de `attendance_records`; o `check_out` correspondente deve referenciá-lo por `shift_check_in_id`. Não consolide turnos novos por proximidade de horário.
+- Consulte eventos em ordem cronológica para consolidá-los sem inverter ou mutar diretamente as listas retornadas pelo runtime Goja. Priorize sempre `shift_check_in_id`; use pareamento cronológico por freelancer e empresa somente para registros legados sem essa relação.
+- Timestamps de presença representam instantes UTC retornados pelo PocketBase. Preserve o indicador de timezone ao normalizá-los e converta com `Date` para o horário local na apresentação; exiba data e hora próprias tanto do check-in quanto do check-out, inclusive em turnos que atravessam a meia-noite.
 - As empresas configuram o controle por `payment_control_enabled` e um valor-base opcional em centavos inteiros (`freelancer_shift_base_amount_cents`). Valores monetários persistidos devem continuar em centavos e ser formatados como BRL somente na interface.
 - No checkout, `payment_required` é fotografado no check-in que representa o turno. A confirmação administrativa também pertence a esse registro, pelos campos `payment_confirmed`, `received_amount_cents`, `payment_confirmed_at`, `payment_confirmed_by` e `payment_confirmed_by_name`; nunca derive valores históricos do valor-base atual da empresa.
 - Somente gestores ou gerentes vinculados à empresa podem alterar a configuração ou confirmar recebimentos. Confirmações são únicas, exigem checkout relacionado e não possuem edição posterior na interface atual.

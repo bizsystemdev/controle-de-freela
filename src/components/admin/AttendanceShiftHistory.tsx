@@ -39,6 +39,12 @@ function formatTime(timestamp: string): string {
   })
 }
 
+function formatDateTime(timestamp: string): string {
+  const date = formatDate(timestamp)
+  const time = formatTime(timestamp)
+  return date === '—' || time === '—' ? '—' : `${date} às ${time}`
+}
+
 function formatDuration(shift: AttendanceShiftItem): string | null {
   if (!shift.checkIn || !shift.checkOut) return null
   const startMs = safeDate(shift.checkIn.timestamp).getTime()
@@ -155,8 +161,8 @@ export function AttendanceShiftHistory({
             <thead className="border-b border-slate-200/80 bg-slate-50 font-bold uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-5 py-3.5">Freelancer</th>
-                <th className="px-4 py-3.5">Empresa / Data</th>
-                <th className="px-4 py-3.5">Horários</th>
+                <th className="px-4 py-3.5">Empresa / Início</th>
+                <th className="px-4 py-3.5">Entrada / Saída</th>
                 <th className="px-4 py-3.5">Status</th>
                 <th className="px-4 py-3.5">Registro</th>
                 <th className="px-5 py-3.5">Recebimento</th>
@@ -197,13 +203,13 @@ export function AttendanceShiftHistory({
                           <span className="mr-1 font-sans text-[10px] font-bold uppercase">
                             Entrada
                           </span>
-                          {shift.checkIn ? formatTime(shift.checkIn.timestamp) : '—'}
+                          {shift.checkIn ? formatDateTime(shift.checkIn.timestamp) : '—'}
                         </p>
                         <p className="text-red-700">
                           <span className="mr-1 font-sans text-[10px] font-bold uppercase">
                             Saída
                           </span>
-                          {shift.checkOut ? formatTime(shift.checkOut.timestamp) : '—'}
+                          {shift.checkOut ? formatDateTime(shift.checkOut.timestamp) : '—'}
                         </p>
                         {duration && (
                           <p className="text-[10px] text-slate-400">Duração {duration}</p>

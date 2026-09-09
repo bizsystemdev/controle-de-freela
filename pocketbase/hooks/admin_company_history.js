@@ -46,14 +46,14 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
   const records = $app.findRecordsByFilter(
     'attendance_records',
     filter,
-    '-timestamp,-created',
+    'timestamp,created',
     5000,
     0,
   )
-  records.reverse()
   const company = $app.findRecordById('companies', companyId)
   const freelancerMap = {}
   const shiftsByCheckInId = {}
+  const legacyOpenShiftByKey = {}
   const orderedShifts = []
 
   const getFreelancer = (id) => {
@@ -95,68 +95,54 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
 
   for (let i = 0; i < records.length; i++) {
     const record = records[i]
-    if (record.getString('type') !== 'check_in') continue
-
     const flId = record.getString('freelancer_id')
-    const freelancer = getFreelancer(flId)
-    const rawPaymentConfirmedAt = record.getString('payment_confirmed_at')
-    const shift = {
-      id: record.id,
-      checkInId: record.id,
-      checkOutId: null,
-      freelancerId: flId,
-      freelancerName: freelancer.name,
-      freelancerPhone: freelancer.phone,
-      freelancerRoleTitle: freelancer.roleTitle,
-      companyId: companyId,
-      companyName: company.getString('name'),
-      checkIn: eventFromRecord(record),
-      checkOut: null,
-      status: 'open',
-      paymentRequired: record.getBool('payment_required'),
-      paymentConfirmed: record.getBool('payment_confirmed'),
-      receivedAmountCents: record.getBool('payment_confirmed')
-        ? record.getInt('received_amount_cents')
-        : null,
-      paymentConfirmedAt: rawPaymentConfirmedAt ? normalizeIso(rawPaymentConfirmedAt) : null,
-      paymentConfirmedBy: record.getString('payment_confirmed_by') || null,
-      paymentConfirmedByName: record.getString('payment_confirmed_by_name') || null,
-    }
-    shiftsByCheckInId[record.id] = shift
-    orderedShifts.push(shift)
-  }
+    const legacyKey = flId + ':' + companyId
 
-  // Keep track of the latest open shift per freelancer for fallback pairing
-  const latestOpenShiftByFreelancer = {}
-  for (let i = 0; i < orderedShifts.length; i++) {
-    const s = orderedShifts[i]
-    if (s.freelancerId) {
-      latestOpenShiftByFreelancer[s.freelancerId] = s
+    if (record.getString('type') === 'check_in') {
+      const freelancer = getFreelancer(flId)
+      const rawPaymentConfirmedAt = record.getString('payment_confirmed_at')
+      const shift = {
+        id: record.id,
+        checkInId: record.id,
+        checkOutId: null,
+        freelancerId: flId,
+        freelancerName: freelancer.name,
+        freelancerPhone: freelancer.phone,
+        freelancerRoleTitle: freelancer.roleTitle,
+        companyId: companyId,
+        companyName: company.getString('name'),
+        checkIn: eventFromRecord(record),
+        checkOut: null,
+        status: 'open',
+        paymentRequired: record.getBool('payment_required'),
+        paymentConfirmed: record.getBool('payment_confirmed'),
+        receivedAmountCents: record.getBool('payment_confirmed')
+          ? record.getInt('received_amount_cents')
+          : null,
+        paymentConfirmedAt: rawPaymentConfirmedAt ? normalizeIso(rawPaymentConfirmedAt) : null,
+        paymentConfirmedBy: record.getString('payment_confirmed_by') || null,
+        paymentConfirmedByName: record.getString('payment_confirmed_by_name') || null,
+      }
+      shiftsByCheckInId[record.id] = shift
+      legacyOpenShiftByKey[legacyKey] = shift
+      orderedShifts.push(shift)
+      continue
     }
-  }
 
-  for (let i = 0; i < records.length; i++) {
-    const record = records[i]
     if (record.getString('type') !== 'check_out') continue
 
-    const flId = record.getString('freelancer_id')
     const relationId = record.getString('shift_check_in_id')
-    let shift = relationId ? shiftsByCheckInId[relationId] : null
-
-    // Fallback: if relationId is missing or didn't match, pair with the open shift for this freelancer
-    if (
-      !shift &&
-      flId &&
-      latestOpenShiftByFreelancer[flId] &&
-      !latestOpenShiftByFreelancer[flId].checkOut
-    ) {
-      shift = latestOpenShiftByFreelancer[flId]
-    }
+    // Current records must use their structural relation. Only records created
+    // before shift_check_in_id existed may use chronological fallback pairing.
+    const shift = relationId ? shiftsByCheckInId[relationId] : legacyOpenShiftByKey[legacyKey]
 
     if (shift && !shift.checkOut) {
       shift.checkOutId = record.id
       shift.checkOut = eventFromRecord(record)
       shift.status = 'completed'
+      if (legacyOpenShiftByKey[legacyKey] === shift) {
+        delete legacyOpenShiftByKey[legacyKey]
+      }
       continue
     }
 
@@ -249,8 +235,5 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     return 0
   })
 
-  console.log(
-    `[admin_company_history] returning version 2 with ${filtered.length} shifts for company ${companyId}`,
-  )
-  return e.json(200, { version: 2, history: filtered })
+  return e.json(200, { version: 3, history: filtered })
 })
