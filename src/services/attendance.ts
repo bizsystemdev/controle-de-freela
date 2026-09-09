@@ -149,12 +149,17 @@ export async function registerAttendance(
 
         // Get last record to compute duration if check-out
         let durationFormatted = ''
+        let shiftCheckInId: string | null = null
         if (type === 'check_out') {
           const lastAtt = await pb.collection('attendance_records').getList(1, 1, {
             filter: `freelancer_id = "${payload.freelancerId}"`,
             sort: '-timestamp',
           })
           if (lastAtt.items.length > 0 && lastAtt.items[0].type === 'check_in') {
+            if (lastAtt.items[0].company_id !== payload.companyId) {
+              throw new Error('O check-out deve ocorrer na mesma empresa do check-in.')
+            }
+            shiftCheckInId = lastAtt.items[0].id
             const startMs = new Date(lastAtt.items[0].timestamp).getTime()
             const endMs = new Date(timestamp).getTime()
             const diffMins = Math.max(1, Math.floor((endMs - startMs) / (1000 * 60)))
@@ -175,6 +180,7 @@ export async function registerAttendance(
           timestamp,
           lat,
           lng,
+          shift_check_in_id: shiftCheckInId,
         })
 
         return {

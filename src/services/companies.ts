@@ -15,6 +15,8 @@ export interface CompanyData {
     lng: number
   }
   active: boolean
+  paymentControlEnabled: boolean
+  freelancerShiftBaseAmountCents: number | null
 }
 
 /**
@@ -38,6 +40,11 @@ export async function getCompany(id: string): Promise<CompanyData> {
         lng: record.lng || 0,
       },
       active: record.active !== false,
+      paymentControlEnabled: Boolean(record.payment_control_enabled),
+      freelancerShiftBaseAmountCents:
+        Number(record.freelancer_shift_base_amount_cents || 0) > 0
+          ? Number(record.freelancer_shift_base_amount_cents)
+          : null,
     }
   } catch (err: unknown) {
     const pbErr = err as { data?: { error?: string }; message?: string }
@@ -69,6 +76,11 @@ export async function listActiveCompanies(): Promise<CompanyData[]> {
         lng: record.lng || 0,
       },
       active: record.active !== false,
+      paymentControlEnabled: Boolean(record.payment_control_enabled),
+      freelancerShiftBaseAmountCents:
+        Number(record.freelancer_shift_base_amount_cents || 0) > 0
+          ? Number(record.freelancer_shift_base_amount_cents)
+          : null,
     }))
   } catch (err: unknown) {
     const pbErr = err as { data?: { error?: string }; message?: string }
@@ -113,6 +125,11 @@ export async function getFreelancerCompanies(freelancerId: string): Promise<Comp
             lng: comp.lng || 0,
           },
           active: true,
+          paymentControlEnabled: Boolean(comp.payment_control_enabled),
+          freelancerShiftBaseAmountCents:
+            Number(comp.freelancer_shift_base_amount_cents || 0) > 0
+              ? Number(comp.freelancer_shift_base_amount_cents)
+              : null,
         })
       }
     }

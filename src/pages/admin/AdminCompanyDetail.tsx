@@ -22,11 +22,14 @@ import {
   type CompanyAdminItem,
   type AdminFreelancer,
   type AdminManager,
-  type AttendanceHistoryItem,
+  type AttendanceShiftItem,
+  type AttendanceShiftStatusFilter,
   type DeviceReleaseItem,
   type UpdateCompanyPayload,
 } from '@/services/admin'
 import { getCompany, type CompanyData } from '@/services/companies'
+import { AttendanceShiftHistory } from '@/components/admin/AttendanceShiftHistory'
+import { PaymentSettingsCard } from '@/components/admin/PaymentSettingsCard'
 import { useApp } from '@/context/AppContext'
 import { isGerente } from '@/lib/adminPermissions'
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation'
@@ -49,8 +52,6 @@ import {
   Trash2,
   Search,
   Filter,
-  ArrowDownLeft,
-  ArrowUpRight,
   Plus,
   Mail,
   Phone,
@@ -255,10 +256,10 @@ export default function AdminCompanyDetail() {
   const [removingMgr, setRemovingMgr] = useState(false)
 
   // History tab state
-  const [history, setHistory] = useState<AttendanceHistoryItem[]>([])
+  const [history, setHistory] = useState<AttendanceShiftItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [selectedHistFreelancerId, setSelectedHistFreelancerId] = useState('all')
-  const [selectedHistType, setSelectedHistType] = useState<'all' | 'check_in' | 'check_out'>('all')
+  const [selectedHistStatus, setSelectedHistStatus] = useState<AttendanceShiftStatusFilter>('all')
   const [histStartDate, setHistStartDate] = useState('')
   const [histEndDate, setHistEndDate] = useState('')
 
@@ -414,7 +415,7 @@ export default function AdminCompanyDetail() {
     try {
       const histData = await getCompanyAttendanceHistory(id, {
         freelancerId: selectedHistFreelancerId === 'all' ? undefined : selectedHistFreelancerId,
-        type: selectedHistType,
+        status: selectedHistStatus,
         startDate: histStartDate || undefined,
         endDate: histEndDate || undefined,
       })
@@ -735,7 +736,7 @@ export default function AdminCompanyDetail() {
     id,
     activeTab,
     selectedHistFreelancerId,
-    selectedHistType,
+    selectedHistStatus,
     histStartDate,
     histEndDate,
     selectedRelFreelancerId,
@@ -2069,6 +2070,23 @@ export default function AdminCompanyDetail() {
             </button>
           </div>
 
+          <PaymentSettingsCard
+            companyId={company.id}
+            enabled={company.paymentControlEnabled}
+            baseAmountCents={company.freelancerShiftBaseAmountCents}
+            onSaved={(enabled, baseAmountCents) =>
+              setCompany((current) =>
+                current
+                  ? {
+                      ...current,
+                      paymentControlEnabled: enabled,
+                      freelancerShiftBaseAmountCents: baseAmountCents,
+                    }
+                  : current,
+              )
+            }
+          />
+
           {/* Filter Controls */}
           <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
@@ -2080,14 +2098,14 @@ export default function AdminCompanyDetail() {
               </div>
 
               {(selectedHistFreelancerId !== 'all' ||
-                selectedHistType !== 'all' ||
+                selectedHistStatus !== 'all' ||
                 histStartDate ||
                 histEndDate) && (
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedHistFreelancerId('all')
-                    setSelectedHistType('all')
+                    setSelectedHistStatus('all')
                     setHistStartDate('')
                     setHistEndDate('')
                   }}
@@ -2128,27 +2146,38 @@ export default function AdminCompanyDetail() {
                 </Select>
               </div>
 
-              {/* Type Filter */}
+              {/* Shift status filter */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                  Tipo
+                  Situação do turno
                 </label>
                 <Select
-                  value={selectedHistType}
-                  onValueChange={(v) => setSelectedHistType(v as 'all' | 'check_in' | 'check_out')}
+                  value={selectedHistStatus}
+                  onValueChange={(value) =>
+                    setSelectedHistStatus(value as AttendanceShiftStatusFilter)
+                  }
                 >
                   <SelectTrigger className="w-full h-10 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
-                    <SelectValue placeholder="Entradas e Saídas" />
+                    <SelectValue placeholder="Todos os turnos" />
                   </SelectTrigger>
                   <SelectContent className="bg-white rounded-2xl border border-slate-200">
                     <SelectItem value="all" className="text-xs font-medium cursor-pointer">
-                      Ambos (Check-in e Saída)
+                      Todos os turnos
                     </SelectItem>
-                    <SelectItem value="check_in" className="text-xs font-medium cursor-pointer">
-                      Apenas Check-in
+                    <SelectItem value="open" className="text-xs font-medium cursor-pointer">
+                      Em andamento
                     </SelectItem>
-                    <SelectItem value="check_out" className="text-xs font-medium cursor-pointer">
-                      Apenas Check-out
+                    <SelectItem value="completed" className="text-xs font-medium cursor-pointer">
+                      Concluídos
+                    </SelectItem>
+                    <SelectItem
+                      value="payment_pending"
+                      className="text-xs font-medium cursor-pointer"
+                    >
+                      Recebimento pendente
+                    </SelectItem>
+                    <SelectItem value="paid" className="text-xs font-medium cursor-pointer">
+                      Recebimento confirmado
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -2182,107 +2211,12 @@ export default function AdminCompanyDetail() {
             </div>
           </div>
 
-          {/* History Table */}
-          {loadingHistory ? (
-            <div className="bg-white rounded-3xl p-16 text-center border border-slate-200/80 shadow-sm flex flex-col items-center justify-center">
-              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
-              <p className="text-sm font-semibold text-slate-700">Carregando histórico...</p>
-            </div>
-          ) : history.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm">
-              <History className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-slate-900">Nenhum registro encontrado</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-                Não foram localizados registros de ponto com os filtros atuais.
-              </p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 uppercase font-bold tracking-wider">
-                    <tr>
-                      <th className="py-3.5 px-4 sm:px-6">Freelancer</th>
-                      <th className="py-3.5 px-4">Tipo</th>
-                      <th className="py-3.5 px-4">Data e Hora</th>
-                      <th className="py-3.5 px-4 sm:px-6">Localização (GPS)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {history.map((record) => {
-                      const { date, time } = formatDateTime(record.timestamp)
-                      const isCheckIn = record.type === 'check_in'
-
-                      return (
-                        <tr key={record.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="py-4 px-4 sm:px-6">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shrink-0">
-                                {record.freelancerName.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="font-bold text-slate-900 text-sm">
-                                  {record.freelancerName}
-                                </p>
-                                <p className="text-[11px] text-slate-400 font-mono">
-                                  {record.freelancerPhone || record.freelancerRoleTitle || ''}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="py-4 px-4">
-                            {isCheckIn ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-                                <ArrowDownLeft className="w-3.5 h-3.5" />
-                                <span>Check-in (Entrada)</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
-                                <ArrowUpRight className="w-3.5 h-3.5" />
-                                <span>Check-out (Saída)</span>
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="py-4 px-4 font-mono text-slate-700">
-                            <span className="font-bold text-slate-900">{date}</span>
-                            <span className="text-slate-400 ml-2 font-medium">{time}</span>
-                          </td>
-
-                          <td className="py-4 px-4 sm:px-6 text-slate-600">
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
-                              {record.lat !== null &&
-                              record.lat !== undefined &&
-                              record.lng !== null &&
-                              record.lng !== undefined &&
-                              (record.lat !== 0 || record.lng !== 0) ? (
-                                <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-slate-100 px-2 py-1 rounded-lg text-slate-700">
-                                  <MapPin className="w-3 h-3 text-indigo-600 shrink-0" />
-                                  <span>
-                                    {Number(record.lat).toFixed(4)}, {Number(record.lng).toFixed(4)}
-                                  </span>
-                                </span>
-                              ) : (
-                                <span className="text-slate-400 italic text-[11px]">
-                                  {record.manual ? 'Manual (Sem GPS)' : 'Dispositivo'}
-                                </span>
-                              )}
-                              {record.manual && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200/60 w-fit">
-                                  Manual
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          <AttendanceShiftHistory
+            shifts={history}
+            loading={loadingHistory}
+            companyBaseAmountCents={company.freelancerShiftBaseAmountCents}
+            onPaymentConfirmed={loadHistory}
+          />
         </div>
       )}
 

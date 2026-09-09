@@ -5,7 +5,12 @@ routerAdd('POST', '/api/attendance/register', (e) => {
   const rawType = String(body.type || body.status || '')
     .trim()
     .toLowerCase()
-  const type = rawType === 'check-in' || rawType === 'check_in' ? 'check_in' : 'check_out'
+  const type =
+    rawType === 'check-in' || rawType === 'check_in'
+      ? 'check_in'
+      : rawType === 'check-out' || rawType === 'check_out'
+        ? 'check_out'
+        : ''
   const timestamp = body.timestamp
     ? new Date(body.timestamp).toISOString()
     : new Date().toISOString()
@@ -24,6 +29,9 @@ routerAdd('POST', '/api/attendance/register', (e) => {
 
   if (!freelancerId || !companyId) {
     return e.json(400, { error: 'freelancerId e companyId são obrigatórios.' })
+  }
+  if (!type) {
+    return e.json(400, { error: 'Tipo de registro inválido.' })
   }
 
   // 1. Verify freelancer exists and is active
@@ -46,6 +54,17 @@ routerAdd('POST', '/api/attendance/register', (e) => {
     }
   } catch (_) {
     return e.json(404, { error: 'Empresa não encontrada.' })
+  }
+
+  const companyLinks = $app.findRecordsByFilter(
+    'freelancer_companies',
+    `freelancer_id = '${freelancerId}' && company_id = '${companyId}' && active = true`,
+    '',
+    1,
+    0,
+  )
+  if (companyLinks.length === 0) {
+    return e.json(403, { error: 'Freelancer não está vinculado a esta empresa.' })
   }
 
   // 3. Check geolocation distance if coordinates were sent and company has coordinates
@@ -94,18 +113,32 @@ routerAdd('POST', '/api/attendance/register', (e) => {
     if (!lastRecord || lastType !== 'check_in') {
       return e.json(400, { error: 'Não há check-in aberto para registrar saída.' })
     }
+    if (lastRecord.getString('company_id') !== companyId) {
+      return e.json(400, { error: 'O check-out deve ocorrer na mesma empresa do check-in.' })
+    }
   }
 
   // 5. Create attendance record
-  const col = $app.findCollectionByNameOrId('attendance_records')
-  const record = new Record(col)
-  record.set('freelancer_id', freelancerId)
-  record.set('company_id', companyId)
-  record.set('type', type)
-  record.set('timestamp', timestamp)
-  if (lat !== null) record.set('lat', lat)
-  if (lng !== null) record.set('lng', lng)
-  $app.save(record)
+  let record = null
+  $app.runInTransaction((txApp) => {
+    const col = txApp.findCollectionByNameOrId('attendance_records')
+    record = new Record(col)
+    record.set('freelancer_id', freelancerId)
+    record.set('company_id', companyId)
+    record.set('type', type)
+    record.set('timestamp', timestamp)
+    if (lat !== null) record.set('lat', lat)
+    if (lng !== null) record.set('lng', lng)
+
+    if (type === 'check_out' && lastRecord) {
+      record.set('shift_check_in_id', lastRecord.id)
+      const shiftCheckIn = txApp.findRecordById('attendance_records', lastRecord.id)
+      shiftCheckIn.set('payment_required', company.getBool('payment_control_enabled'))
+      txApp.save(shiftCheckIn)
+    }
+
+    txApp.save(record)
+  })
 
   // If check-out, calculate duration
   let durationFormatted = ''
