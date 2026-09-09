@@ -223,5 +223,8 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     return new Date(bTimestamp).getTime() - new Date(aTimestamp).getTime()
   })
 
-  return e.json(200, { history: filtered })
+  console.log(
+    `[admin_company_history] returning version 2 with ${filtered.length} shifts for company ${companyId}`,
+  )
+  return e.json(200, { version: 2, history: filtered })
 })

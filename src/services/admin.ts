@@ -1901,11 +1901,17 @@ export async function getCompanyAttendanceHistory(
     if (filters?.status && filters.status !== 'all') params.append('status', filters.status)
 
     const queryString = params.toString() ? `?${params.toString()}` : ''
-    const res = await pb.send<{ history: AttendanceShiftItem[] }>(
+    const res = await pb.send<any>(
       `/api/admin/company/${encodeURIComponent(companyId)}/history${queryString}`,
       { method: 'GET' },
     )
-    return res.history || []
+    if (res && Array.isArray(res.history)) {
+      return res.history
+    }
+    if (Array.isArray(res)) {
+      return res
+    }
+    throw new Error('Resposta inesperada do servidor de histórico.')
   } catch (err: unknown) {
     const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
     if (
