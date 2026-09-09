@@ -112,13 +112,32 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     orderedShifts.push(shift)
   }
 
+  // Keep track of the latest open shift per freelancer for fallback pairing
+  const latestOpenShiftByFreelancer = {}
+  for (let i = 0; i < orderedShifts.length; i++) {
+    const s = orderedShifts[i]
+    if (s.freelancerId) {
+      latestOpenShiftByFreelancer[s.freelancerId] = s
+    }
+  }
+
   for (let i = 0; i < records.length; i++) {
     const record = records[i]
     if (record.getString('type') !== 'check_out') continue
 
     const flId = record.getString('freelancer_id')
     const relationId = record.getString('shift_check_in_id')
-    const shift = shiftsByCheckInId[relationId]
+    let shift = relationId ? shiftsByCheckInId[relationId] : null
+
+    // Fallback: if relationId is missing or didn't match, pair with the open shift for this freelancer
+    if (
+      !shift &&
+      flId &&
+      latestOpenShiftByFreelancer[flId] &&
+      !latestOpenShiftByFreelancer[flId].checkOut
+    ) {
+      shift = latestOpenShiftByFreelancer[flId]
+    }
 
     if (shift && !shift.checkOut) {
       shift.checkOutId = record.id
@@ -150,14 +169,30 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     })
   }
 
-  let startMs = null
-  if (startDate) startMs = new Date(startDate).getTime()
-  let endMs = null
-  if (endDate) {
-    const end = new Date(endDate)
-    if (endDate.length <= 10) end.setHours(23, 59, 59, 999)
-    endMs = end.getTime()
+  const parseFilterDateMs = (dateStr, isEnd) => {
+    if (!dateStr) return null
+    const trimmed = String(dateStr).trim()
+    if (!trimmed) return null
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const parts = trimmed.split('-')
+      const year = parseInt(parts[0], 10)
+      const month = parseInt(parts[1], 10) - 1
+      const day = parseInt(parts[2], 10)
+      if (isEnd) {
+        return new Date(year, month, day, 23, 59, 59, 999).getTime()
+      }
+      return new Date(year, month, day, 0, 0, 0, 0).getTime()
+    }
+    const parsed = new Date(trimmed)
+    if (isNaN(parsed.getTime())) return null
+    if (isEnd && trimmed.length <= 10) {
+      parsed.setHours(23, 59, 59, 999)
+    }
+    return parsed.getTime()
   }
+
+  const startMs = parseFilterDateMs(startDate, false)
+  const endMs = parseFilterDateMs(endDate, true)
 
   const filtered = []
   for (let i = 0; i < orderedShifts.length; i++) {
@@ -167,9 +202,9 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
       : shift.checkOut
         ? shift.checkOut.timestamp
         : ''
-    const referenceMs = new Date(referenceTimestamp).getTime()
-    if (startMs !== null && referenceMs < startMs) continue
-    if (endMs !== null && referenceMs > endMs) continue
+    const referenceMs = referenceTimestamp ? new Date(referenceTimestamp).getTime() : 0
+    if (startMs !== null && (!referenceMs || referenceMs < startMs)) continue
+    if (endMs !== null && (!referenceMs || referenceMs > endMs)) continue
     if (status === 'open' && shift.status !== 'open') continue
     if (status === 'completed' && shift.status !== 'completed') continue
     if (
