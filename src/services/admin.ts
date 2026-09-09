@@ -1863,7 +1863,7 @@ export async function updateCompanyPaymentSettings(
 ): Promise<PaymentSettingsResponse> {
   try {
     return await pb.send<PaymentSettingsResponse>(
-      `/api/admin/company/${encodeURIComponent(companyId)}/payment-settings`,
+      `/backend/v1/admin/company/${encodeURIComponent(companyId)}/payment-settings`,
       { method: 'PATCH', body: payload },
     )
   } catch (err: unknown) {
@@ -1880,7 +1880,7 @@ export async function confirmShiftPayment(
 ): Promise<ConfirmShiftPaymentResponse> {
   try {
     return await pb.send<ConfirmShiftPaymentResponse>(
-      `/api/admin/attendance/${encodeURIComponent(checkInId)}/confirm-payment`,
+      `/backend/v1/admin/attendance/${encodeURIComponent(checkInId)}/confirm-payment`,
       { method: 'POST', body: { amountCents } },
     )
   } catch (err: unknown) {

@@ -1,4 +1,5 @@
-routerAdd('PATCH', '/api/admin/company/{id}/payment-settings', (e) => {
+// Endpoint para atualização das configurações de pagamento de uma empresa
+routerAdd('PATCH', '/backend/v1/admin/company/{id}/payment-settings', (e) => {
   const companyId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
 
