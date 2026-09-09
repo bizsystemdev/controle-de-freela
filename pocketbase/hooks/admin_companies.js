@@ -66,6 +66,11 @@ routerAdd('GET', '/api/admin/companies', (e) => {
             },
             freelancersCount: fcs.length,
             lastCheckIn: lastCheckInTime,
+            paymentControlEnabled: comp.getBool('payment_control_enabled'),
+            freelancerShiftBaseAmountCents:
+              comp.getInt('freelancer_shift_base_amount_cents') > 0
+                ? comp.getInt('freelancer_shift_base_amount_cents')
+                : null,
             license: {
               id: lic.id,
               status: lic.getString('status'),

@@ -16,6 +16,8 @@ export interface CompanyAdminItem {
   }
   freelancersCount: number
   lastCheckIn: string | null
+  paymentControlEnabled: boolean
+  freelancerShiftBaseAmountCents: number | null
   license?: {
     id: string
     status: string
@@ -224,19 +226,38 @@ export interface CreateFreelancerPayload {
   roleTitle?: string
 }
 
-export interface AttendanceHistoryItem {
+export interface AttendanceEventDetails {
   id: string
+  timestamp: string
+  manual?: boolean
+  lat?: number | null
+  lng?: number | null
+}
+
+export interface AttendanceShiftItem {
+  id: string
+  checkInId: string | null
+  checkOutId: string | null
   freelancerId: string
   freelancerName: string
   freelancerPhone: string
   freelancerRoleTitle: string
   companyId: string
-  type: 'check_in' | 'check_out'
-  timestamp: string
-  manual?: boolean
-  lat?: number
-  lng?: number
+  companyName: string
+  checkIn: AttendanceEventDetails | null
+  checkOut: AttendanceEventDetails | null
+  status: 'open' | 'completed' | 'orphan'
+  paymentRequired: boolean
+  paymentConfirmed: boolean
+  receivedAmountCents: number | null
+  paymentConfirmedAt: string | null
+  paymentConfirmedBy: string | null
+  paymentConfirmedByName: string | null
 }
+
+export type AttendanceHistoryItem = AttendanceShiftItem
+
+export type AttendanceShiftStatusFilter = 'all' | 'open' | 'completed' | 'payment_pending' | 'paid'
 
 export interface DeviceReleaseItem {
   id: string
@@ -326,7 +347,28 @@ export interface HistoryFilterParams {
   freelancerId?: string
   startDate?: string
   endDate?: string
-  type?: 'all' | 'check_in' | 'check_out'
+  status?: AttendanceShiftStatusFilter
+}
+
+export interface PaymentSettingsPayload {
+  enabled: boolean
+  baseAmountCents: number | null
+}
+
+export interface PaymentSettingsResponse {
+  success: boolean
+  paymentControlEnabled: boolean
+  baseAmountCents: number | null
+}
+
+export interface ConfirmShiftPaymentResponse {
+  success: boolean
+  payment: {
+    amountCents: number
+    confirmedAt: string
+    confirmedBy: string
+    confirmedByName: string
+  }
 }
 
 /**
@@ -553,6 +595,11 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
                 },
                 freelancersCount: fcs.totalItems,
                 lastCheckIn: lastAtt.items[0]?.timestamp || null,
+                paymentControlEnabled: Boolean(comp.payment_control_enabled),
+                freelancerShiftBaseAmountCents:
+                  Number(comp.freelancer_shift_base_amount_cents || 0) > 0
+                    ? Number(comp.freelancer_shift_base_amount_cents)
+                    : null,
                 license: {
                   id: lic.id,
                   status: lic.status,
@@ -586,6 +633,11 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
           location: { lat: c.lat || 0, lng: c.lng || 0 },
           freelancersCount: 0,
           lastCheckIn: null,
+          paymentControlEnabled: Boolean(c.payment_control_enabled),
+          freelancerShiftBaseAmountCents:
+            Number(c.freelancer_shift_base_amount_cents || 0) > 0
+              ? Number(c.freelancer_shift_base_amount_cents)
+              : null,
         }))
       }
     }
@@ -1636,7 +1688,12 @@ export async function registerManualAttendance(
         }
 
         let durationFormatted = ''
+        let shiftCheckInId: string | null = null
         if (type === 'check_out' && lastRec) {
+          if (lastRec.company_id !== payload.companyId) {
+            throw new Error('O check-out deve ocorrer na mesma empresa do check-in.')
+          }
+          shiftCheckInId = lastRec.id
           const startMs = new Date(lastRec.timestamp).getTime()
           const endMs = new Date(timestamp).getTime()
           const diffMins = Math.max(1, Math.floor((endMs - startMs) / (1000 * 60)))
@@ -1655,6 +1712,7 @@ export async function registerManualAttendance(
           type,
           timestamp,
           manual: true,
+          shift_check_in_id: shiftCheckInId,
         })
 
         return {
@@ -1687,19 +1745,163 @@ export async function registerManualAttendance(
   }
 }
 
+interface RawAttendanceRecord {
+  id: string
+  freelancer_id: string
+  company_id: string
+  type: 'check_in' | 'check_out'
+  timestamp: string
+  manual?: boolean
+  lat?: number
+  lng?: number
+  shift_check_in_id?: string
+  payment_required?: boolean
+  payment_confirmed?: boolean
+  received_amount_cents?: number
+  payment_confirmed_at?: string
+  payment_confirmed_by?: string
+  payment_confirmed_by_name?: string
+  expand?: {
+    freelancer_id?: { name?: string; phone?: string; role_title?: string }
+  }
+}
+
+function consolidateAttendanceRecords(
+  records: RawAttendanceRecord[],
+  companyId: string,
+  companyName: string,
+): AttendanceShiftItem[] {
+  const shifts: AttendanceShiftItem[] = []
+  const shiftsByCheckInId = new Map<string, AttendanceShiftItem>()
+  const legacyOpenByKey = new Map<string, AttendanceShiftItem>()
+
+  const toEvent = (record: RawAttendanceRecord): AttendanceEventDetails => ({
+    id: record.id,
+    timestamp: record.timestamp,
+    manual: Boolean(record.manual),
+    lat: typeof record.lat === 'number' ? record.lat : null,
+    lng: typeof record.lng === 'number' ? record.lng : null,
+  })
+
+  for (const record of records) {
+    const freelancer = record.expand?.freelancer_id
+    const legacyKey = `${record.freelancer_id}:${record.company_id}`
+
+    if (record.type === 'check_in') {
+      const shift: AttendanceShiftItem = {
+        id: record.id,
+        checkInId: record.id,
+        checkOutId: null,
+        freelancerId: record.freelancer_id,
+        freelancerName: freelancer?.name || 'Freelancer',
+        freelancerPhone: freelancer?.phone || '',
+        freelancerRoleTitle: freelancer?.role_title || '',
+        companyId,
+        companyName,
+        checkIn: toEvent(record),
+        checkOut: null,
+        status: 'open',
+        paymentRequired: Boolean(record.payment_required),
+        paymentConfirmed: Boolean(record.payment_confirmed),
+        receivedAmountCents: record.payment_confirmed
+          ? Number(record.received_amount_cents || 0)
+          : null,
+        paymentConfirmedAt: record.payment_confirmed_at || null,
+        paymentConfirmedBy: record.payment_confirmed_by || null,
+        paymentConfirmedByName: record.payment_confirmed_by_name || null,
+      }
+      shifts.push(shift)
+      shiftsByCheckInId.set(record.id, shift)
+      legacyOpenByKey.set(legacyKey, shift)
+      continue
+    }
+
+    const linkedShift = record.shift_check_in_id
+      ? shiftsByCheckInId.get(record.shift_check_in_id)
+      : undefined
+    const shift = linkedShift || legacyOpenByKey.get(legacyKey)
+    if (shift && !shift.checkOut) {
+      shift.checkOutId = record.id
+      shift.checkOut = toEvent(record)
+      shift.status = 'completed'
+      if (legacyOpenByKey.get(legacyKey) === shift) legacyOpenByKey.delete(legacyKey)
+      continue
+    }
+
+    shifts.push({
+      id: record.id,
+      checkInId: null,
+      checkOutId: record.id,
+      freelancerId: record.freelancer_id,
+      freelancerName: freelancer?.name || 'Freelancer',
+      freelancerPhone: freelancer?.phone || '',
+      freelancerRoleTitle: freelancer?.role_title || '',
+      companyId,
+      companyName,
+      checkIn: null,
+      checkOut: toEvent(record),
+      status: 'orphan',
+      paymentRequired: false,
+      paymentConfirmed: false,
+      receivedAmountCents: null,
+      paymentConfirmedAt: null,
+      paymentConfirmedBy: null,
+      paymentConfirmedByName: null,
+    })
+  }
+
+  return shifts.sort((a, b) => {
+    const aTimestamp = a.checkIn?.timestamp || a.checkOut?.timestamp || ''
+    const bTimestamp = b.checkIn?.timestamp || b.checkOut?.timestamp || ''
+    return new Date(bTimestamp).getTime() - new Date(aTimestamp).getTime()
+  })
+}
+
+export async function updateCompanyPaymentSettings(
+  companyId: string,
+  payload: PaymentSettingsPayload,
+): Promise<PaymentSettingsResponse> {
+  try {
+    return await pb.send<PaymentSettingsResponse>(
+      `/api/admin/company/${encodeURIComponent(companyId)}/payment-settings`,
+      { method: 'PATCH', body: payload },
+    )
+  } catch (err: unknown) {
+    const pbErr = err as { data?: { error?: string }; message?: string }
+    throw new Error(
+      pbErr?.data?.error || pbErr?.message || 'Falha ao salvar o controle de recebimento.',
+    )
+  }
+}
+
+export async function confirmShiftPayment(
+  checkInId: string,
+  amountCents: number,
+): Promise<ConfirmShiftPaymentResponse> {
+  try {
+    return await pb.send<ConfirmShiftPaymentResponse>(
+      `/api/admin/attendance/${encodeURIComponent(checkInId)}/confirm-payment`,
+      { method: 'POST', body: { amountCents } },
+    )
+  } catch (err: unknown) {
+    const pbErr = err as { data?: { error?: string }; message?: string }
+    throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao confirmar o recebimento.')
+  }
+}
+
 export async function getCompanyAttendanceHistory(
   companyId: string,
   filters?: HistoryFilterParams,
-): Promise<AttendanceHistoryItem[]> {
+): Promise<AttendanceShiftItem[]> {
   try {
     const params = new URLSearchParams()
     if (filters?.freelancerId) params.append('freelancerId', filters.freelancerId)
     if (filters?.startDate) params.append('startDate', filters.startDate)
     if (filters?.endDate) params.append('endDate', filters.endDate)
-    if (filters?.type && filters.type !== 'all') params.append('type', filters.type)
+    if (filters?.status && filters.status !== 'all') params.append('status', filters.status)
 
     const queryString = params.toString() ? `?${params.toString()}` : ''
-    const res = await pb.send<{ history: AttendanceHistoryItem[] }>(
+    const res = await pb.send<{ history: AttendanceShiftItem[] }>(
       `/api/admin/company/${encodeURIComponent(companyId)}/history${queryString}`,
       { method: 'GET' },
     )
@@ -1716,40 +1918,44 @@ export async function getCompanyAttendanceHistory(
         if (filters?.freelancerId) {
           filter += ` && freelancer_id = "${filters.freelancerId}"`
         }
-        if (filters?.type && filters.type !== 'all') {
-          filter += ` && type = "${filters.type}"`
-        }
-        if (filters?.startDate) {
-          filter += ` && timestamp >= "${new Date(filters.startDate).toISOString()}"`
-        }
+        const [records, company] = await Promise.all([
+          pb.collection('attendance_records').getFullList({
+            filter,
+            sort: 'timestamp,created',
+            expand: 'freelancer_id',
+          }),
+          pb.collection('companies').getOne(companyId),
+        ])
+        let shifts = consolidateAttendanceRecords(
+          records as unknown as RawAttendanceRecord[],
+          companyId,
+          company.name || 'Empresa',
+        )
+
+        let startMs: number | null = null
+        if (filters?.startDate) startMs = new Date(filters.startDate).getTime()
+        let endMs: number | null = null
         if (filters?.endDate) {
-          const endObj = new Date(filters.endDate)
-          if (filters.endDate.length <= 10) endObj.setHours(23, 59, 59, 999)
-          filter += ` && timestamp <= "${endObj.toISOString()}"`
+          const end = new Date(filters.endDate)
+          if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999)
+          endMs = end.getTime()
         }
 
-        const records = await pb.collection('attendance_records').getFullList({
-          filter,
-          sort: '-timestamp',
-          expand: 'freelancer_id',
+        shifts = shifts.filter((shift) => {
+          const reference = shift.checkIn?.timestamp || shift.checkOut?.timestamp || ''
+          const referenceMs = new Date(reference).getTime()
+          if (startMs !== null && referenceMs < startMs) return false
+          if (endMs !== null && referenceMs > endMs) return false
+          if (filters?.status === 'open') return shift.status === 'open'
+          if (filters?.status === 'completed') return shift.status === 'completed'
+          if (filters?.status === 'payment_pending') {
+            return shift.status === 'completed' && shift.paymentRequired && !shift.paymentConfirmed
+          }
+          if (filters?.status === 'paid') return shift.paymentConfirmed
+          return true
         })
 
-        return records.map((rec) => {
-          const fl = rec.expand?.freelancer_id
-          return {
-            id: rec.id,
-            freelancerId: rec.freelancer_id,
-            freelancerName: fl?.name || 'Freelancer',
-            freelancerPhone: fl?.phone || '',
-            freelancerRoleTitle: fl?.role_title || '',
-            companyId: rec.company_id,
-            type: rec.type as 'check_in' | 'check_out',
-            timestamp: rec.timestamp,
-            manual: rec.manual,
-            lat: rec.lat,
-            lng: rec.lng,
-          }
-        })
+        return shifts
       } catch {
         /* intentionally ignored */
       }

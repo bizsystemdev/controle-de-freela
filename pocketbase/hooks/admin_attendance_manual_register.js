@@ -24,37 +24,28 @@ routerAdd('POST', '/api/admin/attendance/manual-register', (e) => {
   }
 
   // 1. Check manager authentication and permission
-  let managerId = ''
-  if (e.auth) {
-    managerId = e.auth.id
-  } else if (body.managerId) {
-    managerId = String(body.managerId).trim()
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
   }
 
-  // If we have a managerId, check if manager has access to this company
-  if (managerId) {
+  const managerId = e.auth.id
+  const lms = $app.findRecordsByFilter('license_managers', `user_id = '${managerId}'`, '', 100, 0)
+  let hasAccess = false
+  for (let i = 0; i < lms.length; i++) {
     try {
-      const lms = $app.findRecordsByFilter(
-        'license_managers',
-        `user_id = '${managerId}'`,
-        '',
-        100,
-        0,
-      )
-      let hasAccess = false
-      for (let i = 0; i < lms.length; i++) {
-        try {
-          const lic = $app.findRecordById('licenses', lms[i].getString('license_id'))
-          if (lic.getString('company_id') === companyId) {
-            hasAccess = true
-            break
-          }
-        } catch (_) {}
-      }
-      if (!hasAccess && lms.length > 0) {
-        return e.json(403, { error: 'Gestor não tem permissão para gerenciar esta empresa.' })
+      const lic = $app.findRecordById('licenses', lms[i].getString('license_id'))
+      const role = lms[i].getString('role')
+      if (
+        lic.getString('company_id') === companyId &&
+        (role === 'owner' || role === 'admin' || role === 'viewer')
+      ) {
+        hasAccess = true
+        break
       }
     } catch (_) {}
+  }
+  if (!hasAccess) {
+    return e.json(403, { error: 'Gestor não tem permissão para gerenciar esta empresa.' })
   }
 
   // 2. Verify freelancer exists and is active
@@ -113,20 +104,33 @@ routerAdd('POST', '/api/admin/attendance/manual-register', (e) => {
     if (!lastRecord || lastType !== 'check_in') {
       return e.json(400, { error: 'Não há check-in aberto para registrar saída.' })
     }
+    if (lastRecord.getString('company_id') !== companyId) {
+      return e.json(400, { error: 'O check-out deve ocorrer na mesma empresa do check-in.' })
+    }
   }
 
   // 6. Create attendance record with manual: true
-  const col = $app.findCollectionByNameOrId('attendance_records')
-  const record = new Record(col)
-  record.set('freelancer_id', freelancerId)
-  record.set('company_id', companyId)
-  record.set('type', type)
-  record.set('timestamp', timestamp)
-  record.set('manual', true)
-  // No lat/lng needed for manual registers, or optional if passed
-  if (typeof body.lat === 'number') record.set('lat', body.lat)
-  if (typeof body.lng === 'number') record.set('lng', body.lng)
-  $app.save(record)
+  let record = null
+  $app.runInTransaction((txApp) => {
+    const col = txApp.findCollectionByNameOrId('attendance_records')
+    record = new Record(col)
+    record.set('freelancer_id', freelancerId)
+    record.set('company_id', companyId)
+    record.set('type', type)
+    record.set('timestamp', timestamp)
+    record.set('manual', true)
+    if (typeof body.lat === 'number') record.set('lat', body.lat)
+    if (typeof body.lng === 'number') record.set('lng', body.lng)
+
+    if (type === 'check_out' && lastRecord) {
+      record.set('shift_check_in_id', lastRecord.id)
+      const shiftCheckIn = txApp.findRecordById('attendance_records', lastRecord.id)
+      shiftCheckIn.set('payment_required', company.getBool('payment_control_enabled'))
+      txApp.save(shiftCheckIn)
+    }
+
+    txApp.save(record)
+  })
 
   // Calculate duration if check-out
   let durationFormatted = ''

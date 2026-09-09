@@ -4,78 +4,189 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
   const freelancerId = String(query['freelancerId'] || '').trim()
   const startDate = String(query['startDate'] || '').trim()
   const endDate = String(query['endDate'] || '').trim()
-  const rawType = String(query['type'] || '').trim()
+  const status = String(query['status'] || query['type'] || '').trim()
 
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
+  }
   if (!companyId) {
     return e.json(400, { error: 'ID da empresa obrigatório.' })
   }
 
-  let filter = `company_id = '${companyId}'`
+  const managerLinks = $app.findRecordsByFilter(
+    'license_managers',
+    `user_id = '${e.auth.id}'`,
+    '',
+    100,
+    0,
+  )
+  let hasAccess = false
+  for (let i = 0; i < managerLinks.length; i++) {
+    try {
+      const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+      const role = managerLinks[i].getString('role')
+      if (
+        license.getString('company_id') === companyId &&
+        (role === 'owner' || role === 'admin' || role === 'viewer')
+      ) {
+        hasAccess = true
+        break
+      }
+    } catch (_) {}
+  }
+  if (!hasAccess) {
+    return e.json(403, { error: 'Usuário sem permissão para consultar esta empresa.' })
+  }
 
+  let filter = `company_id = '${companyId}'`
   if (freelancerId) {
     filter += ` && freelancer_id = '${freelancerId}'`
   }
 
-  if (rawType === 'check_in' || rawType === 'check-in') {
-    filter += ` && type = 'check_in'`
-  } else if (rawType === 'check_out' || rawType === 'check-out') {
-    filter += ` && type = 'check_out'`
-  }
+  const records = $app.findRecordsByFilter(
+    'attendance_records',
+    filter,
+    '-timestamp,-created',
+    5000,
+    0,
+  )
+  records.reverse()
+  const company = $app.findRecordById('companies', companyId)
+  const freelancerMap = {}
+  const shiftsByCheckInId = {}
+  const orderedShifts = []
 
-  if (startDate) {
-    const startIso = new Date(startDate).toISOString()
-    filter += ` && timestamp >= '${startIso}'`
-  }
-
-  if (endDate) {
-    const endObj = new Date(endDate)
-    // If only date format YYYY-MM-DD, set to end of day
-    if (endDate.length <= 10) {
-      endObj.setHours(23, 59, 59, 999)
-    }
-    const endIso = endObj.toISOString()
-    filter += ` && timestamp <= '${endIso}'`
-  }
-
-  const records = $app.findRecordsByFilter('attendance_records', filter, '-timestamp', 500, 0)
-
-  // Cache freelancer details for quick joining
-  const flMap = {}
-
-  const history = []
-  for (let i = 0; i < records.length; i++) {
-    const rec = records[i]
-    const flId = rec.getString('freelancer_id')
-    if (!flMap[flId]) {
+  const getFreelancer = (id) => {
+    if (!freelancerMap[id]) {
       try {
-        const fl = $app.findRecordById('freelancers', flId)
-        flMap[flId] = {
-          name: fl.getString('name'),
-          phone: fl.getString('phone'),
-          roleTitle: fl.getString('role_title'),
+        const freelancer = $app.findRecordById('freelancers', id)
+        freelancerMap[id] = {
+          name: freelancer.getString('name'),
+          phone: freelancer.getString('phone'),
+          roleTitle: freelancer.getString('role_title'),
         }
       } catch (_) {
-        flMap[flId] = { name: 'Desconhecido', phone: '', roleTitle: '' }
+        freelancerMap[id] = { name: 'Freelancer removido', phone: '', roleTitle: '' }
       }
     }
+    return freelancerMap[id]
+  }
 
-    const flInfo = flMap[flId]
-    const recLat = rec.getFloat('lat')
-    const recLng = rec.getFloat('lng')
-    history.push({
-      id: rec.id,
+  const eventFromRecord = (record) => ({
+    id: record.id,
+    timestamp: record.getString('timestamp'),
+    manual: record.getBool('manual'),
+    lat: record.getFloat('lat') !== 0 ? record.getFloat('lat') : null,
+    lng: record.getFloat('lng') !== 0 ? record.getFloat('lng') : null,
+  })
+
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i]
+    if (record.getString('type') !== 'check_in') continue
+
+    const flId = record.getString('freelancer_id')
+    const freelancer = getFreelancer(flId)
+    const shift = {
+      id: record.id,
+      checkInId: record.id,
+      checkOutId: null,
       freelancerId: flId,
-      freelancerName: flInfo.name,
-      freelancerPhone: flInfo.phone,
-      freelancerRoleTitle: flInfo.roleTitle,
-      companyId: rec.getString('company_id'),
-      type: rec.getString('type'),
-      timestamp: rec.getString('timestamp'),
-      manual: rec.getBool('manual'),
-      lat: recLat !== 0 ? recLat : null,
-      lng: recLng !== 0 ? recLng : null,
+      freelancerName: freelancer.name,
+      freelancerPhone: freelancer.phone,
+      freelancerRoleTitle: freelancer.roleTitle,
+      companyId: companyId,
+      companyName: company.getString('name'),
+      checkIn: eventFromRecord(record),
+      checkOut: null,
+      status: 'open',
+      paymentRequired: record.getBool('payment_required'),
+      paymentConfirmed: record.getBool('payment_confirmed'),
+      receivedAmountCents: record.getBool('payment_confirmed')
+        ? record.getInt('received_amount_cents')
+        : null,
+      paymentConfirmedAt: record.getString('payment_confirmed_at') || null,
+      paymentConfirmedBy: record.getString('payment_confirmed_by') || null,
+      paymentConfirmedByName: record.getString('payment_confirmed_by_name') || null,
+    }
+    shiftsByCheckInId[record.id] = shift
+    orderedShifts.push(shift)
+  }
+
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i]
+    if (record.getString('type') !== 'check_out') continue
+
+    const flId = record.getString('freelancer_id')
+    const relationId = record.getString('shift_check_in_id')
+    const shift = shiftsByCheckInId[relationId]
+
+    if (shift && !shift.checkOut) {
+      shift.checkOutId = record.id
+      shift.checkOut = eventFromRecord(record)
+      shift.status = 'completed'
+      continue
+    }
+
+    const freelancer = getFreelancer(flId)
+    orderedShifts.push({
+      id: record.id,
+      checkInId: null,
+      checkOutId: record.id,
+      freelancerId: flId,
+      freelancerName: freelancer.name,
+      freelancerPhone: freelancer.phone,
+      freelancerRoleTitle: freelancer.roleTitle,
+      companyId: companyId,
+      companyName: company.getString('name'),
+      checkIn: null,
+      checkOut: eventFromRecord(record),
+      status: 'orphan',
+      paymentRequired: false,
+      paymentConfirmed: false,
+      receivedAmountCents: null,
+      paymentConfirmedAt: null,
+      paymentConfirmedBy: null,
+      paymentConfirmedByName: null,
     })
   }
 
-  return e.json(200, { history: history })
+  let startMs = null
+  if (startDate) startMs = new Date(startDate).getTime()
+  let endMs = null
+  if (endDate) {
+    const end = new Date(endDate)
+    if (endDate.length <= 10) end.setHours(23, 59, 59, 999)
+    endMs = end.getTime()
+  }
+
+  const filtered = []
+  for (let i = 0; i < orderedShifts.length; i++) {
+    const shift = orderedShifts[i]
+    const referenceTimestamp = shift.checkIn
+      ? shift.checkIn.timestamp
+      : shift.checkOut
+        ? shift.checkOut.timestamp
+        : ''
+    const referenceMs = new Date(referenceTimestamp).getTime()
+    if (startMs !== null && referenceMs < startMs) continue
+    if (endMs !== null && referenceMs > endMs) continue
+    if (status === 'open' && shift.status !== 'open') continue
+    if (status === 'completed' && shift.status !== 'completed') continue
+    if (
+      status === 'payment_pending' &&
+      !(shift.status === 'completed' && shift.paymentRequired && !shift.paymentConfirmed)
+    ) {
+      continue
+    }
+    if (status === 'paid' && !shift.paymentConfirmed) continue
+    filtered.push(shift)
+  }
+
+  filtered.sort((a, b) => {
+    const aTimestamp = a.checkIn ? a.checkIn.timestamp : a.checkOut.timestamp
+    const bTimestamp = b.checkIn ? b.checkIn.timestamp : b.checkOut.timestamp
+    return new Date(bTimestamp).getTime() - new Date(aTimestamp).getTime()
+  })
+
+  return e.json(200, { history: filtered })
 })

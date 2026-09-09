@@ -62,6 +62,13 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - `pocketbase/migrations/`: schema e evolução das coleções (`companies`, `licenses`, `license_managers`, `freelancers`, `freelancer_companies`, `attendance_records` e `device_releases`).
 - `pocketbase/hooks/`: endpoints customizados `/api/auth/*`, `/api/attendance/*` e `/api/admin/*`. Os serviços frontend tentam esses endpoints e, em vários casos, possuem fallback direto pelo SDK quando recebem 404; preserve os dois caminhos quando modificar esse comportamento.
 
+## Turnos e recebimentos de freelancers
+
+- Um turno é enraizado no registro `check_in` de `attendance_records`; o `check_out` correspondente deve referenciá-lo por `shift_check_in_id`. Não consolide turnos novos por proximidade de horário.
+- As empresas configuram o controle por `payment_control_enabled` e um valor-base opcional em centavos inteiros (`freelancer_shift_base_amount_cents`). Valores monetários persistidos devem continuar em centavos e ser formatados como BRL somente na interface.
+- No checkout, `payment_required` é fotografado no check-in que representa o turno. A confirmação administrativa também pertence a esse registro, pelos campos `payment_confirmed`, `received_amount_cents`, `payment_confirmed_at`, `payment_confirmed_by` e `payment_confirmed_by_name`; nunca derive valores históricos do valor-base atual da empresa.
+- Somente gestores ou gerentes vinculados à empresa podem alterar a configuração ou confirmar recebimentos. Confirmações são únicas, exigem checkout relacionado e não possuem edição posterior na interface atual.
+
 ## Autenticação e autorização administrativa
 
 - O `AppContext` usa `role: 'manager'` para o fluxo administrativo; o `AdminLayout` só aceita sessão autenticada com esse papel e um `manager` carregado.
