@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T14:53:27.187Z",
+  "generatedAt": "2026-09-09T14:46:58.178Z",
   "collections": [
     {
       "name": "users",
@@ -172,10 +172,7 @@
           "name": "freelancer_shift_base_amount_cents",
           "type": "number",
           "required": false,
-          "system": false,
-          "onlyInt": true,
-          "min": 0,
-          "max": 999999999
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_companies_active ON companies (active)"]
@@ -510,10 +507,7 @@
           "name": "received_amount_cents",
           "type": "number",
           "required": false,
-          "system": false,
-          "onlyInt": true,
-          "min": 0,
-          "max": 999999999
+          "system": false
         },
         {
           "name": "payment_confirmed_at",
@@ -526,7 +520,7 @@
           "type": "relation",
           "required": false,
           "system": false,
-          "collectionRef": "_pb_users_auth_"
+          "collectionRef": "users"
         },
         {
           "name": "payment_confirmed_by_name",
@@ -539,8 +533,8 @@
         "CREATE INDEX idx_att_freelancer ON attendance_records (freelancer_id)",
         "CREATE INDEX idx_att_company ON attendance_records (company_id)",
         "CREATE INDEX idx_att_timestamp ON attendance_records (timestamp DESC)",
-        "CREATE UNIQUE INDEX idx_att_shift_checkout ON attendance_records (shift_check_in_id) WHERE shift_check_in_id != ''",
-        "CREATE INDEX idx_att_payment_pending ON attendance_records (payment_required, payment_confirmed)"
+        "CREATE UNIQUE INDEX `idx_att_shift_checkout` ON `attendance_records` (shift_check_in_id) WHERE shift_check_in_id != ''",
+        "CREATE INDEX `idx_att_payment_pending` ON `attendance_records` (payment_required, payment_confirmed)"
       ]
     },
     {
