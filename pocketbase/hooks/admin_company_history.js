@@ -72,9 +72,22 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     return freelancerMap[id]
   }
 
+  const normalizeIso = (val) => {
+    if (!val) return ''
+    const s = String(val).trim()
+    if (!s) return ''
+    // Ex: "2026-09-09 15:46:10.498Z" -> "2026-09-09T15:46:10.498Z"
+    // Also handle dates without trailing Z: "2026-09-09 15:46:10" -> "2026-09-09T15:46:10Z"
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) {
+      const withT = s.replace(' ', 'T')
+      return withT.endsWith('Z') ? withT : withT + 'Z'
+    }
+    return s
+  }
+
   const eventFromRecord = (record) => ({
     id: record.id,
-    timestamp: record.getString('timestamp'),
+    timestamp: normalizeIso(record.getString('timestamp')),
     manual: record.getBool('manual'),
     lat: record.getFloat('lat') !== 0 ? record.getFloat('lat') : null,
     lng: record.getFloat('lng') !== 0 ? record.getFloat('lng') : null,
@@ -86,6 +99,7 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
 
     const flId = record.getString('freelancer_id')
     const freelancer = getFreelancer(flId)
+    const rawPaymentConfirmedAt = record.getString('payment_confirmed_at')
     const shift = {
       id: record.id,
       checkInId: record.id,
@@ -104,12 +118,21 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
       receivedAmountCents: record.getBool('payment_confirmed')
         ? record.getInt('received_amount_cents')
         : null,
-      paymentConfirmedAt: record.getString('payment_confirmed_at') || null,
+      paymentConfirmedAt: rawPaymentConfirmedAt ? normalizeIso(rawPaymentConfirmedAt) : null,
       paymentConfirmedBy: record.getString('payment_confirmed_by') || null,
       paymentConfirmedByName: record.getString('payment_confirmed_by_name') || null,
     }
     shiftsByCheckInId[record.id] = shift
     orderedShifts.push(shift)
+  }
+
+  // Keep track of the latest open shift per freelancer for fallback pairing
+  const latestOpenShiftByFreelancer = {}
+  for (let i = 0; i < orderedShifts.length; i++) {
+    const s = orderedShifts[i]
+    if (s.freelancerId) {
+      latestOpenShiftByFreelancer[s.freelancerId] = s
+    }
   }
 
   for (let i = 0; i < records.length; i++) {
@@ -118,7 +141,17 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
 
     const flId = record.getString('freelancer_id')
     const relationId = record.getString('shift_check_in_id')
-    const shift = shiftsByCheckInId[relationId]
+    let shift = relationId ? shiftsByCheckInId[relationId] : null
+
+    // Fallback: if relationId is missing or didn't match, pair with the open shift for this freelancer
+    if (
+      !shift &&
+      flId &&
+      latestOpenShiftByFreelancer[flId] &&
+      !latestOpenShiftByFreelancer[flId].checkOut
+    ) {
+      shift = latestOpenShiftByFreelancer[flId]
+    }
 
     if (shift && !shift.checkOut) {
       shift.checkOutId = record.id
@@ -150,14 +183,31 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     })
   }
 
-  let startMs = null
-  if (startDate) startMs = new Date(startDate).getTime()
-  let endMs = null
-  if (endDate) {
-    const end = new Date(endDate)
-    if (endDate.length <= 10) end.setHours(23, 59, 59, 999)
-    endMs = end.getTime()
+  const parseFilterDateMs = (dateStr, isEnd) => {
+    if (!dateStr) return null
+    const trimmed = String(dateStr).trim()
+    if (!trimmed) return null
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const parts = trimmed.split('-')
+      const year = parseInt(parts[0], 10)
+      const month = parseInt(parts[1], 10) - 1
+      const day = parseInt(parts[2], 10)
+      if (isEnd) {
+        return new Date(year, month, day, 23, 59, 59, 999).getTime()
+      }
+      return new Date(year, month, day, 0, 0, 0, 0).getTime()
+    }
+    const normalized = normalizeIso(trimmed)
+    const parsed = new Date(normalized)
+    if (isNaN(parsed.getTime())) return null
+    if (isEnd && trimmed.length <= 10) {
+      parsed.setHours(23, 59, 59, 999)
+    }
+    return parsed.getTime()
   }
+
+  const startMs = parseFilterDateMs(startDate, false)
+  const endMs = parseFilterDateMs(endDate, true)
 
   const filtered = []
   for (let i = 0; i < orderedShifts.length; i++) {
@@ -167,9 +217,13 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
       : shift.checkOut
         ? shift.checkOut.timestamp
         : ''
-    const referenceMs = new Date(referenceTimestamp).getTime()
-    if (startMs !== null && referenceMs < startMs) continue
-    if (endMs !== null && referenceMs > endMs) continue
+    let referenceMs = 0
+    if (referenceTimestamp) {
+      const d = new Date(referenceTimestamp)
+      referenceMs = isNaN(d.getTime()) ? 0 : d.getTime()
+    }
+    if (startMs !== null && (!referenceMs || referenceMs < startMs)) continue
+    if (endMs !== null && (!referenceMs || referenceMs > endMs)) continue
     if (status === 'open' && shift.status !== 'open') continue
     if (status === 'completed' && shift.status !== 'completed') continue
     if (
@@ -182,11 +236,21 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     filtered.push(shift)
   }
 
+  // Sort descending: newest shift on top.
+  // Timestamps are strictly normalized ISO (e.g. "2026-09-09T16:38:00.155Z"), so string comparison
+  // is naturally lexicographical and completely immune to Goja's new Date() parsing quirks or NaN results.
   filtered.sort((a, b) => {
-    const aTimestamp = a.checkIn ? a.checkIn.timestamp : a.checkOut.timestamp
-    const bTimestamp = b.checkIn ? b.checkIn.timestamp : b.checkOut.timestamp
-    return new Date(bTimestamp).getTime() - new Date(aTimestamp).getTime()
+    const aTimestamp =
+      (a.checkIn ? a.checkIn.timestamp : a.checkOut ? a.checkOut.timestamp : '') || ''
+    const bTimestamp =
+      (b.checkIn ? b.checkIn.timestamp : b.checkOut ? b.checkOut.timestamp : '') || ''
+    if (aTimestamp < bTimestamp) return 1
+    if (aTimestamp > bTimestamp) return -1
+    return 0
   })
 
-  return e.json(200, { history: filtered })
+  console.log(
+    `[admin_company_history] returning version 2 with ${filtered.length} shifts for company ${companyId}`,
+  )
+  return e.json(200, { version: 2, history: filtered })
 })

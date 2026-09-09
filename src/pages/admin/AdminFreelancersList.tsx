@@ -15,6 +15,7 @@ import { getCompany, type CompanyData } from '@/services/companies'
 import { useApp } from '@/context/AppContext'
 import { isGerente } from '@/lib/adminPermissions'
 import { toast } from '@/hooks/use-toast'
+import { safeDate } from '@/lib/utils'
 import {
   Users,
   UserPlus,
@@ -287,8 +288,8 @@ export default function AdminFreelancersList() {
 
   const formatElapsedTime = (startIso?: string | null) => {
     if (!startIso) return ''
-    const diffMs = nowTick - new Date(startIso).getTime()
-    if (diffMs < 0) return '0 min'
+    const diffMs = nowTick - safeDate(startIso).getTime()
+    if (isNaN(diffMs) || diffMs < 0) return '0 min'
     const totalMins = Math.floor(diffMs / (1000 * 60))
     const hours = Math.floor(totalMins / 60)
     const mins = totalMins % 60
