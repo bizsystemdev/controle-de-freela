@@ -1,4 +1,3 @@
-// Endpoint para confirmação de recebimento/pagamento de turno de freelancer
 routerAdd('POST', '/backend/v1/admin/attendance/{id}/confirm-payment', (e) => {
   const checkInId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
