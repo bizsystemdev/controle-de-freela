@@ -1,3 +1,4 @@
+// Confirmação de recebimento de turno
 routerAdd('POST', '/backend/v1/admin/attendance/{id}/confirm-payment', (e) => {
   const checkInId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
