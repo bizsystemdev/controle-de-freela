@@ -25,6 +25,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { maskAlphanumericCnpj, isValidAlphanumericCnpj, unmaskCnpj } from '@/lib/cnpj'
+import { safeDate } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -336,7 +337,8 @@ export default function AdminDashboard() {
 
   const formatLastCheckIn = (isoString?: string | null) => {
     if (!isoString) return 'Nenhum registro recente'
-    const d = new Date(isoString)
+    const d = safeDate(isoString)
+    if (isNaN(d.getTime())) return 'Nenhum registro recente'
     return d.toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',

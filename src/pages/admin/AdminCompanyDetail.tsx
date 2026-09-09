@@ -35,6 +35,7 @@ import { isGerente } from '@/lib/adminPermissions'
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation'
 import { toast } from '@/hooks/use-toast'
 import { maskAlphanumericCnpj, isValidAlphanumericCnpj, unmaskCnpj } from '@/lib/cnpj'
+import { safeDate } from '@/lib/utils'
 import {
   Building2,
   Users,
@@ -909,8 +910,8 @@ export default function AdminCompanyDetail() {
 
   const formatElapsedTime = (startIso?: string | null) => {
     if (!startIso) return ''
-    const diffMs = nowTick - new Date(startIso).getTime()
-    if (diffMs < 0) return '0 min'
+    const diffMs = nowTick - safeDate(startIso).getTime()
+    if (isNaN(diffMs) || diffMs < 0) return '0 min'
     const totalMins = Math.floor(diffMs / (1000 * 60))
     const hours = Math.floor(totalMins / 60)
     const mins = totalMins % 60
@@ -1174,7 +1175,10 @@ export default function AdminCompanyDetail() {
   }
 
   const formatDateTime = (isoString: string) => {
-    const d = new Date(isoString)
+    const d = safeDate(isoString)
+    if (isNaN(d.getTime())) {
+      return { date: '—', time: '—' }
+    }
     return {
       date: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
       time: d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),

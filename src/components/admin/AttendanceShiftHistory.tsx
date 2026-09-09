@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from '@/hooks/use-toast'
 import { centsToBRLInput, formatBRLFromCents, parseBRLToCents } from '@/lib/money'
+import { safeDate } from '@/lib/utils'
 import { confirmShiftPayment, type AttendanceShiftItem } from '@/services/admin'
 
 interface AttendanceShiftHistoryProps {
@@ -20,7 +21,9 @@ interface AttendanceShiftHistoryProps {
 }
 
 function formatDate(timestamp: string): string {
-  return new Date(timestamp).toLocaleDateString('pt-BR', {
+  const d = safeDate(timestamp)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -28,7 +31,9 @@ function formatDate(timestamp: string): string {
 }
 
 function formatTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString('pt-BR', {
+  const d = safeDate(timestamp)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -36,13 +41,10 @@ function formatTime(timestamp: string): string {
 
 function formatDuration(shift: AttendanceShiftItem): string | null {
   if (!shift.checkIn || !shift.checkOut) return null
-  const minutes = Math.max(
-    0,
-    Math.floor(
-      (new Date(shift.checkOut.timestamp).getTime() - new Date(shift.checkIn.timestamp).getTime()) /
-        60000,
-    ),
-  )
+  const startMs = safeDate(shift.checkIn.timestamp).getTime()
+  const endMs = safeDate(shift.checkOut.timestamp).getTime()
+  if (isNaN(startMs) || isNaN(endMs) || endMs < startMs) return null
+  const minutes = Math.max(0, Math.floor((endMs - startMs) / 60000))
   const hours = Math.floor(minutes / 60)
   const remaining = minutes % 60
   return hours ? `${hours}h${String(remaining).padStart(2, '0')}` : `${minutes} min`

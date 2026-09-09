@@ -1775,9 +1775,20 @@ function consolidateAttendanceRecords(
   const shiftsByCheckInId = new Map<string, AttendanceShiftItem>()
   const legacyOpenByKey = new Map<string, AttendanceShiftItem>()
 
+  const normalizeIso = (val?: string | null): string => {
+    if (!val) return ''
+    const s = String(val).trim()
+    if (!s) return ''
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) {
+      const withT = s.replace(' ', 'T')
+      return withT.endsWith('Z') ? withT : withT + 'Z'
+    }
+    return s
+  }
+
   const toEvent = (record: RawAttendanceRecord): AttendanceEventDetails => ({
     id: record.id,
-    timestamp: record.timestamp,
+    timestamp: normalizeIso(record.timestamp),
     manual: Boolean(record.manual),
     lat: typeof record.lat === 'number' ? record.lat : null,
     lng: typeof record.lng === 'number' ? record.lng : null,
@@ -1806,7 +1817,9 @@ function consolidateAttendanceRecords(
         receivedAmountCents: record.payment_confirmed
           ? Number(record.received_amount_cents || 0)
           : null,
-        paymentConfirmedAt: record.payment_confirmed_at || null,
+        paymentConfirmedAt: record.payment_confirmed_at
+          ? normalizeIso(record.payment_confirmed_at)
+          : null,
         paymentConfirmedBy: record.payment_confirmed_by || null,
         paymentConfirmedByName: record.payment_confirmed_by_name || null,
       }
@@ -1853,7 +1866,9 @@ function consolidateAttendanceRecords(
   return shifts.sort((a, b) => {
     const aTimestamp = a.checkIn?.timestamp || a.checkOut?.timestamp || ''
     const bTimestamp = b.checkIn?.timestamp || b.checkOut?.timestamp || ''
-    return new Date(bTimestamp).getTime() - new Date(aTimestamp).getTime()
+    if (aTimestamp < bTimestamp) return 1
+    if (aTimestamp > bTimestamp) return -1
+    return 0
   })
 }
 
@@ -1905,11 +1920,49 @@ export async function getCompanyAttendanceHistory(
       `/api/admin/company/${encodeURIComponent(companyId)}/history${queryString}`,
       { method: 'GET' },
     )
+    const normalizeIso = (val?: string | null): string => {
+      if (!val) return ''
+      const s = String(val).trim()
+      if (!s) return ''
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) {
+        const withT = s.replace(' ', 'T')
+        return withT.endsWith('Z') ? withT : withT + 'Z'
+      }
+      return s
+    }
+
+    const sanitizeHistoryItem = (shift: AttendanceShiftItem): AttendanceShiftItem => ({
+      ...shift,
+      checkIn: shift.checkIn
+        ? { ...shift.checkIn, timestamp: normalizeIso(shift.checkIn.timestamp) }
+        : null,
+      checkOut: shift.checkOut
+        ? { ...shift.checkOut, timestamp: normalizeIso(shift.checkOut.timestamp) }
+        : null,
+      paymentConfirmedAt: shift.paymentConfirmedAt ? normalizeIso(shift.paymentConfirmedAt) : null,
+    })
+
     if (res && Array.isArray(res.history)) {
-      return res.history
+      const sanitized = (res.history as AttendanceShiftItem[]).map(sanitizeHistoryItem)
+      sanitized.sort((a, b) => {
+        const aT = a.checkIn?.timestamp || a.checkOut?.timestamp || ''
+        const bT = b.checkIn?.timestamp || b.checkOut?.timestamp || ''
+        if (aT < bT) return 1
+        if (aT > bT) return -1
+        return 0
+      })
+      return sanitized
     }
     if (Array.isArray(res)) {
-      return res
+      const sanitized = (res as AttendanceShiftItem[]).map(sanitizeHistoryItem)
+      sanitized.sort((a, b) => {
+        const aT = a.checkIn?.timestamp || a.checkOut?.timestamp || ''
+        const bT = b.checkIn?.timestamp || b.checkOut?.timestamp || ''
+        if (aT < bT) return 1
+        if (aT > bT) return -1
+        return 0
+      })
+      return sanitized
     }
     throw new Error('Resposta inesperada do servidor de histórico.')
   } catch (err: unknown) {
@@ -1920,6 +1973,17 @@ export async function getCompanyAttendanceHistory(
       pbErr?.message?.includes('File not found')
     ) {
       try {
+        const normalizeIso = (val?: string | null): string => {
+          if (!val) return ''
+          const s = String(val).trim()
+          if (!s) return ''
+          if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) {
+            const withT = s.replace(' ', 'T')
+            return withT.endsWith('Z') ? withT : withT + 'Z'
+          }
+          return s
+        }
+
         let filter = `company_id = "${companyId}"`
         if (filters?.freelancerId) {
           filter += ` && freelancer_id = "${filters.freelancerId}"`
@@ -1939,17 +2003,23 @@ export async function getCompanyAttendanceHistory(
         )
 
         let startMs: number | null = null
-        if (filters?.startDate) startMs = new Date(filters.startDate).getTime()
+        if (filters?.startDate) {
+          const sDate = new Date(normalizeIso(filters.startDate))
+          startMs = isNaN(sDate.getTime()) ? null : sDate.getTime()
+        }
         let endMs: number | null = null
         if (filters?.endDate) {
-          const end = new Date(filters.endDate)
-          if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999)
-          endMs = end.getTime()
+          const end = new Date(normalizeIso(filters.endDate))
+          if (!isNaN(end.getTime())) {
+            if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999)
+            endMs = end.getTime()
+          }
         }
 
         shifts = shifts.filter((shift) => {
           const reference = shift.checkIn?.timestamp || shift.checkOut?.timestamp || ''
-          const referenceMs = new Date(reference).getTime()
+          const refDate = new Date(normalizeIso(reference))
+          const referenceMs = isNaN(refDate.getTime()) ? 0 : refDate.getTime()
           if (startMs !== null && referenceMs < startMs) return false
           if (endMs !== null && referenceMs > endMs) return false
           if (filters?.status === 'open') return shift.status === 'open'
@@ -1959,6 +2029,14 @@ export async function getCompanyAttendanceHistory(
           }
           if (filters?.status === 'paid') return shift.paymentConfirmed
           return true
+        })
+
+        shifts.sort((a, b) => {
+          const aTimestamp = a.checkIn?.timestamp || a.checkOut?.timestamp || ''
+          const bTimestamp = b.checkIn?.timestamp || b.checkOut?.timestamp || ''
+          if (aTimestamp < bTimestamp) return 1
+          if (aTimestamp > bTimestamp) return -1
+          return 0
         })
 
         return shifts
