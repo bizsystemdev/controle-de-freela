@@ -136,7 +136,11 @@ export default function Inicio() {
         setLocationMessage(result.message)
         setShowLocationModal(true)
       } else {
-        toast({ title: 'Erro no check-in', description: result.message || 'Tente novamente.', variant: 'destructive' })
+        toast({
+          title: 'Erro no check-in',
+          description: result.message || 'Tente novamente.',
+          variant: 'destructive',
+        })
       }
     } else {
       const result = await performCheckOut()
@@ -177,7 +181,11 @@ export default function Inicio() {
             setLocationMessage(fail.message || '')
             setShowLocationModal(true)
           } else {
-            toast({ title: 'Erro no check-in', description: fail.message || 'Tente novamente.', variant: 'destructive' })
+            toast({
+              title: 'Erro no check-in',
+              description: fail.message || 'Tente novamente.',
+              variant: 'destructive',
+            })
           }
         }
       } else {
@@ -195,7 +203,11 @@ export default function Inicio() {
           setLocationMessage(fail.message || '')
           setShowLocationModal(true)
         } else {
-          toast({ title: 'Erro no check-out', description: fail.message || 'Tente novamente.', variant: 'destructive' })
+          toast({
+            title: 'Erro no check-out',
+            description: fail.message || 'Tente novamente.',
+            variant: 'destructive',
+          })
         }
       }
       return
