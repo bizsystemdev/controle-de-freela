@@ -173,6 +173,12 @@
           "type": "number",
           "required": false,
           "system": false
+        },
+        {
+          "name": "attendance_photo_required",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_companies_active ON companies (active)"]
@@ -527,6 +533,17 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "photo",
+          "type": "file",
+          "required": false,
+          "system": false,
+          "protected": true,
+          "maxSelect": 1,
+          "maxSize": 1572864,
+          "mimeTypes": ["image/jpeg"],
+          "thumbs": ["400x400f", "800x800f"]
         }
       ],
       "indexes": [

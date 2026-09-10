@@ -1,5 +1,15 @@
 import { useState } from 'react'
-import { AlertCircle, Banknote, CheckCircle2, Clock3, History, Loader2, MapPin } from 'lucide-react'
+import {
+  AlertCircle,
+  Banknote,
+  Camera,
+  CheckCircle2,
+  Clock3,
+  History,
+  ImageOff,
+  Loader2,
+  MapPin,
+} from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -11,7 +21,12 @@ import {
 import { toast } from '@/hooks/use-toast'
 import { centsToBRLInput, formatBRLFromCents, parseBRLToCents } from '@/lib/money'
 import { safeDate } from '@/lib/utils'
-import { confirmShiftPayment, type AttendanceShiftItem } from '@/services/admin'
+import {
+  confirmShiftPayment,
+  getAttendancePhotoUrls,
+  type AttendancePhotoUrls,
+  type AttendanceShiftItem,
+} from '@/services/admin'
 
 interface AttendanceShiftHistoryProps {
   shifts: AttendanceShiftItem[]
@@ -95,6 +110,13 @@ export function AttendanceShiftHistory({
   const [amount, setAmount] = useState('')
   const [amountError, setAmountError] = useState('')
   const [confirming, setConfirming] = useState(false)
+  const [photoShift, setPhotoShift] = useState<AttendanceShiftItem | null>(null)
+  const [photoUrls, setPhotoUrls] = useState<AttendancePhotoUrls>({
+    checkIn: null,
+    checkOut: null,
+  })
+  const [loadingPhotos, setLoadingPhotos] = useState(false)
+  const [photoError, setPhotoError] = useState('')
 
   const openConfirmation = (shift: AttendanceShiftItem) => {
     setSelectedShift(shift)
@@ -129,6 +151,22 @@ export function AttendanceShiftHistory({
       await onPaymentConfirmed()
     } finally {
       setConfirming(false)
+    }
+  }
+
+  const openPhotos = async (shift: AttendanceShiftItem) => {
+    setPhotoShift(shift)
+    setPhotoUrls({ checkIn: null, checkOut: null })
+    setPhotoError('')
+    setLoadingPhotos(true)
+    try {
+      setPhotoUrls(await getAttendancePhotoUrls(shift))
+    } catch (error: unknown) {
+      setPhotoError(
+        error instanceof Error ? error.message : 'Não foi possível carregar as fotografias.',
+      )
+    } finally {
+      setLoadingPhotos(false)
     }
   }
 
@@ -235,6 +273,21 @@ export function AttendanceShiftHistory({
                       <div className="space-y-1.5">
                         <EventLocation label="Entrada" event={shift.checkIn} />
                         <EventLocation label="Saída" event={shift.checkOut} />
+                        {shift.checkIn?.photoFileName || shift.checkOut?.photoFileName ? (
+                          <button
+                            type="button"
+                            onClick={() => void openPhotos(shift)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100"
+                          >
+                            <Camera className="h-3.5 w-3.5" />
+                            Ver fotos
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-slate-400">
+                            <ImageOff className="h-3 w-3" />
+                            Foto não disponível
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-5 py-4">
@@ -347,6 +400,65 @@ export function AttendanceShiftHistory({
               Confirmar recebimento
             </button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(photoShift)} onOpenChange={(open) => !open && setPhotoShift(null)}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl">
+          <DialogHeader>
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Camera className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-center text-xl font-black text-slate-900">
+              Fotos do registro
+            </DialogTitle>
+            <DialogDescription className="pt-1 text-center text-xs leading-relaxed text-slate-600">
+              Evidências de entrada e saída de{' '}
+              <strong className="text-slate-900">{photoShift?.freelancerName}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingPhotos ? (
+            <div className="flex min-h-64 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
+          ) : photoError ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-sm font-medium text-red-700">
+              {photoError}
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {(
+                [
+                  ['Check-in', photoShift?.checkIn || null, photoUrls.checkIn],
+                  ['Check-out', photoShift?.checkOut || null, photoUrls.checkOut],
+                ] as const
+              ).map(([label, event, url]) => (
+                <div key={label} className="overflow-hidden rounded-2xl border border-slate-200">
+                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-700">
+                      {label}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      {event ? formatDateTime(event.timestamp) : 'Registro ainda não realizado'}
+                    </p>
+                  </div>
+                  {url ? (
+                    <img
+                      src={url}
+                      alt={`Foto do ${label.toLowerCase()} de ${photoShift?.freelancerName || 'freelancer'}`}
+                      className="aspect-square w-full bg-slate-100 object-contain"
+                    />
+                  ) : (
+                    <div className="flex aspect-square flex-col items-center justify-center bg-slate-50 px-6 text-center text-slate-400">
+                      <ImageOff className="mb-2 h-8 w-8" />
+                      <p className="text-xs font-semibold">Foto não disponível</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

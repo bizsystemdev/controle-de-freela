@@ -91,6 +91,7 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     manual: record.getBool('manual'),
     lat: record.getFloat('lat') !== 0 ? record.getFloat('lat') : null,
     lng: record.getFloat('lng') !== 0 ? record.getFloat('lng') : null,
+    photoFileName: record.getString('photo') || null,
   })
 
   for (let i = 0; i < records.length; i++) {
@@ -235,5 +236,5 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     return 0
   })
 
-  return e.json(200, { version: 3, history: filtered })
+  return e.json(200, { version: 4, history: filtered })
 })

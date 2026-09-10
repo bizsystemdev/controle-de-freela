@@ -71,6 +71,13 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - No checkout, `payment_required` é fotografado no check-in que representa o turno. A confirmação administrativa também pertence a esse registro, pelos campos `payment_confirmed`, `received_amount_cents`, `payment_confirmed_at`, `payment_confirmed_by` e `payment_confirmed_by_name`; nunca derive valores históricos do valor-base atual da empresa.
 - Somente gestores ou gerentes vinculados à empresa podem alterar a configuração ou confirmar recebimentos. Confirmações são únicas, exigem checkout relacionado e não possuem edição posterior na interface atual.
 
+## Fotografias de presença
+
+- A exigência de fotografia é configurada por empresa em `attendance_photo_required` e permanece desativada por padrão. Cada evento de `attendance_records` armazena sua própria evidência no campo protegido `photo`; o check-in e o checkout nunca compartilham a mesma captura.
+- Preserve obrigatoriamente a ordem do fluxo do freelancer: validações existentes, geolocalização, fotografia quando exigida e somente então persistência do ponto. A câmera não pode abrir antes da aprovação da localização e uma foto jamais substitui essa validação.
+- A captura usa `getUserMedia` e frame do vídeo, sem seletor de arquivos ou galeria. Encerre todas as tracks ao capturar, refazer, cancelar, fechar ou desmontar o componente e não persista imagens no storage ou em logs.
+- Fotografias de presença são privadas. Somente gestores ou gerentes autenticados e vinculados à empresa do registro podem obter o arquivo protegido por token temporário; preserve a guarda de download em `pocketbase/hooks/attendance_photo_access.js`.
+
 ## Autenticação e autorização administrativa
 
 - O `AppContext` usa `role: 'manager'` para o fluxo administrativo; o `AdminLayout` só aceita sessão autenticada com esse papel e um `manager` carregado.

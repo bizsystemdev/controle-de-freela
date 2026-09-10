@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Filter, RefreshCw } from 'lucide-react'
 import { AttendanceShiftHistory } from '@/components/admin/AttendanceShiftHistory'
 import { PaymentSettingsCard } from '@/components/admin/PaymentSettingsCard'
+import { AttendancePhotoSettingsCard } from '@/components/admin/AttendancePhotoSettingsCard'
 import {
   Select,
   SelectContent,
@@ -91,22 +92,33 @@ export default function AdminAttendanceHistory() {
       </div>
 
       {company && (
-        <PaymentSettingsCard
-          companyId={company.id}
-          enabled={company.paymentControlEnabled}
-          baseAmountCents={company.freelancerShiftBaseAmountCents}
-          onSaved={(enabled, baseAmountCents) =>
-            setCompany((current) =>
-              current
-                ? {
-                    ...current,
-                    paymentControlEnabled: enabled,
-                    freelancerShiftBaseAmountCents: baseAmountCents,
-                  }
-                : current,
-            )
-          }
-        />
+        <div className="space-y-4">
+          <PaymentSettingsCard
+            companyId={company.id}
+            enabled={company.paymentControlEnabled}
+            baseAmountCents={company.freelancerShiftBaseAmountCents}
+            onSaved={(enabled, baseAmountCents) =>
+              setCompany((current) =>
+                current
+                  ? {
+                      ...current,
+                      paymentControlEnabled: enabled,
+                      freelancerShiftBaseAmountCents: baseAmountCents,
+                    }
+                  : current,
+              )
+            }
+          />
+          <AttendancePhotoSettingsCard
+            companyId={company.id}
+            required={company.attendancePhotoRequired}
+            onSaved={(required) =>
+              setCompany((current) =>
+                current ? { ...current, attendancePhotoRequired: required } : current,
+              )
+            }
+          />
+        </div>
       )}
 
       <div className="space-y-4 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm">

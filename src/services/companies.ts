@@ -15,6 +15,7 @@ export interface CompanyData {
     lng: number
   }
   active: boolean
+  attendancePhotoRequired: boolean
   paymentControlEnabled: boolean
   freelancerShiftBaseAmountCents: number | null
 }
@@ -40,6 +41,7 @@ export async function getCompany(id: string): Promise<CompanyData> {
         lng: record.lng || 0,
       },
       active: record.active !== false,
+      attendancePhotoRequired: Boolean(record.attendance_photo_required),
       paymentControlEnabled: Boolean(record.payment_control_enabled),
       freelancerShiftBaseAmountCents:
         Number(record.freelancer_shift_base_amount_cents || 0) > 0
@@ -76,6 +78,7 @@ export async function listActiveCompanies(): Promise<CompanyData[]> {
         lng: record.lng || 0,
       },
       active: record.active !== false,
+      attendancePhotoRequired: Boolean(record.attendance_photo_required),
       paymentControlEnabled: Boolean(record.payment_control_enabled),
       freelancerShiftBaseAmountCents:
         Number(record.freelancer_shift_base_amount_cents || 0) > 0
@@ -125,6 +128,7 @@ export async function getFreelancerCompanies(freelancerId: string): Promise<Comp
             lng: comp.lng || 0,
           },
           active: true,
+          attendancePhotoRequired: Boolean(comp.attendance_photo_required),
           paymentControlEnabled: Boolean(comp.payment_control_enabled),
           freelancerShiftBaseAmountCents:
             Number(comp.freelancer_shift_base_amount_cents || 0) > 0

@@ -14,18 +14,12 @@ routerAdd('POST', '/api/attendance/register', (e) => {
   const timestamp = body.timestamp
     ? new Date(body.timestamp).toISOString()
     : new Date().toISOString()
-  const lat =
-    typeof body.lat === 'number'
-      ? body.lat
-      : body.location && typeof body.location.lat === 'number'
-        ? body.location.lat
-        : null
-  const lng =
-    typeof body.lng === 'number'
-      ? body.lng
-      : body.location && typeof body.location.lng === 'number'
-        ? body.location.lng
-        : null
+  const rawLat = body.lat !== undefined ? body.lat : body.location ? body.location.lat : null
+  const rawLng = body.lng !== undefined ? body.lng : body.location ? body.location.lng : null
+  const parsedLat = rawLat === null || rawLat === '' ? null : Number(rawLat)
+  const parsedLng = rawLng === null || rawLng === '' ? null : Number(rawLng)
+  const lat = parsedLat !== null && isFinite(parsedLat) ? parsedLat : null
+  const lng = parsedLng !== null && isFinite(parsedLng) ? parsedLng : null
 
   if (!freelancerId || !companyId) {
     return e.json(400, { error: 'freelancerId e companyId são obrigatórios.' })
@@ -118,6 +112,17 @@ routerAdd('POST', '/api/attendance/register', (e) => {
     }
   }
 
+  const uploadedPhotos = e.findUploadedFiles('photo')
+  const photo = uploadedPhotos.length > 0 ? uploadedPhotos[0] : null
+  if (company.getBool('attendance_photo_required') && !photo) {
+    return e.json(400, {
+      error: 'Esta empresa exige uma fotografia tirada no momento do registro.',
+    })
+  }
+  if (uploadedPhotos.length > 1) {
+    return e.json(400, { error: 'Envie somente uma fotografia por registro.' })
+  }
+
   // 5. Create attendance record
   let record = null
   $app.runInTransaction((txApp) => {
@@ -129,6 +134,7 @@ routerAdd('POST', '/api/attendance/register', (e) => {
     record.set('timestamp', timestamp)
     if (lat !== null) record.set('lat', lat)
     if (lng !== null) record.set('lng', lng)
+    if (photo) record.set('photo', photo)
 
     if (type === 'check_out' && lastRecord) {
       record.set('shift_check_in_id', lastRecord.id)
@@ -166,6 +172,7 @@ routerAdd('POST', '/api/attendance/register', (e) => {
       timestamp: record.getString('timestamp'),
       lat: record.getFloat('lat'),
       lng: record.getFloat('lng'),
+      photo: record.getString('photo') || null,
     },
   })
 })

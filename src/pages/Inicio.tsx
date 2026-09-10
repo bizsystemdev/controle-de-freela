@@ -4,6 +4,7 @@ import { useApp } from '@/context/AppContext'
 import { CheckInModal } from '@/components/CheckInModal'
 import { CheckOutModal } from '@/components/CheckOutModal'
 import { LocationMismatchModal } from '@/components/LocationMismatchModal'
+import { CameraCaptureModal } from '@/components/CameraCaptureModal'
 import {
   ArrowRightLeft,
   CheckCircle,
@@ -43,6 +44,9 @@ export default function Inicio() {
   const [isButtonPressing, setIsButtonPressing] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
+  const [photoAction, setPhotoAction] = useState<'check-in' | 'check-out' | null>(null)
+  const [photoSubmitError, setPhotoSubmitError] = useState('')
+  const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false)
 
   // If single company, auto-select it.
   useEffect(() => {
@@ -124,6 +128,9 @@ export default function Inicio() {
       if (result.ok === true) {
         setModalCheckInTime(result.time)
         setShowCheckInModal(true)
+      } else if (result.reason === 'photo-required') {
+        setPhotoSubmitError('')
+        setPhotoAction('check-in')
       } else if (result.reason === 'location' || result.reason === 'geo-unavailable') {
         setLocationMessage(result.message)
         setShowLocationModal(true)
@@ -135,6 +142,9 @@ export default function Inicio() {
       if (result.ok === true) {
         setModalCheckOutData({ time: result.checkOutTime, duration: result.duration })
         setShowCheckOutModal(true)
+      } else if (result.reason === 'photo-required') {
+        setPhotoSubmitError('')
+        setPhotoAction('check-out')
       } else if (result.reason === 'location' || result.reason === 'geo-unavailable') {
         setLocationMessage(result.message)
         setShowLocationModal(true)
@@ -143,6 +153,55 @@ export default function Inicio() {
       }
     }
     setIsProcessing(false)
+  }
+
+  const handlePhotoConfirm = async (photo: Blob) => {
+    if (!photoAction || !selectedCompany || isPhotoSubmitting) return
+
+    setIsPhotoSubmitting(true)
+    setPhotoSubmitError('')
+    try {
+      if (photoAction === 'check-in') {
+        const result = await performCheckIn(selectedCompany, photo)
+        if (result.ok) {
+          setPhotoAction(null)
+          setModalCheckInTime(result.time)
+          setShowCheckInModal(true)
+          return
+        }
+        if (result.reason === 'location' || result.reason === 'geo-unavailable') {
+          setPhotoAction(null)
+          setLocationMessage(result.message)
+          setShowLocationModal(true)
+          return
+        }
+        setPhotoSubmitError(result.message)
+        return
+      }
+
+      const result = await performCheckOut(photo)
+      if (result.ok) {
+        setPhotoAction(null)
+        setModalCheckOutData({ time: result.checkOutTime, duration: result.duration })
+        setShowCheckOutModal(true)
+        return
+      }
+      if (result.reason === 'location' || result.reason === 'geo-unavailable') {
+        setPhotoAction(null)
+        setLocationMessage(result.message)
+        setShowLocationModal(true)
+        return
+      }
+      setPhotoSubmitError(result.message)
+    } finally {
+      setIsPhotoSubmitting(false)
+    }
+  }
+
+  const closePhotoCapture = () => {
+    if (isPhotoSubmitting) return
+    setPhotoAction(null)
+    setPhotoSubmitError('')
   }
 
   const handleLocationRetry = () => {
@@ -359,6 +418,16 @@ export default function Inicio() {
         message={locationMessage}
         onRetry={handleLocationRetry}
         onCancel={() => setShowLocationModal(false)}
+      />
+
+      <CameraCaptureModal
+        isOpen={photoAction !== null}
+        action={photoAction || 'check-in'}
+        companyName={selectedCompany?.name || 'Empresa'}
+        submitting={isPhotoSubmitting}
+        submitError={photoSubmitError}
+        onConfirm={handlePhotoConfirm}
+        onCancel={closePhotoCapture}
       />
     </div>
   )

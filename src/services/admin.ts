@@ -17,6 +17,7 @@ export interface CompanyAdminItem {
   }
   freelancersCount: number
   lastCheckIn: string | null
+  attendancePhotoRequired: boolean
   paymentControlEnabled: boolean
   freelancerShiftBaseAmountCents: number | null
   license?: {
@@ -233,6 +234,7 @@ export interface AttendanceEventDetails {
   manual?: boolean
   lat?: number | null
   lng?: number | null
+  photoFileName?: string | null
 }
 
 export interface AttendanceShiftItem {
@@ -360,6 +362,11 @@ export interface PaymentSettingsResponse {
   success: boolean
   paymentControlEnabled: boolean
   baseAmountCents: number | null
+}
+
+export interface PhotoSettingsResponse {
+  success: boolean
+  attendancePhotoRequired: boolean
 }
 
 export interface ConfirmShiftPaymentResponse {
@@ -596,6 +603,7 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
                 },
                 freelancersCount: fcs.totalItems,
                 lastCheckIn: lastAtt.items[0]?.timestamp || null,
+                attendancePhotoRequired: Boolean(comp.attendance_photo_required),
                 paymentControlEnabled: Boolean(comp.payment_control_enabled),
                 freelancerShiftBaseAmountCents:
                   Number(comp.freelancer_shift_base_amount_cents || 0) > 0
@@ -634,6 +642,7 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
           location: { lat: c.lat || 0, lng: c.lng || 0 },
           freelancersCount: 0,
           lastCheckIn: null,
+          attendancePhotoRequired: Boolean(c.attendance_photo_required),
           paymentControlEnabled: Boolean(c.payment_control_enabled),
           freelancerShiftBaseAmountCents:
             Number(c.freelancer_shift_base_amount_cents || 0) > 0
@@ -1755,6 +1764,7 @@ interface RawAttendanceRecord {
   manual?: boolean
   lat?: number
   lng?: number
+  photo?: string
   shift_check_in_id?: string
   payment_required?: boolean
   payment_confirmed?: boolean
@@ -1782,6 +1792,7 @@ function consolidateAttendanceRecords(
     manual: Boolean(record.manual),
     lat: typeof record.lat === 'number' ? record.lat : null,
     lng: typeof record.lng === 'number' ? record.lng : null,
+    photoFileName: record.photo || null,
   })
 
   for (const record of records) {
@@ -1887,6 +1898,23 @@ export async function updateCompanyPaymentSettings(
   }
 }
 
+export async function updateCompanyPhotoSettings(
+  companyId: string,
+  required: boolean,
+): Promise<PhotoSettingsResponse> {
+  try {
+    return await pb.send<PhotoSettingsResponse>(
+      `/backend/v1/admin/company/${encodeURIComponent(companyId)}/photo-settings`,
+      { method: 'PATCH', body: { required } },
+    )
+  } catch (err: unknown) {
+    const pbErr = err as { data?: { error?: string }; message?: string }
+    throw new Error(
+      pbErr?.data?.error || pbErr?.message || 'Falha ao salvar a exigência de fotografia.',
+    )
+  }
+}
+
 export async function confirmShiftPayment(
   checkInId: string,
   amountCents: number,
@@ -1935,7 +1963,7 @@ export async function getCompanyAttendanceHistory(
         : null,
     })
 
-    if (res?.version === 3 && Array.isArray(res.history)) {
+    if (res?.version === 4 && Array.isArray(res.history)) {
       const sanitized = (res.history as AttendanceShiftItem[]).map(sanitizeHistoryItem)
       sanitized.sort((a, b) => {
         const aT = a.checkIn?.timestamp || a.checkOut?.timestamp || ''
@@ -2018,6 +2046,44 @@ export async function getCompanyAttendanceHistory(
     }
     throw new Error(
       pbErr?.data?.error || pbErr?.message || 'Falha ao buscar histórico de presença.',
+    )
+  }
+}
+
+export interface AttendancePhotoUrls {
+  checkIn: string | null
+  checkOut: string | null
+}
+
+export async function getAttendancePhotoUrls(
+  shift: AttendanceShiftItem,
+): Promise<AttendancePhotoUrls> {
+  const hasPhoto = Boolean(shift.checkIn?.photoFileName || shift.checkOut?.photoFileName)
+  if (!hasPhoto) return { checkIn: null, checkOut: null }
+
+  try {
+    const token = await pb.files.getToken()
+    const fileUrl = (event: AttendanceEventDetails | null): string | null => {
+      if (!event?.photoFileName) return null
+      return pb.files.getURL(
+        {
+          id: event.id,
+          collectionId: 'attendance_records',
+          collectionName: 'attendance_records',
+        },
+        event.photoFileName,
+        { token, thumb: '800x800f' },
+      )
+    }
+
+    return {
+      checkIn: fileUrl(shift.checkIn),
+      checkOut: fileUrl(shift.checkOut),
+    }
+  } catch (err: unknown) {
+    const pbErr = err as { data?: { error?: string }; message?: string }
+    throw new Error(
+      pbErr?.data?.error || pbErr?.message || 'Falha ao autorizar a visualização das fotografias.',
     )
   }
 }

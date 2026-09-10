@@ -42,6 +42,7 @@ export interface Company {
   state: string
   address: string
   location: CompanyLocation
+  attendancePhotoRequired: boolean
   initial: string
   gradient: string
   colorTheme: 'red' | 'dark' | 'indigo'
@@ -78,11 +79,19 @@ export type AuthState =
 
 export type CheckInResult =
   | { ok: true; time: string }
-  | { ok: false; reason: 'location' | 'geo-unavailable' | 'network'; message: string }
+  | {
+      ok: false
+      reason: 'location' | 'geo-unavailable' | 'photo-required' | 'network'
+      message: string
+    }
 
 export type CheckOutResult =
   | { ok: true; checkOutTime: string; duration: string }
-  | { ok: false; reason: 'location' | 'geo-unavailable' | 'network'; message: string }
+  | {
+      ok: false
+      reason: 'location' | 'geo-unavailable' | 'photo-required' | 'network'
+      message: string
+    }
 
 interface AppContextType {
   // Common & Roles
@@ -111,8 +120,8 @@ interface AppContextType {
   startBiometricFlow: () => Promise<void>
   restoreSession: () => Promise<void>
   loadUserCompanies: (targetUserId?: string) => Promise<Company[]>
-  performCheckIn: (company: Company) => Promise<CheckInResult>
-  performCheckOut: () => Promise<CheckOutResult>
+  performCheckIn: (company: Company, photo?: Blob) => Promise<CheckInResult>
+  performCheckOut: (photo?: Blob) => Promise<CheckOutResult>
   loginAsManager: (email: string, pass: string) => Promise<void>
   restoreManagerSession: (token: string, user: ManagerUser) => void
   logout: () => void
@@ -178,6 +187,7 @@ function mapCompany(api: ApiCompany): Company {
     state: api.estado,
     address: api.endereco,
     location: { lat: api.location?.lat || 0, lng: api.location?.lng || 0 },
+    attendancePhotoRequired: Boolean(api.attendancePhotoRequired),
     initial: companyInitial(api.name),
     gradient: getCompanyGradient(api.id),
     colorTheme: 'indigo',
@@ -242,6 +252,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           state: compApi.estado,
           address: compApi.endereco,
           location: compApi.location,
+          attendancePhotoRequired: compApi.attendancePhotoRequired,
           initial: companyInitial(compApi.name),
           gradient: getCompanyGradient(compApi.id),
           colorTheme: 'indigo',
@@ -377,6 +388,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           state: c.estado,
           address: c.endereco,
           location: c.location,
+          attendancePhotoRequired: c.attendancePhotoRequired,
           initial: companyInitial(c.name),
           gradient: getCompanyGradient(c.id),
           colorTheme: 'indigo' as const,
@@ -469,6 +481,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           state: c.estado,
           address: c.endereco,
           location: c.location,
+          attendancePhotoRequired: c.attendancePhotoRequired,
           initial: companyInitial(c.name),
           gradient: getCompanyGradient(c.id),
           colorTheme: 'indigo',
@@ -607,7 +620,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ----- Check-in (with geolocation) --------------------------------------
   const performCheckIn = useCallback(
-    async (company: Company): Promise<CheckInResult> => {
+    async (company: Company, photo?: Blob): Promise<CheckInResult> => {
       logInfo('checkin', 'Iniciando check-in Freela Check', {
         company: {
           id: company.id,
@@ -673,6 +686,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
+      let attendancePhotoRequired = company.attendancePhotoRequired
+      try {
+        const currentCompany = await getCompany(company.id)
+        attendancePhotoRequired = currentCompany.attendancePhotoRequired
+        setSelectedCompany((selected) =>
+          selected?.id === company.id
+            ? { ...selected, attendancePhotoRequired: currentCompany.attendancePhotoRequired }
+            : selected,
+        )
+      } catch {
+        // The registration endpoint remains authoritative if this refresh is unavailable.
+      }
+
+      if (attendancePhotoRequired && !photo) {
+        return {
+          ok: false,
+          reason: 'photo-required',
+          message: 'Localização confirmada. Esta empresa exige uma foto para registrar o check-in.',
+        }
+      }
+
       const userId = user?.id || storage.get(STORAGE_KEYS.userId) || ''
       const now = new Date()
       const formatted = formatTimeString(now)
@@ -685,18 +719,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           timestamp: now.toISOString(),
           lat: coords.latitude,
           lng: coords.longitude,
+          photo,
         })
       } catch (err) {
+        const message = err instanceof Error ? err.message : 'Falha ao registrar ponto.'
         logError('checkin', 'Falha ao registrar ponto no backend', {
-          error: err instanceof Error ? err.message : String(err),
+          error: message,
           userId,
           empresaId: company.id,
         })
+        if (!photo && message.includes('exige uma fotografia')) {
+          return { ok: false, reason: 'photo-required', message }
+        }
         return {
           ok: false,
           reason: 'network',
-          message:
-            err instanceof Error ? err.message : 'Falha ao registrar ponto. Tente novamente.',
+          message,
         }
       }
 
@@ -713,106 +751,138 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   )
 
   // ----- Check-out ---------------------------------------------------------
-  const performCheckOut = useCallback(async (): Promise<CheckOutResult> => {
-    logInfo('checkout', 'Iniciando check-out Freela Check', {
-      company: selectedCompany
-        ? {
-            id: selectedCompany.id,
-            name: selectedCompany.name,
-            address: selectedCompany.address,
-            location: selectedCompany.location,
-          }
-        : null,
-    })
-
-    if (!isGeolocationAvailable()) {
-      logWarn('checkout', 'Geolocalização indisponível no dispositivo', {
-        reason: 'geo-unavailable',
+  const performCheckOut = useCallback(
+    async (photo?: Blob): Promise<CheckOutResult> => {
+      logInfo('checkout', 'Iniciando check-out Freela Check', {
+        company: selectedCompany
+          ? {
+              id: selectedCompany.id,
+              name: selectedCompany.name,
+              address: selectedCompany.address,
+              location: selectedCompany.location,
+            }
+          : null,
       })
-      return {
-        ok: false,
-        reason: 'geo-unavailable',
-        message: 'Permita o acesso à localização para registrar o ponto.',
-      }
-    }
 
-    let coords
-    try {
-      coords = await getCurrentPosition()
-    } catch (err) {
-      logError('checkout', 'Falha ao obter localização do dispositivo', {
-        error: err instanceof Error ? err.message : String(err),
-        reason: 'geo-unavailable',
-      })
-      return {
-        ok: false,
-        reason: 'geo-unavailable',
-        message: 'Permita o acesso à localização para registrar o ponto.',
-      }
-    }
-
-    const companyLat = selectedCompany?.location?.lat
-    const companyLng = selectedCompany?.location?.lng
-    if (
-      companyLat !== undefined &&
-      companyLng !== undefined &&
-      !Number.isNaN(companyLat) &&
-      !Number.isNaN(companyLng) &&
-      companyLat !== 0 &&
-      companyLng !== 0
-    ) {
-      const within = isWithinRadius(coords.latitude, coords.longitude, companyLat, companyLng)
-      if (!within) {
-        logWarn('checkout', 'Check-out bloqueado: dispositivo fora do raio', {
-          device: { lat: coords.latitude, lng: coords.longitude },
-          company: { lat: companyLat, lng: companyLng },
-          reason: 'location',
+      if (!isGeolocationAvailable()) {
+        logWarn('checkout', 'Geolocalização indisponível no dispositivo', {
+          reason: 'geo-unavailable',
         })
         return {
           ok: false,
-          reason: 'location',
-          message:
-            'Você não está no local da empresa. Aproxime-se do endereço para registrar o ponto.',
+          reason: 'geo-unavailable',
+          message: 'Permita o acesso à localização para registrar o ponto.',
         }
       }
-    }
 
-    const now = new Date()
-    const formattedOut = formatTimeString(now)
-    const checkIn = currentRecord?.checkInTime || new Date(now.getTime() - 8 * 3600 * 1000)
-    const duration = formatDurationString(checkIn, now)
-    const userId = user?.id || storage.get(STORAGE_KEYS.userId) || ''
-    const empresaId = currentRecord?.empresaId || selectedCompany?.id || ''
-
-    try {
-      const res = await registerAttendance({
-        freelancerId: userId,
-        companyId: empresaId,
-        type: 'check_out',
-        timestamp: now.toISOString(),
-        lat: coords.latitude,
-        lng: coords.longitude,
-      })
-      const finalDuration = res.durationFormatted || duration
-
-      const updatedRecord: AttendanceRecord = {
-        ...currentRecord,
-        checkOutTime: now,
-        formattedCheckOut: formattedOut,
-        durationFormatted: finalDuration,
+      let coords
+      try {
+        coords = await getCurrentPosition()
+      } catch (err) {
+        logError('checkout', 'Falha ao obter localização do dispositivo', {
+          error: err instanceof Error ? err.message : String(err),
+          reason: 'geo-unavailable',
+        })
+        return {
+          ok: false,
+          reason: 'geo-unavailable',
+          message: 'Permita o acesso à localização para registrar o ponto.',
+        }
       }
-      setHistory((prev) => [updatedRecord, ...prev])
-      setCurrentRecord(null)
-      setPresenceStatus('awaiting')
-      return { ok: true, checkOutTime: formattedOut, duration: finalDuration }
-    } catch (err) {
-      return {
-        ok: false,
-        reason: 'network',
-        message: err instanceof Error ? err.message : 'Falha ao registrar saída. Tente novamente.',
+
+      const companyLat = selectedCompany?.location?.lat
+      const companyLng = selectedCompany?.location?.lng
+      if (
+        companyLat !== undefined &&
+        companyLng !== undefined &&
+        !Number.isNaN(companyLat) &&
+        !Number.isNaN(companyLng) &&
+        companyLat !== 0 &&
+        companyLng !== 0
+      ) {
+        const within = isWithinRadius(coords.latitude, coords.longitude, companyLat, companyLng)
+        if (!within) {
+          logWarn('checkout', 'Check-out bloqueado: dispositivo fora do raio', {
+            device: { lat: coords.latitude, lng: coords.longitude },
+            company: { lat: companyLat, lng: companyLng },
+            reason: 'location',
+          })
+          return {
+            ok: false,
+            reason: 'location',
+            message:
+              'Você não está no local da empresa. Aproxime-se do endereço para registrar o ponto.',
+          }
+        }
       }
-    }
-  }, [currentRecord, selectedCompany, user])
+
+      const now = new Date()
+      const formattedOut = formatTimeString(now)
+      const checkIn = currentRecord?.checkInTime || new Date(now.getTime() - 8 * 3600 * 1000)
+      const duration = formatDurationString(checkIn, now)
+      const userId = user?.id || storage.get(STORAGE_KEYS.userId) || ''
+      const empresaId = currentRecord?.empresaId || selectedCompany?.id || ''
+
+      let attendancePhotoRequired = Boolean(selectedCompany?.attendancePhotoRequired)
+      if (empresaId) {
+        try {
+          const currentCompany = await getCompany(empresaId)
+          attendancePhotoRequired = currentCompany.attendancePhotoRequired
+          setSelectedCompany((selected) =>
+            selected?.id === empresaId
+              ? { ...selected, attendancePhotoRequired: currentCompany.attendancePhotoRequired }
+              : selected,
+          )
+        } catch {
+          // The registration endpoint remains authoritative if this refresh is unavailable.
+        }
+      }
+
+      if (attendancePhotoRequired && !photo) {
+        return {
+          ok: false,
+          reason: 'photo-required',
+          message:
+            'Localização confirmada. Esta empresa exige uma foto para registrar o check-out.',
+        }
+      }
+
+      try {
+        const res = await registerAttendance({
+          freelancerId: userId,
+          companyId: empresaId,
+          type: 'check_out',
+          timestamp: now.toISOString(),
+          lat: coords.latitude,
+          lng: coords.longitude,
+          photo,
+        })
+        const finalDuration = res.durationFormatted || duration
+
+        const updatedRecord: AttendanceRecord = {
+          ...currentRecord,
+          checkOutTime: now,
+          formattedCheckOut: formattedOut,
+          durationFormatted: finalDuration,
+        }
+        setHistory((prev) => [updatedRecord, ...prev])
+        setCurrentRecord(null)
+        setPresenceStatus('awaiting')
+        return { ok: true, checkOutTime: formattedOut, duration: finalDuration }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Falha ao registrar saída.'
+        if (!photo && message.includes('exige uma fotografia')) {
+          return { ok: false, reason: 'photo-required', message }
+        }
+        return {
+          ok: false,
+          reason: 'network',
+          message,
+        }
+      }
+    },
+    [currentRecord, selectedCompany, user],
+  )
 
   // ----- Logout ------------------------------------------------------------
   const logout = useCallback(() => {
