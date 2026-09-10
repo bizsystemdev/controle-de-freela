@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T21:20:58.237Z",
+  "generatedAt": "2026-09-10T22:15:37.444Z",
   "collections": [
     {
       "name": "users",
@@ -171,6 +171,12 @@
         {
           "name": "freelancer_shift_base_amount_cents",
           "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "attendance_photo_required",
+          "type": "bool",
           "required": false,
           "system": false
         }
@@ -525,6 +531,12 @@
         {
           "name": "payment_confirmed_by_name",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "photo",
+          "type": "file",
           "required": false,
           "system": false
         }

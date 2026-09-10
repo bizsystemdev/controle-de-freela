@@ -112,8 +112,15 @@ routerAdd('POST', '/api/attendance/register', (e) => {
     }
   }
 
-  const uploadedPhotos = e.findUploadedFiles('photo')
-  const photo = uploadedPhotos.length > 0 ? uploadedPhotos[0] : null
+  let photo = null
+  let uploadedPhotos = []
+  try {
+    uploadedPhotos = e.findUploadedFiles('photo') || []
+    if (uploadedPhotos.length > 0) photo = uploadedPhotos[0]
+  } catch (_) {
+    /* JSON sem foto — segue o fluxo */
+  }
+
   if (company.getBool('attendance_photo_required') && !photo) {
     return e.json(400, {
       error: 'Esta empresa exige uma fotografia tirada no momento do registro.',
