@@ -123,36 +123,45 @@ export default function Inicio() {
     }
 
     setIsProcessing(true)
-    if (presenceStatus === 'awaiting') {
-      const result = await performCheckIn(selectedCompany)
-      if (result.ok === true) {
-        setModalCheckInTime(result.time)
-        setShowCheckInModal(true)
-      } else if (result.reason === 'photo-required') {
-        setPhotoSubmitError('')
-        setPhotoAction('check-in')
-      } else if (result.reason === 'location' || result.reason === 'geo-unavailable') {
-        setLocationMessage(result.message)
-        setShowLocationModal(true)
+    try {
+      if (presenceStatus === 'awaiting') {
+        const result = await performCheckIn(selectedCompany)
+        if (result.ok === true) {
+          setModalCheckInTime(result.time)
+          setShowCheckInModal(true)
+        } else if (result.reason === 'photo-required') {
+          setPhotoSubmitError('')
+          setPhotoAction('check-in')
+        } else if (result.reason === 'location' || result.reason === 'geo-unavailable') {
+          setLocationMessage(result.message)
+          setShowLocationModal(true)
+        } else {
+          setToastMessage(result.message)
+        }
       } else {
-        setToastMessage(result.message)
+        const result = await performCheckOut()
+        if (result.ok === true) {
+          setModalCheckOutData({ time: result.checkOutTime, duration: result.duration })
+          setShowCheckOutModal(true)
+        } else if (result.reason === 'photo-required') {
+          setPhotoSubmitError('')
+          setPhotoAction('check-out')
+        } else if (result.reason === 'location' || result.reason === 'geo-unavailable') {
+          setLocationMessage(result.message)
+          setShowLocationModal(true)
+        } else {
+          setToastMessage(result.message)
+        }
       }
-    } else {
-      const result = await performCheckOut()
-      if (result.ok === true) {
-        setModalCheckOutData({ time: result.checkOutTime, duration: result.duration })
-        setShowCheckOutModal(true)
-      } else if (result.reason === 'photo-required') {
-        setPhotoSubmitError('')
-        setPhotoAction('check-out')
-      } else if (result.reason === 'location' || result.reason === 'geo-unavailable') {
-        setLocationMessage(result.message)
-        setShowLocationModal(true)
-      } else {
-        setToastMessage(result.message)
-      }
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível registrar o ponto. Tente novamente.',
+      )
+    } finally {
+      setIsProcessing(false)
     }
-    setIsProcessing(false)
   }
 
   const handlePhotoConfirm = async (photo: Blob) => {
@@ -193,6 +202,12 @@ export default function Inicio() {
         return
       }
       setPhotoSubmitError(result.message)
+    } catch (error) {
+      setPhotoSubmitError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível registrar o ponto. Tente novamente.',
+      )
     } finally {
       setIsPhotoSubmitting(false)
     }
