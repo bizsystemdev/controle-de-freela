@@ -686,20 +686,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      let attendancePhotoRequired = company.attendancePhotoRequired
-      try {
-        const currentCompany = await getCompany(company.id)
-        attendancePhotoRequired = currentCompany.attendancePhotoRequired
-        setSelectedCompany((selected) =>
-          selected?.id === company.id
-            ? { ...selected, attendancePhotoRequired: currentCompany.attendancePhotoRequired }
-            : selected,
-        )
-      } catch {
-        // The registration endpoint remains authoritative if this refresh is unavailable.
-      }
-
-      if (attendancePhotoRequired && !photo) {
+      if (company.attendancePhotoRequired && !photo) {
         return {
           ok: false,
           reason: 'photo-required',
@@ -823,22 +810,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const userId = user?.id || storage.get(STORAGE_KEYS.userId) || ''
       const empresaId = currentRecord?.empresaId || selectedCompany?.id || ''
 
-      let attendancePhotoRequired = Boolean(selectedCompany?.attendancePhotoRequired)
-      if (empresaId) {
-        try {
-          const currentCompany = await getCompany(empresaId)
-          attendancePhotoRequired = currentCompany.attendancePhotoRequired
-          setSelectedCompany((selected) =>
-            selected?.id === empresaId
-              ? { ...selected, attendancePhotoRequired: currentCompany.attendancePhotoRequired }
-              : selected,
-          )
-        } catch {
-          // The registration endpoint remains authoritative if this refresh is unavailable.
-        }
-      }
-
-      if (attendancePhotoRequired && !photo) {
+      if (selectedCompany?.attendancePhotoRequired && !photo) {
         return {
           ok: false,
           reason: 'photo-required',
