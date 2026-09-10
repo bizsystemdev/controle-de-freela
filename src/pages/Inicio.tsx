@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from '@/hooks/use-toast'
 import { useApp } from '@/context/AppContext'
 import { CheckInModal } from '@/components/CheckInModal'
 import { CheckOutModal } from '@/components/CheckOutModal'
@@ -135,7 +136,7 @@ export default function Inicio() {
         setLocationMessage(result.message)
         setShowLocationModal(true)
       } else {
-        setToastMessage(result.message)
+        toast({ title: 'Erro no check-in', description: result.message || 'Tente novamente.', variant: 'destructive' })
       }
     } else {
       const result = await performCheckOut()
@@ -169,30 +170,35 @@ export default function Inicio() {
           setShowCheckInModal(true)
           return
         }
-        if (result.reason === 'location' || result.reason === 'geo-unavailable') {
+        if (!result.ok) {
+          const fail = result as { reason?: string; message?: string }
+          if (fail.reason === 'location' || fail.reason === 'geo-unavailable') {
+            setPhotoAction(null)
+            setLocationMessage(fail.message || '')
+            setShowLocationModal(true)
+          } else {
+            toast({ title: 'Erro no check-in', description: fail.message || 'Tente novamente.', variant: 'destructive' })
+          }
+        }
+      } else {
+        const result = await performCheckOut(photo)
+        if (result.ok) {
           setPhotoAction(null)
-          setLocationMessage(result.message)
-          setShowLocationModal(true)
+          setPhotoSubmitError('')
+          setModalCheckOutData({ time: result.checkOutTime, duration: result.duration })
+          setShowCheckOutModal(true)
           return
         }
-        setPhotoSubmitError(result.message)
-        return
+        const fail = result as { reason?: string; message?: string }
+        if (fail.reason === 'location' || fail.reason === 'geo-unavailable') {
+          setPhotoAction(null)
+          setLocationMessage(fail.message || '')
+          setShowLocationModal(true)
+        } else {
+          toast({ title: 'Erro no check-out', description: fail.message || 'Tente novamente.', variant: 'destructive' })
+        }
       }
-
-      const result = await performCheckOut(photo)
-      if (result.ok) {
-        setPhotoAction(null)
-        setModalCheckOutData({ time: result.checkOutTime, duration: result.duration })
-        setShowCheckOutModal(true)
-        return
-      }
-      if (result.reason === 'location' || result.reason === 'geo-unavailable') {
-        setPhotoAction(null)
-        setLocationMessage(result.message)
-        setShowLocationModal(true)
-        return
-      }
-      setPhotoSubmitError(result.message)
+      return
     } finally {
       setIsPhotoSubmitting(false)
     }

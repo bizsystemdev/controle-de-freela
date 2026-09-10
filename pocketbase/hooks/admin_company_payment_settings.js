@@ -1,4 +1,4 @@
-// Configuração de pagamento da empresa
+// Configuração de pagamento da empresa - v2
 routerAdd('PATCH', '/backend/v1/admin/company/{id}/payment-settings', (e) => {
   const companyId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
