@@ -19,6 +19,7 @@ export interface ApiCompany {
   estado: string
   endereco: string
   location: ApiLocation
+  attendancePhotoRequired: boolean
   freelancersCount?: number
   lastCheckIn?: string | null
 }
@@ -139,6 +140,7 @@ export async function validatePhone(
                 lat: comp.lat || 0,
                 lng: comp.lng || 0,
               },
+              attendancePhotoRequired: Boolean(comp.attendance_photo_required),
             })
           }
         }

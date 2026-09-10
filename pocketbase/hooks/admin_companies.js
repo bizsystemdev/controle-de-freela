@@ -66,6 +66,7 @@ routerAdd('GET', '/api/admin/companies', (e) => {
             },
             freelancersCount: fcs.length,
             lastCheckIn: lastCheckInTime,
+            attendancePhotoRequired: comp.getBool('attendance_photo_required'),
             paymentControlEnabled: comp.getBool('payment_control_enabled'),
             freelancerShiftBaseAmountCents:
               comp.getInt('freelancer_shift_base_amount_cents') > 0

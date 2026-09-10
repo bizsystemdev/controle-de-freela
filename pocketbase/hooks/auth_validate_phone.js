@@ -50,6 +50,7 @@ routerAdd('POST', '/api/auth/validate-phone', (e) => {
             lat: comp.getFloat('lat'),
             lng: comp.getFloat('lng'),
           },
+          attendancePhotoRequired: comp.getBool('attendance_photo_required'),
         })
       }
     } catch (_) {}

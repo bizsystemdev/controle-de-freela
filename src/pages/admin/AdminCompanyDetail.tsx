@@ -30,6 +30,7 @@ import {
 import { getCompany, type CompanyData } from '@/services/companies'
 import { AttendanceShiftHistory } from '@/components/admin/AttendanceShiftHistory'
 import { PaymentSettingsCard } from '@/components/admin/PaymentSettingsCard'
+import { AttendancePhotoSettingsCard } from '@/components/admin/AttendancePhotoSettingsCard'
 import { useApp } from '@/context/AppContext'
 import { isGerente } from '@/lib/adminPermissions'
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation'
@@ -2087,6 +2088,16 @@ export default function AdminCompanyDetail() {
                       freelancerShiftBaseAmountCents: baseAmountCents,
                     }
                   : current,
+              )
+            }
+          />
+
+          <AttendancePhotoSettingsCard
+            companyId={company.id}
+            required={company.attendancePhotoRequired}
+            onSaved={(required) =>
+              setCompany((current) =>
+                current ? { ...current, attendancePhotoRequired: required } : current,
               )
             }
           />
