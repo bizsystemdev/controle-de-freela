@@ -4,6 +4,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Keep Skip runtime features without showing its promotional badge. */
+#skip-badge {
+  display: none !important;
+}
+
 @layer base {
   :root {
     --font-sans:
