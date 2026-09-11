@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T22:15:37.444Z",
+  "generatedAt": "2026-09-11T12:44:45.613Z",
   "collections": [
     {
       "name": "users",
@@ -424,8 +424,8 @@
       "name": "attendance_records",
       "type": "base",
       "apiRules": {
-        "list": "",
-        "view": "",
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
         "create": "",
         "update": null,
         "delete": "@request.auth.id != ''"
