@@ -1,0 +1,55 @@
+FROM alpine:3.22.1 AS downloader
+
+ARG TARGETARCH
+
+RUN apk add --no-cache ca-certificates unzip
+
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+      amd64) checksum='142c891586650ed0009d5c600d3de2e7adb33f63f214fa94816deb9b4d33e029' ;; \
+      arm64) checksum='cf503ec1da7fbc3c8352ec868d243fc7d20f8fe5350542e3ab75f2a2b15e7d16' ;; \
+      *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    archive="pocketbase_0.39.0_linux_${TARGETARCH}.zip"; \
+    wget -O "/tmp/${archive}" "https://github.com/pocketbase/pocketbase/releases/download/v0.39.0/${archive}"; \
+    echo "${checksum}  /tmp/${archive}" | sha256sum -c -; \
+    mkdir -p /out; \
+    unzip "/tmp/${archive}" pocketbase -d /out; \
+    chmod 0755 /out/pocketbase
+
+FROM alpine:3.22.1
+
+LABEL org.opencontainers.image.title='Freela Check PocketBase local'
+LABEL org.opencontainers.image.version='0.39.0'
+
+RUN apk add --no-cache ca-certificates && \
+    addgroup -S pocketbase && \
+    adduser -S -G pocketbase -h /pb pocketbase && \
+    mkdir -p /pb/pb_data /pb/pb_hooks /pb/pb_migrations && \
+    chown -R pocketbase:pocketbase /pb
+
+COPY --from=downloader --chown=pocketbase:pocketbase /out/pocketbase /pb/pocketbase
+COPY --chown=pocketbase:pocketbase pocketbase/migrations/ /pb/pb_migrations/
+COPY --chown=pocketbase:pocketbase pocketbase/hooks/ /tmp/pb_hooks_source/
+
+RUN set -eux; \
+    rm -rf /pb/pb_hooks; \
+    mkdir -p /pb/pb_hooks; \
+    for source in /tmp/pb_hooks_source/*.js; do \
+      filename="$(basename "${source}" .js)"; \
+      cp "${source}" "/pb/pb_hooks/${filename}.pb.js"; \
+    done; \
+    chown -R pocketbase:pocketbase /pb/pb_hooks; \
+    rm -rf /tmp/pb_hooks_source
+
+USER pocketbase
+WORKDIR /pb
+
+VOLUME ["/pb/pb_data"]
+EXPOSE 8090
+
+HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=10 \
+  CMD wget -q -O /dev/null http://127.0.0.1:8090/api/health || exit 1
+
+ENTRYPOINT ["/pb/pocketbase"]
+CMD ["serve", "--http=0.0.0.0:8090", "--dir=/pb/pb_data", "--hooksDir=/pb/pb_hooks", "--migrationsDir=/pb/pb_migrations"]

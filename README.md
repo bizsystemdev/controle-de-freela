@@ -1,131 +1,138 @@
-# Projeto Criado com o Skip
+# Freela Check
 
-Este projeto foi criado de ponta a ponta com o [Skip](https://goskip.dev).
+SPA de controle de presença para freelancers e gestores. O ambiente de desenvolvimento usa Docker Compose com o frontend React/Vite e um PocketBase local independente do backend hospedado pelo Skip.
 
-## 🚀 Stack Tecnológica
+## Pré-requisitos
 
-- **React 19** - Biblioteca JavaScript para construção de interfaces
-- **Vite** - Build tool extremamente rápida
-- **TypeScript** - Superset tipado do JavaScript
-- **Shadcn UI** - Componentes reutilizáveis e acessíveis
-- **Tailwind CSS** - Framework CSS utility-first
-- **React Router** - Roteamento para aplicações React
-- **React Hook Form** - Gerenciamento de formulários performático
-- **Zod** - Validação de schemas TypeScript-first
-- **Recharts** - Biblioteca de gráficos para React
+- Docker Desktop com Docker Compose;
+- portas `8080` e `8090` disponíveis.
 
-## 📋 Pré-requisitos
+Não é necessário instalar Node.js ou PocketBase diretamente na máquina.
 
-- Node.js 18+
-- npm
+## Subir o ambiente
 
-## 🔧 Instalação
+No PowerShell, a partir da raiz do projeto:
 
-```bash
-npm install
+```powershell
+docker compose up --build
 ```
 
-## 💻 Scripts Disponíveis
+Para executar em segundo plano:
 
-### Desenvolvimento
-
-```bash
-# Iniciar servidor de desenvolvimento
-npm start
-# ou
-npm run dev
+```powershell
+docker compose up -d --build
 ```
 
-Abre a aplicação em modo de desenvolvimento em [http://localhost:5173](http://localhost:5173).
+URLs locais:
 
-### Build
-
-```bash
-# Build para produção
-npm run build
-
-# Build para desenvolvimento
-npm run build:dev
+```text
+Frontend:   http://127.0.0.1:8080
+PocketBase: http://127.0.0.1:8090
+Admin:      http://127.0.0.1:8090/_/
+Health:     http://127.0.0.1:8090/api/health
 ```
 
-Gera os arquivos otimizados para produção na pasta `dist/`.
+## Parar e persistir os dados
 
-### Preview
-
-```bash
-# Visualizar build de produção localmente
-npm run preview
+```powershell
+docker compose down
 ```
 
-Permite visualizar a build de produção localmente antes do deploy.
+O volume nomeado `pocketbase_data` mantém integralmente `/pb/pb_data`, incluindo o SQLite, uploads, fotografias e metadados internos.
 
-### Linting e Formatação
+Para apagar completamente o banco e os arquivos **locais**:
 
-```bash
-# Executar linter
-npm run lint
-
-# Executar linter e corrigir problemas automaticamente
-npm run lint:fix
-
-# Formatar código com Oxfmt
-npm run format
+```powershell
+docker compose down -v
+docker compose up --build
 ```
 
-## 📁 Estrutura do Projeto
+> **Atenção:** `docker compose down -v` apaga permanentemente o banco, os uploads e as fotografias do PocketBase local. O comando não deve ser usado quando for necessário preservar esses dados.
 
-```
-.
-├── src/              # Código fonte da aplicação
-├── public/           # Arquivos estáticos
-├── dist/             # Build de produção (gerado)
-├── node_modules/     # Dependências (gerado)
-└── package.json      # Configurações e dependências do projeto
-```
+## PocketBase local
 
-## 🎨 Componentes UI
+A imagem definida em `Dockerfile.pocketbase` usa exatamente o PocketBase Server `v0.39.0`. O download da release é validado por SHA-256 para Linux `amd64` e `arm64`.
 
-Este template inclui uma biblioteca completa de componentes Shadcn UI baseados em Radix UI:
+As migrations são copiadas sem alteração:
 
-- Accordion
-- Alert Dialog
-- Avatar
-- Button
-- Checkbox
-- Dialog
-- Dropdown Menu
-- Form
-- Input
-- Label
-- Select
-- Switch
-- Tabs
-- Toast
-- Tooltip
-- E muito mais...
-
-## 📝 Ferramentas de Qualidade de Código
-
-- **TypeScript**: Tipagem estática
-- **Oxlint**: Linter extremamente rápido
-- **Oxfmt**: Formatação automática de código
-
-## 🔄 Workflow de Desenvolvimento
-
-1. Instale as dependências: `npm install`
-2. Inicie o servidor de desenvolvimento: `npm start`
-3. Faça suas alterações
-4. Verifique o código: `npm run lint`
-5. Formate o código: `npm run format`
-6. Crie a build: `npm run build`
-7. Visualize a build: `npm run preview`
-
-## 📦 Build e Deploy
-
-Para criar uma build otimizada para produção:
-
-```bash
-npm run build
+```text
+pocketbase/migrations/*.js -> /pb/pb_migrations/*.js
 ```
 
-Os arquivos otimizados serão gerados na pasta `dist/` e estarão prontos para deploy.
+Os hooks preservam a convenção esperada pelo Skip no repositório e recebem somente a extensão exigida pelo servidor local:
+
+```text
+pocketbase/hooks/foo.js -> /pb/pb_hooks/foo.pb.js
+```
+
+O conteúdo é copiado sem transformação. Os arquivos originais nunca são renomeados e nenhum wrapper `require()` é gerado.
+
+## Dados de desenvolvimento criados pelas migrations
+
+A migration histórica `0002_seed_initial_data.js` cria registros quando o banco está vazio. Ela foi preservada para manter compatibilidade com o histórico do Skip e **não possui condicionamento por ambiente**. Em um novo banco local, os registros abaixo devem ser tratados exclusivamente como dados de desenvolvimento.
+
+Usuários de autenticação da aplicação:
+
+| Nome | E-mail | Senha de desenvolvimento |
+| --- | --- | --- |
+| Administrador Freela Check | `admin@bizcheck.com` | `admin123` |
+| Fabricio Capelini | `fbcapelini@gmail.com` | `Skip@Pass` |
+
+Também são criados:
+
+- empresas de demonstração `Empresa ABC` e `Empresa XYZ`, com endereços e coordenadas;
+- freelancers de demonstração Fabricio Capelini, Mariana Silva e Carlos Eduardo Rocha;
+- licenças, vínculos de gestores e vínculos entre freelancers e empresas.
+
+Esses usuários pertencem à collection de autenticação `users`. Eles **não** são superusuários do painel interno do PocketBase. Não reutilize essas senhas fora do desenvolvimento e não use essa migration para inicializar um novo ambiente de produção.
+
+## Criar o primeiro superusuário local
+
+Com o serviço em execução, substitua os valores do exemplo por credenciais exclusivas do seu ambiente local:
+
+```powershell
+docker compose exec pocketbase /pb/pocketbase superuser create SEU_EMAIL SUA_SENHA_FORTE
+```
+
+Depois, acesse `http://127.0.0.1:8090/_/`. Não reutilize credenciais do Skip ou de qualquer ambiente de produção.
+
+Para consultar a ajuda do comando antes da criação:
+
+```powershell
+docker compose exec pocketbase /pb/pocketbase superuser create --help
+```
+
+## Seleção do backend por ambiente
+
+- `.env.development` define `VITE_POCKETBASE_URL=http://127.0.0.1:8090` para o modo de desenvolvimento do Vite.
+- O Compose injeta a mesma URL explicitamente no serviço `freelacheck`.
+- `.env.example` documenta somente valores públicos e seguros.
+- Arquivos `.env.local` e `.env.development.local` são ignorados pelo Git.
+- Em produção, o Skip continua fornecendo `VITE_POCKETBASE_URL` pelo ambiente de build/deploy.
+
+Variáveis `VITE_*` são incorporadas ao bundle do navegador e nunca devem conter senhas, tokens ou outros segredos.
+
+Como proteção adicional, o cliente PocketBase interrompe a inicialização em modo DEV quando a URL configurada não usa `127.0.0.1`, `localhost` ou loopback IPv6. Essa guarda impede que uma configuração local aponte silenciosamente para `*.goskip.dev` ou qualquer outro host remoto; ela não bloqueia URLs remotas em builds de produção.
+
+## Comandos úteis
+
+```powershell
+# Estado dos serviços
+docker compose ps
+
+# Logs do PocketBase
+docker compose logs pocketbase
+
+# Logs do frontend
+docker compose logs freelacheck
+
+# Recriar apenas a imagem do PocketBase
+docker compose build pocketbase
+
+# Validações do frontend
+docker compose exec freelacheck npm run lint
+docker compose exec freelacheck npm run format:check
+docker compose exec freelacheck npm run build
+```
+
+O projeto não possui uma suíte automatizada real; o script `npm test` apenas informa essa ausência e termina com sucesso.

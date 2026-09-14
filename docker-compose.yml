@@ -10,5 +10,28 @@ services:
       - .:/app
       - /app/node_modules
     environment:
-      - CHOKIDAR_USEPOLLING=true
+      CHOKIDAR_USEPOLLING: 'true'
+      VITE_POCKETBASE_URL: http://127.0.0.1:8090
+    depends_on:
+      pocketbase:
+        condition: service_healthy
     command: npm run dev -- --host 0.0.0.0
+
+  pocketbase:
+    build:
+      context: .
+      dockerfile: Dockerfile.pocketbase
+    container_name: freelacheck-pocketbase
+    ports:
+      - '8090:8090'
+    volumes:
+      - pocketbase_data:/pb/pb_data
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8090/api/health']
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+
+volumes:
+  pocketbase_data:
