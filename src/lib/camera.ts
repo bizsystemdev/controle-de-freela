@@ -27,28 +27,44 @@ export function cameraErrorMessage(error: unknown): string {
   return 'Não foi possível iniciar a câmera. Verifique a permissão do navegador e tente novamente.'
 }
 
-export async function openCameraStream(): Promise<MediaStream> {
+export type CameraFacingMode = 'environment' | 'user'
+
+export async function openCameraStream(
+  facingMode: CameraFacingMode = 'environment',
+): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new CameraCaptureError(
       'Este navegador não oferece suporte à câmera. A fotografia é obrigatória para continuar.',
     )
   }
 
+  // Primeiro tenta com ideal facingMode e resolução recomendada (funciona bem na maioria dos dispositivos e iOS)
   try {
     return await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
-        facingMode: { ideal: 'environment' },
+        facingMode: { ideal: facingMode },
         width: { ideal: MAX_IMAGE_DIMENSION },
         height: { ideal: 960 },
       },
     })
   } catch (error) {
+    // Se falhar por restrição estrita de dimensão ou facingMode, tenta com facingMode simples
     if (error instanceof DOMException && error.name === 'OverconstrainedError') {
       try {
-        return await navigator.mediaDevices.getUserMedia({ audio: false, video: true })
-      } catch (fallbackError) {
-        throw new CameraCaptureError(cameraErrorMessage(fallbackError))
+        return await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode },
+        })
+      } catch (secondError) {
+        if (secondError instanceof DOMException && secondError.name === 'OverconstrainedError') {
+          try {
+            return await navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+          } catch (fallbackError) {
+            throw new CameraCaptureError(cameraErrorMessage(fallbackError))
+          }
+        }
+        throw new CameraCaptureError(cameraErrorMessage(secondError))
       }
     }
     throw new CameraCaptureError(cameraErrorMessage(error))
@@ -75,7 +91,10 @@ function canvasToJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob>
   })
 }
 
-export async function captureCompressedFrame(video: HTMLVideoElement): Promise<Blob> {
+export async function captureCompressedFrame(
+  video: HTMLVideoElement,
+  mirrorHorizontal = false,
+): Promise<Blob> {
   if (!video.videoWidth || !video.videoHeight) {
     throw new CameraCaptureError(
       'A câmera ainda está iniciando. Aguarde um instante e tente novamente.',
@@ -90,6 +109,11 @@ export async function captureCompressedFrame(video: HTMLVideoElement): Promise<B
   const context = canvas.getContext('2d')
   if (!context) {
     throw new CameraCaptureError('Não foi possível processar a fotografia. Tente novamente.')
+  }
+
+  if (mirrorHorizontal) {
+    context.translate(canvas.width, 0)
+    context.scale(-1, 1)
   }
 
   context.drawImage(video, 0, 0, canvas.width, canvas.height)
