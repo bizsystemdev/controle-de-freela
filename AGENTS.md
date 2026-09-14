@@ -18,7 +18,7 @@
 
 - SPA de controle de presença (“Freela Check”) com dois fluxos: aplicativo mobile-first para freelancers e painel administrativo responsivo para gestores/gerentes.
 - Stack efetiva: React 19, TypeScript, Vite 8, React Router DOM, Tailwind CSS 3, componentes shadcn/ui baseados em Radix UI, Lucide, React Hook Form/Zod, Recharts e SDK PocketBase.
-- O frontend consome PocketBase pela variável `VITE_POCKETBASE_URL`. O cliente único fica em `src/lib/pocketbase/client.ts`; em modo DEV ele aceita somente hosts de loopback para impedir acesso acidental a backends remotos.
+- O frontend consome PocketBase pela variável `VITE_POCKETBASE_URL`. O cliente único fica em `src/lib/pocketbase/client.ts`; execuções locais identificadas por host de loopback ou `VITE_LOCAL_DEVELOPMENT=true` aceitam somente um PocketBase de loopback.
 - O repositório também versiona o backend PocketBase em `pocketbase/hooks/` e `pocketbase/migrations/`. O Docker Compose sobe um PocketBase local `v0.39.0`, independente do Skip, no serviço `pocketbase` e na porta 8090.
 
 ## Ambiente Docker
@@ -30,7 +30,7 @@
 - Prefira executar comandos Node/npm dentro do container. Com o serviço ativo, use `docker compose exec freelacheck npm run <script>`. Para uma execução isolada, use `docker compose run --rm freelacheck npm run <script>`.
 - O Vite já está configurado na porta 8080; o Compose publica `8080:8080` e inicia o servidor com `--host 0.0.0.0`. Não troque host ou porta sem solicitação explícita.
 - A build de produção sai em `dist/`; `npm run build:dev` usa modo development, gera `dev-dist/`, sourcemaps e ativa o plugin Skip de `data-uid` em JSX.
-- `.env.development` e o Compose definem o PocketBase local como `http://127.0.0.1:8090`. Produção continua recebendo a URL remota pelo ambiente de build/deploy do Skip; nunca coloque segredos em variáveis `VITE_*`.
+- O Compose define explicitamente o PocketBase local e `VITE_LOCAL_DEVELOPMENT=true`. Não versione `.env.development`, pois o Preview do Skip usa o modo `development`; Preview e produção devem receber a mesma URL remota pelo `.env` genérico ou pelo ambiente de build/deploy. Para execução local fora do Docker, use um `.env.development.local` ignorado pelo Git. Nunca coloque segredos em variáveis `VITE_*`.
 
 ## Scripts existentes
 

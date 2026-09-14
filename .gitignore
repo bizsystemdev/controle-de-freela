@@ -45,7 +45,6 @@ screenshot.png
 # Environment variables
 .env*
 !.env
-!.env.development
 !.env.example
 
 # Linux kernel core dumps (e.g. when oxfmt or pnpm crash)
