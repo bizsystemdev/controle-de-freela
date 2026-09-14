@@ -18,17 +18,19 @@
 
 - SPA de controle de presença (“Freela Check”) com dois fluxos: aplicativo mobile-first para freelancers e painel administrativo responsivo para gestores/gerentes.
 - Stack efetiva: React 19, TypeScript, Vite 8, React Router DOM, Tailwind CSS 3, componentes shadcn/ui baseados em Radix UI, Lucide, React Hook Form/Zod, Recharts e SDK PocketBase.
-- O frontend consome PocketBase pela variável `VITE_POCKETBASE_URL`. O cliente único fica em `src/lib/pocketbase/client.ts`.
-- O repositório também versiona o backend PocketBase em `pocketbase/hooks/` e `pocketbase/migrations/`. O Docker Compose atual não sobe PocketBase; não presuma um backend local nem invente comandos para executá-lo ou migrá-lo.
+- O frontend consome PocketBase pela variável `VITE_POCKETBASE_URL`. O cliente único fica em `src/lib/pocketbase/client.ts`; em modo DEV ele aceita somente hosts de loopback para impedir acesso acidental a backends remotos.
+- O repositório também versiona o backend PocketBase em `pocketbase/hooks/` e `pocketbase/migrations/`. O Docker Compose sobe um PocketBase local `v0.39.0`, independente do Skip, no serviço `pocketbase` e na porta 8090.
 
 ## Ambiente Docker
 
 - Use Docker como ambiente de desenvolvimento. A imagem usa `node:24`, diretório `/app` e expõe a porta 8080.
 - O serviço do Compose é `freelacheck`; o container recebe o código por bind mount e mantém `/app/node_modules` em volume separado.
-- Para o uso diário, suba a aplicação com `docker compose up -d` e acesse `http://127.0.0.1:8080`. Use `docker compose up -d --build` quando for necessário reconstruir a imagem, como após alterações relevantes no `Dockerfile` ou nas dependências.
+- O serviço `pocketbase` usa `Dockerfile.pocketbase`, expõe `http://127.0.0.1:8090`, persiste `/pb/pb_data` no volume nomeado `pocketbase_data` e possui healthcheck. O painel local fica em `http://127.0.0.1:8090/_/`.
+- Para o uso diário, suba o ambiente completo com `docker compose up -d --build` e acesse `http://127.0.0.1:8080`. `docker compose down` preserva o banco; `docker compose down -v` apaga permanentemente todos os dados e uploads locais.
 - Prefira executar comandos Node/npm dentro do container. Com o serviço ativo, use `docker compose exec freelacheck npm run <script>`. Para uma execução isolada, use `docker compose run --rm freelacheck npm run <script>`.
 - O Vite já está configurado na porta 8080; o Compose publica `8080:8080` e inicia o servidor com `--host 0.0.0.0`. Não troque host ou porta sem solicitação explícita.
 - A build de produção sai em `dist/`; `npm run build:dev` usa modo development, gera `dev-dist/`, sourcemaps e ativa o plugin Skip de `data-uid` em JSX.
+- `.env.development` e o Compose definem o PocketBase local como `http://127.0.0.1:8090`. Produção continua recebendo a URL remota pelo ambiente de build/deploy do Skip; nunca coloque segredos em variáveis `VITE_*`.
 
 ## Scripts existentes
 
@@ -61,6 +63,8 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - `src/lib/pocketbase/schema.json`: fotografia do schema PocketBase usada como referência; mudanças de backend devem permanecer coerentes com hooks, migrations, serviços e tipos.
 - `pocketbase/migrations/`: schema e evolução das coleções (`companies`, `licenses`, `license_managers`, `freelancers`, `freelancer_companies`, `attendance_records` e `device_releases`).
 - `pocketbase/hooks/`: endpoints customizados `/api/auth/*`, `/api/attendance/*` e `/api/admin/*`. Os serviços frontend tentam esses endpoints e, em vários casos, possuem fallback direto pelo SDK quando recebem 404; preserve os dois caminhos quando modificar esse comportamento.
+- Os hooks versionados devem permanecer em `pocketbase/hooks/*.js` para compatibilidade com o Skip. Durante o build local, `Dockerfile.pocketbase` copia cada arquivo como `/pb/pb_hooks/*.pb.js`, sem alterar seu conteúdo; não renomeie os arquivos de origem nem introduza wrappers sem necessidade explícita.
+- A migration histórica `0002_seed_initial_data.js` cria usuários, empresas, freelancers, licenças e vínculos de demonstração em bancos vazios. Preserve seu histórico e trate as credenciais documentadas no README exclusivamente como dados locais de desenvolvimento.
 
 ## Turnos e recebimentos de freelancers
 
