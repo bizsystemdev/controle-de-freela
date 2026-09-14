@@ -19,9 +19,6 @@ import {
   Plus,
   CheckCircle2,
   AlertCircle,
-  Lock,
-  Mail,
-  User,
   FileText,
 } from 'lucide-react'
 import { maskAlphanumericCnpj, isValidAlphanumericCnpj, unmaskCnpj } from '@/lib/cnpj'
@@ -69,9 +66,6 @@ export default function AdminDashboard() {
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('pro')
-  const [managerName, setManagerName] = useState('')
-  const [managerEmail, setManagerEmail] = useState('')
-  const [managerPassword, setManagerPassword] = useState('')
 
   // Protect admin route
   useEffect(() => {
@@ -112,9 +106,6 @@ export default function AdminDashboard() {
     setLat('')
     setLng('')
     setPlan('pro')
-    setManagerName('')
-    setManagerEmail('')
-    setManagerPassword('')
     setFormErrors({})
     setHasCoordinates(false)
     setCreateModalOpen(true)
@@ -269,14 +260,6 @@ export default function AdminDashboard() {
         'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.'
     }
 
-    if (!managerName.trim()) errors.managerName = 'Nome do gestor é obrigatório.'
-    if (!managerEmail.trim() || !managerEmail.includes('@')) {
-      errors.managerEmail = 'E-mail do gestor é inválido.'
-    }
-    if (!managerPassword || managerPassword.length < 6) {
-      errors.managerPassword = 'Senha deve ter no mínimo 6 caracteres.'
-    }
-
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
       return
@@ -298,10 +281,6 @@ export default function AdminDashboard() {
         lat: parsedLat,
         lng: parsedLng,
         plan,
-        managerName: managerName.trim(),
-        managerEmail: managerEmail.trim().toLowerCase(),
-        managerPassword,
-        currentAdminId: manager?.id,
       }
 
       const res = await createAdminCompany(payload)
@@ -313,21 +292,11 @@ export default function AdminDashboard() {
       await loadCompanies()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Falha ao cadastrar empresa.'
-      if (
-        msg.toLowerCase().includes('gestor com este email') ||
-        msg.toLowerCase().includes('email')
-      ) {
-        setFormErrors((prev) => ({
-          ...prev,
-          managerEmail: 'Já existe um gestor com este email.',
-        }))
-      } else {
-        toast({
-          title: 'Erro ao cadastrar empresa',
-          description: msg,
-          variant: 'destructive',
-        })
-      }
+      toast({
+        title: 'Erro ao cadastrar empresa',
+        description: msg,
+        variant: 'destructive',
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -510,16 +479,15 @@ export default function AdminDashboard() {
               Cadastrar Nova Empresa
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-slate-500">
-              Preencha os dados da empresa, coordenadas para validação de check-in e credenciais do
-              gestor inicial.
+              Preencha os dados da empresa e o endereço usado na validação de check-in.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreateCompanySubmit} className="space-y-6 pt-2">
-            {/* Bloco 1: Dados da Empresa */}
+            {/* Dados da Empresa */}
             <div className="space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1">
-                1. Informações da Empresa
+                Informações da Empresa
               </h3>
 
               {/* Nome e CNPJ */}
@@ -799,105 +767,6 @@ export default function AdminDashboard() {
                     <span>{formErrors.coordinates}</span>
                   </p>
                 )}
-              </div>
-            </div>
-
-            {/* Bloco 2: Gestor Inicial */}
-            <div className="space-y-4 pt-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1">
-                2. Primeiro Gestor da Empresa
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Nome do gestor <span className="text-red-600">*</span>
-                  </label>
-                  <div className="relative flex items-center">
-                    <div className="absolute left-3 text-slate-400 pointer-events-none">
-                      <User className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      value={managerName}
-                      onChange={(e) => {
-                        setManagerName(e.target.value)
-                        if (formErrors.managerName)
-                          setFormErrors((prev) => ({ ...prev, managerName: '' }))
-                      }}
-                      placeholder="Ex: Carlos Gestor"
-                      className={`w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 focus:outline-none focus:bg-white ${
-                        formErrors.managerName
-                          ? 'border-red-500'
-                          : 'border-slate-200 focus:border-indigo-600'
-                      }`}
-                    />
-                  </div>
-                  {formErrors.managerName && (
-                    <p className="text-xs text-red-600 mt-1">{formErrors.managerName}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    E-mail do gestor <span className="text-red-600">*</span>
-                  </label>
-                  <div className="relative flex items-center">
-                    <div className="absolute left-3 text-slate-400 pointer-events-none">
-                      <Mail className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="email"
-                      required
-                      value={managerEmail}
-                      onChange={(e) => {
-                        setManagerEmail(e.target.value)
-                        if (formErrors.managerEmail)
-                          setFormErrors((prev) => ({ ...prev, managerEmail: '' }))
-                      }}
-                      placeholder="gestor@empresa.com"
-                      className={`w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 focus:outline-none focus:bg-white ${
-                        formErrors.managerEmail
-                          ? 'border-red-500'
-                          : 'border-slate-200 focus:border-indigo-600'
-                      }`}
-                    />
-                  </div>
-                  {formErrors.managerEmail && (
-                    <p className="text-xs text-red-600 mt-1">{formErrors.managerEmail}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Senha inicial <span className="text-red-600">*</span>
-                  </label>
-                  <div className="relative flex items-center">
-                    <div className="absolute left-3 text-slate-400 pointer-events-none">
-                      <Lock className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="password"
-                      required
-                      value={managerPassword}
-                      onChange={(e) => {
-                        setManagerPassword(e.target.value)
-                        if (formErrors.managerPassword)
-                          setFormErrors((prev) => ({ ...prev, managerPassword: '' }))
-                      }}
-                      placeholder="Mínimo 6 dígitos"
-                      className={`w-full h-11 pl-9 pr-3 bg-slate-50 rounded-xl border text-xs font-medium text-slate-900 focus:outline-none focus:bg-white ${
-                        formErrors.managerPassword
-                          ? 'border-red-500'
-                          : 'border-slate-200 focus:border-indigo-600'
-                      }`}
-                    />
-                  </div>
-                  {formErrors.managerPassword && (
-                    <p className="text-xs text-red-600 mt-1">{formErrors.managerPassword}</p>
-                  )}
-                </div>
               </div>
             </div>
 

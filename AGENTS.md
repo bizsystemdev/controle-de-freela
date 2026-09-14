@@ -85,6 +85,7 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 ## Autenticação e autorização administrativa
 
 - O `AppContext` usa `role: 'manager'` para o fluxo administrativo; o `AdminLayout` só aceita sessão autenticada com esse papel e um `manager` carregado.
+- No cadastro de empresa, solicite somente os dados da empresa. O backend cria a licença e vincula obrigatoriamente o gestor autenticado como `owner`; não crie outro usuário, não aceite credenciais de gestor nesse payload e não use identificadores de usuário fornecidos pelo cliente para substituir `e.auth`.
 - Os perfis administrativos de domínio são `gestor` e `gerente`. Para compatibilidade com `license_managers`, `viewer` equivale a gerente; use `isGerente()` de `src/lib/adminPermissions.ts` em vez de duplicar essa identificação. Nos cadastros e sincronizações atuais, gerente usa `viewer` e gestor usa `owner`.
 - O gestor possui acesso integral ao dashboard e à administração das empresas às quais está vinculado, incluindo dados da empresa, gestores, freelancers e lançamentos manuais de presença.
 - O gerente fica restrito às empresas vinculadas e não acessa a visão geral do dashboard. Na empresa, suas abas permitidas são definidas por `GERENTE_ALLOWED_COMPANY_TABS`: `freelancers`, `historico` e `liberacoes`; preserve também os redirecionamentos correspondentes em `AdminLayout`.

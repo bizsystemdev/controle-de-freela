@@ -123,10 +123,6 @@ export interface CreateCompanyPayload {
   lat: number
   lng: number
   plan: 'free' | 'pro' | 'enterprise'
-  managerName: string
-  managerEmail: string
-  managerPassword: string
-  currentAdminId?: string
 }
 
 export interface UpdateCompanyPayload {
@@ -383,7 +379,7 @@ export interface ConfirmShiftPaymentResponse {
  * Lista empresas administradas pelo gestor
  */
 /**
- * Cadastra uma nova empresa, licença e gestor inicial
+ * Cadastra uma nova empresa e licença, vinculando o gestor autenticado
  */
 export async function createAdminCompany(
   payload: CreateCompanyPayload,
@@ -408,6 +404,11 @@ export async function createAdminCompany(
       pbErr?.message?.includes('File not found')
     ) {
       try {
+        const currentManager = pb.authStore.record
+        if (!currentManager?.id) {
+          throw new Error('Sessão de gestor inválida. Entre novamente para cadastrar a empresa.')
+        }
+
         const fullAddress = payload.number
           ? `${payload.street}, ${payload.number}${payload.neighborhood ? ' - ' + payload.neighborhood : ''}`
           : payload.street
@@ -438,55 +439,17 @@ export async function createAdminCompany(
           max_freelancers: maxFreelancers,
         })
 
-        // 3. Create or find manager user
-        let managerUser: { id: string; name: string; email: string }
-        try {
-          const userRec = await pb.collection('users').create({
-            email: payload.managerEmail,
-            password: payload.managerPassword,
-            passwordConfirm: payload.managerPassword,
-            name: payload.managerName,
-            verified: true,
-          })
-          managerUser = {
-            id: userRec.id,
-            name: userRec.name || payload.managerName,
-            email: userRec.email,
-          }
-        } catch {
-          // If already exists or cannot create as unauth, link current authenticated manager or existing
-          const currentId = payload.currentAdminId || pb.authStore.record?.id
-          managerUser = {
-            id: currentId || 'manager',
-            name: payload.managerName,
-            email: payload.managerEmail,
-          }
-        }
+        // 3. Link the authenticated manager to the new license
+        await pb.collection('license_managers').create({
+          license_id: lic.id,
+          user_id: currentManager.id,
+          role: 'owner',
+        })
 
-        // 4. Link manager user
-        if (managerUser.id && managerUser.id !== 'manager') {
-          try {
-            await pb.collection('license_managers').create({
-              license_id: lic.id,
-              user_id: managerUser.id,
-              role: 'owner',
-            })
-          } catch {
-            /* intentionally ignored */
-          }
-        }
-
-        // Link current admin too if different
-        if (payload.currentAdminId && payload.currentAdminId !== managerUser.id) {
-          try {
-            await pb.collection('license_managers').create({
-              license_id: lic.id,
-              user_id: payload.currentAdminId,
-              role: 'owner',
-            })
-          } catch {
-            /* intentionally ignored */
-          }
+        const managerUser = {
+          id: currentManager.id,
+          name: String(currentManager.name || 'Gestor'),
+          email: String(currentManager.email || ''),
         }
 
         return {

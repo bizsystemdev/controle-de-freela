@@ -1,4 +1,8 @@
 routerAdd('POST', '/api/admin/companies', (e) => {
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação de gestor obrigatória.' })
+  }
+
   const body = e.requestInfo().body || {}
 
   // 1. Validate required company fields
@@ -17,12 +21,6 @@ routerAdd('POST', '/api/admin/companies', (e) => {
   const plan = String(body.plan || 'pro')
     .trim()
     .toLowerCase()
-  const managerName = String(body.managerName || body.manager_name || '').trim()
-  const managerEmail = String(body.managerEmail || body.manager_email || '')
-    .trim()
-    .toLowerCase()
-  const managerPassword = String(body.managerPassword || body.manager_password || '').trim()
-  const currentAdminId = String(body.currentAdminId || '').trim()
 
   if (!name) {
     return e.json(400, { error: 'Nome da empresa é obrigatório.' })
@@ -43,29 +41,6 @@ routerAdd('POST', '/api/admin/companies', (e) => {
   // Validate plan
   const validPlans = ['free', 'pro', 'enterprise']
   const normalizedPlan = validPlans.includes(plan) ? plan : 'pro'
-
-  // Validate manager fields
-  if (!managerName) {
-    return e.json(400, { error: 'Nome do gestor é obrigatório.' })
-  }
-  if (!managerEmail || !managerEmail.includes('@')) {
-    return e.json(400, { error: 'E-mail do gestor é inválido.' })
-  }
-  if (!managerPassword || managerPassword.length < 6) {
-    return e.json(400, { error: 'Senha do gestor deve ter pelo menos 6 caracteres.' })
-  }
-
-  // Check if a manager with this email already exists
-  let targetUser = null
-  let isNewUser = false
-  try {
-    targetUser = $app.findAuthRecordByEmail('_pb_users_auth_', managerEmail)
-    // If it exists, return friendly error as required: "Já existe um gestor com este email"
-    return e.json(400, { error: 'Já existe um gestor com este email.' })
-  } catch (_) {
-    // User does not exist, we will create it
-    isNewUser = true
-  }
 
   let createdCompany = null
   let createdLicense = null
@@ -103,46 +78,13 @@ routerAdd('POST', '/api/admin/companies', (e) => {
     createdLicense.set('max_freelancers', maxFreelancers)
     $app.save(createdLicense)
 
-    // 3. Create manager user
-    const usersCol = $app.findCollectionByNameOrId('_pb_users_auth_')
-    targetUser = new Record(usersCol)
-    targetUser.setEmail(managerEmail)
-    targetUser.setPassword(managerPassword)
-    targetUser.setVerified(true)
-    targetUser.set('name', managerName)
-    $app.save(targetUser)
-
-    // 4. Link manager user to license in license_managers
+    // 3. Link the authenticated manager to the new license
     const lmCol = $app.findCollectionByNameOrId('license_managers')
     const lm = new Record(lmCol)
     lm.set('license_id', createdLicense.id)
-    lm.set('user_id', targetUser.id)
+    lm.set('user_id', e.auth.id)
     lm.set('role', 'owner')
     $app.save(lm)
-
-    // 5. If current logged-in manager is different, link logged-in manager too so it appears in their dashboard
-    let activeAdminId = currentAdminId
-    if (!activeAdminId && e.auth) {
-      activeAdminId = e.auth.id
-    }
-    if (activeAdminId && activeAdminId !== targetUser.id) {
-      try {
-        const existingAdminLink = $app.findRecordsByFilter(
-          'license_managers',
-          `user_id = '${activeAdminId}' && license_id = '${createdLicense.id}'`,
-          '',
-          1,
-          0,
-        )
-        if (existingAdminLink.length === 0) {
-          const adminLm = new Record(lmCol)
-          adminLm.set('license_id', createdLicense.id)
-          adminLm.set('user_id', activeAdminId)
-          adminLm.set('role', 'owner')
-          $app.save(adminLm)
-        }
-      } catch (_) {}
-    }
 
     return e.json(200, {
       success: true,
@@ -168,9 +110,9 @@ routerAdd('POST', '/api/admin/companies', (e) => {
           maxFreelancers: createdLicense.getInt('max_freelancers'),
         },
         manager: {
-          id: targetUser.id,
-          name: targetUser.getString('name'),
-          email: targetUser.getString('email'),
+          id: e.auth.id,
+          name: e.auth.getString('name'),
+          email: e.auth.getString('email'),
         },
       },
     })
