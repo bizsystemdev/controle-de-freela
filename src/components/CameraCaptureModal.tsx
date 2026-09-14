@@ -32,7 +32,16 @@ export function CameraCaptureModal({
   const previewUrlRef = useRef('')
   const isOpenRef = useRef(isOpen)
   isOpenRef.current = isOpen
+
+  // Token para identificar e descartar chamadas concorrentes/obsoletas de inicialização
+  const requestIdRef = useRef(0)
+  // Flag síncrona para evitar chamadas simultâneas de startCamera / toggleCameraFacing
+  const isOperatingRef = useRef(false)
+
   const [facingMode, setFacingMode] = useState<CameraFacingMode>('environment')
+  const facingModeRef = useRef<CameraFacingMode>('environment')
+  facingModeRef.current = facingMode
+
   const [photo, setPhoto] = useState<Blob | null>(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const [starting, setStarting] = useState(false)
@@ -42,9 +51,20 @@ export function CameraCaptureModal({
   const [cameraError, setCameraError] = useState('')
 
   const releaseCamera = useCallback(() => {
-    stopCameraStream(streamRef.current)
-    streamRef.current = null
-    if (videoRef.current) videoRef.current.srcObject = null
+    if (streamRef.current) {
+      stopCameraStream(streamRef.current)
+      streamRef.current = null
+    }
+    const video = videoRef.current
+    if (video) {
+      // Pausa e desassocia o stream para evitar que navegadores disparem AbortError
+      try {
+        video.pause()
+      } catch {
+        // Ignora erro se já estiver pausado
+      }
+      video.srcObject = null
+    }
     setCameraReady(false)
   }, [])
 
@@ -56,16 +76,32 @@ export function CameraCaptureModal({
   }, [])
 
   const startCamera = useCallback(
-    async (targetMode: CameraFacingMode = facingMode) => {
-      releaseCamera()
-      setStarting(true)
+    async (targetMode: CameraFacingMode, isSwitchOperation = false) => {
+      // Incrementa o identificador desta solicitação específica
+      const currentRequestId = ++requestIdRef.current
+      isOperatingRef.current = true
+
+      if (isSwitchOperation) {
+        setIsSwitching(true)
+      } else {
+        setStarting(true)
+      }
       setCameraError('')
+      setCameraReady(false)
+
       try {
+        // 1. Libera o stream e elemento de vídeo anteriores
+        releaseCamera()
+
+        // 2. Solicita o novo stream de mídia
         const stream = await openCameraStream(targetMode)
-        if (!isOpenRef.current) {
+
+        // Se o modal foi fechado ou uma nova solicitação foi disparada enquanto aguardávamos:
+        if (!isOpenRef.current || requestIdRef.current !== currentRequestId) {
           stopCameraStream(stream)
           return
         }
+
         streamRef.current = stream
         const video = videoRef.current
         if (!video) {
@@ -73,37 +109,62 @@ export function CameraCaptureModal({
           streamRef.current = null
           throw new CameraCaptureError('Não foi possível preparar a visualização da câmera.')
         }
+
+        // 3. Vincula o stream ao elemento <video>
         video.srcObject = stream
-        await video.play()
+
+        // 4. Inicia a reprodução com tratamento defensivo para AbortError se houver interrupção rápida
+        try {
+          await video.play()
+        } catch (playError) {
+          // Se a solicitação ficou obsoleta ou foi abortada pela própria concorrência do navegador
+          if (requestIdRef.current !== currentRequestId || !isOpenRef.current) {
+            return
+          }
+          if (playError instanceof DOMException && playError.name === 'AbortError') {
+            // Em navegadores modernos, uma interrupção de play() pode ocorrer se o stream foi alterado;
+            // verificamos se esta chamada ainda é a atual
+            return
+          }
+          throw playError
+        }
+
+        // 5. Se ainda é a requisição atual, confirma o facingMode no estado
+        if (requestIdRef.current === currentRequestId && isOpenRef.current) {
+          setFacingMode(targetMode)
+          facingModeRef.current = targetMode
+          setCameraReady(true)
+        }
       } catch (error) {
-        releaseCamera()
-        setCameraError(
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível iniciar a câmera. Verifique a permissão e tente novamente.',
-        )
+        if (requestIdRef.current === currentRequestId && isOpenRef.current) {
+          releaseCamera()
+          setCameraError(
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível iniciar a câmera. Verifique a permissão e tente novamente.',
+          )
+        }
       } finally {
-        setStarting(false)
+        if (requestIdRef.current === currentRequestId) {
+          isOperatingRef.current = false
+          setStarting(false)
+          setIsSwitching(false)
+        }
       }
     },
-    [facingMode, releaseCamera],
+    [releaseCamera],
   )
 
   const toggleCameraFacing = useCallback(async () => {
-    if (isSwitching || starting || capturing || submitting) return
-    const nextMode: CameraFacingMode = facingMode === 'environment' ? 'user' : 'environment'
-    setIsSwitching(true)
-    setFacingMode(nextMode)
-    try {
-      await startCamera(nextMode)
-    } finally {
-      setIsSwitching(false)
-    }
-  }, [capturing, facingMode, isSwitching, startCamera, starting, submitting])
+    if (isOperatingRef.current || isSwitching || starting || capturing || submitting) return
+    const nextMode: CameraFacingMode =
+      facingModeRef.current === 'environment' ? 'user' : 'environment'
+    await startCamera(nextMode, true)
+  }, [capturing, isSwitching, startCamera, starting, submitting])
 
   const capture = async () => {
     const video = videoRef.current
-    if (!video || capturing) return
+    if (!video || capturing || isOperatingRef.current) return
     setCapturing(true)
     setCameraError('')
     try {
@@ -125,11 +186,14 @@ export function CameraCaptureModal({
 
   const retake = async () => {
     clearPreview()
-    await startCamera(facingMode)
+    await startCamera(facingModeRef.current, false)
   }
 
   useEffect(() => {
     if (!isOpen) {
+      // Invalida requisições pendentes
+      requestIdRef.current++
+      isOperatingRef.current = false
       releaseCamera()
       clearPreview()
       setCameraError('')
@@ -137,15 +201,18 @@ export function CameraCaptureModal({
       setCapturing(false)
       setIsSwitching(false)
       setFacingMode('environment')
+      facingModeRef.current = 'environment'
     } else {
       // Inicia a câmera automaticamente ao abrir o modal
-      void startCamera('environment')
+      void startCamera('environment', false)
     }
   }, [clearPreview, isOpen, releaseCamera, startCamera])
 
   useEffect(
     () => () => {
       isOpenRef.current = false
+      requestIdRef.current++
+      isOperatingRef.current = false
       stopCameraStream(streamRef.current)
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
     },
@@ -245,7 +312,7 @@ export function CameraCaptureModal({
           {!photo && !streamRef.current && (
             <button
               type="button"
-              onClick={() => void startCamera()}
+              onClick={() => void startCamera(facingModeRef.current, false)}
               disabled={starting || submitting}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 sm:col-span-2"
             >

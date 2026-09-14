@@ -23,6 +23,9 @@ export function cameraErrorMessage(error: unknown): string {
   if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
     return 'Não foi possível iniciar uma câmera compatível neste dispositivo.'
   }
+  if (name === 'AbortError') {
+    return 'A inicialização da câmera foi interrompida. Tente novamente.'
+  }
 
   return 'Não foi possível iniciar a câmera. Verifique a permissão do navegador e tente novamente.'
 }
