@@ -129,7 +129,11 @@ export default function Inicio() {
       if (result.ok === true) {
         setModalCheckInTime(result.time)
         setShowCheckInModal(true)
-      } else if (result.reason === 'photo-required') {
+      } else if (
+        result.reason === 'photo-required' ||
+        result.message?.includes('exige uma fotografia') ||
+        result.message?.includes('exige uma foto')
+      ) {
         setPhotoSubmitError('')
         setPhotoAction('check-in')
       } else if (result.reason === 'location' || result.reason === 'geo-unavailable') {
@@ -147,14 +151,22 @@ export default function Inicio() {
       if (result.ok === true) {
         setModalCheckOutData({ time: result.checkOutTime, duration: result.duration })
         setShowCheckOutModal(true)
-      } else if (result.reason === 'photo-required') {
+      } else if (
+        result.reason === 'photo-required' ||
+        result.message?.includes('exige uma fotografia') ||
+        result.message?.includes('exige uma foto')
+      ) {
         setPhotoSubmitError('')
         setPhotoAction('check-out')
       } else if (result.reason === 'location' || result.reason === 'geo-unavailable') {
         setLocationMessage(result.message)
         setShowLocationModal(true)
       } else {
-        setToastMessage(result.message)
+        toast({
+          title: 'Erro no check-out',
+          description: result.message || 'Tente novamente.',
+          variant: 'destructive',
+        })
       }
     }
     setIsProcessing(false)

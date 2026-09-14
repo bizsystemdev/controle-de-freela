@@ -137,8 +137,11 @@ export function CameraCaptureModal({
       setCapturing(false)
       setIsSwitching(false)
       setFacingMode('environment')
+    } else {
+      // Inicia a câmera automaticamente ao abrir o modal
+      void startCamera('environment')
     }
-  }, [clearPreview, isOpen, releaseCamera])
+  }, [clearPreview, isOpen, releaseCamera, startCamera])
 
   useEffect(
     () => () => {

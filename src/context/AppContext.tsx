@@ -715,8 +715,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           userId,
           empresaId: company.id,
         })
-        if (!photo && message.includes('exige uma fotografia')) {
-          return { ok: false, reason: 'photo-required', message }
+        if (
+          !photo &&
+          (message.includes('exige uma fotografia') || message.includes('exige uma foto'))
+        ) {
+          // Atualiza também o estado local da empresa para que futuras chamadas saibam que a foto é obrigatória
+          setSelectedCompany((prev) =>
+            prev && prev.id === company.id ? { ...prev, attendancePhotoRequired: true } : prev,
+          )
+          return {
+            ok: false,
+            reason: 'photo-required',
+            message:
+              'Localização confirmada. Esta empresa exige uma foto para registrar o check-in.',
+          }
         }
         return {
           ok: false,
@@ -843,8 +855,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { ok: true, checkOutTime: formattedOut, duration: finalDuration }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Falha ao registrar saída.'
-        if (!photo && message.includes('exige uma fotografia')) {
-          return { ok: false, reason: 'photo-required', message }
+        if (
+          !photo &&
+          (message.includes('exige uma fotografia') || message.includes('exige uma foto'))
+        ) {
+          // Atualiza também o estado local da empresa para que futuras chamadas saibam que a foto é obrigatória
+          setSelectedCompany((prev) => (prev ? { ...prev, attendancePhotoRequired: true } : prev))
+          return {
+            ok: false,
+            reason: 'photo-required',
+            message:
+              'Localização confirmada. Esta empresa exige uma foto para registrar o check-out.',
+          }
         }
         return {
           ok: false,
