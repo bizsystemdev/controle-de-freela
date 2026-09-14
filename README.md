@@ -104,15 +104,15 @@ docker compose exec pocketbase /pb/pocketbase superuser create --help
 
 ## Seleção do backend por ambiente
 
-- `.env.development` define `VITE_POCKETBASE_URL=http://127.0.0.1:8090` para o modo de desenvolvimento do Vite.
-- O Compose injeta a mesma URL explicitamente no serviço `freelacheck`.
-- `.env.example` documenta somente valores públicos e seguros.
+- O Compose injeta `VITE_POCKETBASE_URL=http://127.0.0.1:8090` e `VITE_LOCAL_DEVELOPMENT=true` explicitamente no serviço `freelacheck`.
+- `.env.development` não é versionado: o Preview do Skip também usa o modo `development` do Vite e deve apontar para o mesmo PocketBase remoto da produção.
+- Preview e produção recebem a URL remota pelo `.env` existente ou pelo ambiente de build/deploy do Skip.
+- `.env.example` documenta somente valores públicos e seguros para uma execução local fora do Docker. Nesse caso, copie-o para `.env.development.local`.
 - Arquivos `.env.local` e `.env.development.local` são ignorados pelo Git.
-- Em produção, o Skip continua fornecendo `VITE_POCKETBASE_URL` pelo ambiente de build/deploy.
 
 Variáveis `VITE_*` são incorporadas ao bundle do navegador e nunca devem conter senhas, tokens ou outros segredos.
 
-Como proteção adicional, o cliente PocketBase interrompe a inicialização em modo DEV quando a URL configurada não usa `127.0.0.1`, `localhost` ou loopback IPv6. Essa guarda impede que uma configuração local aponte silenciosamente para `*.goskip.dev` ou qualquer outro host remoto; ela não bloqueia URLs remotas em builds de produção.
+Como proteção adicional, o cliente PocketBase exige um backend de loopback quando `VITE_LOCAL_DEVELOPMENT=true` ou quando o próprio frontend é acessado por loopback. Assim, Docker, Vite local e previews locais não apontam silenciosamente para um backend remoto, enquanto Preview e produção hospedados pelo Skip podem usar a mesma URL remota.
 
 ## Comandos úteis
 
