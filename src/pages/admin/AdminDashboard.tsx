@@ -51,8 +51,6 @@ export default function AdminDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [isLookingUpCep, setIsLookingUpCep] = useState(false)
-  const [isGeocoding, setIsGeocoding] = useState(false)
-  const [hasCoordinates, setHasCoordinates] = useState(false)
 
   // Form Fields
   const [companyName, setCompanyName] = useState('')
@@ -63,8 +61,6 @@ export default function AdminDashboard() {
   const [state, setState] = useState('SC')
   const [cep, setCep] = useState('')
   const [cnpj, setCnpj] = useState('')
-  const [lat, setLat] = useState('')
-  const [lng, setLng] = useState('')
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('pro')
 
   // Protect admin route
@@ -103,11 +99,8 @@ export default function AdminDashboard() {
     setState('SC')
     setCep('')
     setCnpj('')
-    setLat('')
-    setLng('')
     setPlan('pro')
     setFormErrors({})
-    setHasCoordinates(false)
     setCreateModalOpen(true)
   }
 
@@ -148,97 +141,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Geocoding automático com OpenStreetMap Nominatim
-  const performGeocoding = async (
-    streetVal: string,
-    numberVal: string,
-    neighborhoodVal: string,
-    cityVal: string,
-    stateVal: string,
-  ) => {
-    if (!streetVal.trim() || !numberVal.trim() || !cityVal.trim() || !stateVal.trim()) {
-      return
-    }
-
-    setIsGeocoding(true)
-    try {
-      const queryParts = [
-        streetVal.trim(),
-        numberVal.trim(),
-        neighborhoodVal.trim(),
-        cityVal.trim(),
-        stateVal.trim(),
-        'Brasil',
-      ]
-        .filter(Boolean)
-        .join(', ')
-
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryParts)}&limit=1`
-      const res = await fetch(url, {
-        headers: {
-          'Accept-Language': 'pt-BR',
-        },
-        signal: AbortSignal.timeout(6000),
-      })
-      const results = await res.json()
-
-      if (results && results.length > 0 && results[0].lat && results[0].lon) {
-        const foundLat = parseFloat(results[0].lat).toFixed(6)
-        const foundLng = parseFloat(results[0].lon).toFixed(6)
-        setLat(foundLat)
-        setLng(foundLng)
-        setHasCoordinates(true)
-        setFormErrors((prev) => ({ ...prev, coordinates: '' }))
-      } else {
-        // Try without neighborhood or number if strict search yielded nothing
-        const fallbackQuery = `${streetVal.trim()}, ${cityVal.trim()}, ${stateVal.trim()}, Brasil`
-        const fbRes = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=1`,
-          { headers: { 'Accept-Language': 'pt-BR' }, signal: AbortSignal.timeout(6000) },
-        )
-        const fbResults = await fbRes.json()
-        if (fbResults && fbResults.length > 0 && fbResults[0].lat && fbResults[0].lon) {
-          setLat(parseFloat(fbResults[0].lat).toFixed(6))
-          setLng(parseFloat(fbResults[0].lon).toFixed(6))
-          setHasCoordinates(true)
-          setFormErrors((prev) => ({ ...prev, coordinates: '' }))
-        } else {
-          setLat('')
-          setLng('')
-          setHasCoordinates(false)
-          setFormErrors((prev) => ({
-            ...prev,
-            coordinates:
-              'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.',
-          }))
-        }
-      }
-    } catch {
-      setLat('')
-      setLng('')
-      setHasCoordinates(false)
-      setFormErrors((prev) => ({
-        ...prev,
-        coordinates:
-          'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.',
-      }))
-    } finally {
-      setIsGeocoding(false)
-    }
-  }
-
-  // Trigger geocoding when address fields change and are complete
-  useEffect(() => {
-    if (street.trim() && number.trim() && city.trim() && state.trim()) {
-      const timer = setTimeout(() => {
-        void performGeocoding(street, number, neighborhood, city, state)
-      }, 700)
-      return () => clearTimeout(timer)
-    } else {
-      setHasCoordinates(false)
-    }
-  }, [street, number, neighborhood, city, state])
-
   const handleCreateCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const errors: Record<string, string> = {}
@@ -251,13 +153,6 @@ export default function AdminDashboard() {
 
     if (cnpj.trim() && !isValidAlphanumericCnpj(cnpj)) {
       errors.cnpj = 'CNPJ inválido. Digite os 14 caracteres alfanuméricos.'
-    }
-
-    const parsedLat = parseFloat(lat)
-    const parsedLng = parseFloat(lng)
-    if (!lat || !lng || isNaN(parsedLat) || isNaN(parsedLng)) {
-      errors.coordinates =
-        'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.'
     }
 
     if (Object.keys(errors).length > 0) {
@@ -278,8 +173,6 @@ export default function AdminDashboard() {
         state: state.trim().toUpperCase(),
         cep: cep.trim() || undefined,
         cnpj: cnpj.trim() ? unmaskCnpj(cnpj) : undefined,
-        lat: parsedLat,
-        lng: parsedLng,
         plan,
       }
 
@@ -479,7 +372,8 @@ export default function AdminDashboard() {
               Cadastrar Nova Empresa
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-slate-500">
-              Preencha os dados da empresa e o endereço usado na validação de check-in.
+              Preencha os dados cadastrais da empresa. A localização física será configurada depois
+              no painel da empresa.
             </DialogDescription>
           </DialogHeader>
 
@@ -728,45 +622,6 @@ export default function AdminDashboard() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              {/* Indicador de Coordenadas Geográficas (Nominatim) */}
-              <div className="p-3.5 rounded-xl border transition-all duration-200 bg-slate-50 border-slate-200">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {isGeocoding ? (
-                      <Loader2 className="w-4 h-4 text-slate-500 animate-spin" />
-                    ) : hasCoordinates ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    ) : (
-                      <MapPin className="w-4 h-4 text-slate-400" />
-                    )}
-                    <span className="text-xs font-medium">
-                      {isGeocoding ? (
-                        <span className="text-slate-600">Buscando coordenadas do endereço...</span>
-                      ) : hasCoordinates ? (
-                        <span className="text-emerald-700 font-bold">Coordenadas obtidas ✓</span>
-                      ) : (
-                        <span className="text-slate-500">
-                          Preencha o endereço completo para calcular as coordenadas automaticamente.
-                        </span>
-                      )}
-                    </span>
-                  </div>
-
-                  {hasCoordinates && lat && lng && (
-                    <span className="text-[11px] font-mono text-slate-500 hidden sm:inline">
-                      {parseFloat(lat).toFixed(4)}, {parseFloat(lng).toFixed(4)}
-                    </span>
-                  )}
-                </div>
-
-                {formErrors.coordinates && (
-                  <p className="text-xs text-red-600 mt-2 flex items-center gap-1.5 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>{formErrors.coordinates}</span>
-                  </p>
-                )}
               </div>
             </div>
 

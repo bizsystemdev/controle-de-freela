@@ -66,18 +66,22 @@ routerAdd('PUT', '/api/admin/company/{id}', (e) => {
   if (body.cep !== undefined) comp.set('cep', cep)
   if (body.cnpj !== undefined) comp.set('cnpj', cnpj)
 
-  if (body.lat !== undefined) {
+  if (body.lat !== undefined || body.lng !== undefined) {
     const lat = typeof body.lat === 'number' ? body.lat : parseFloat(String(body.lat || ''))
-    if (!isNaN(lat) && lat >= -90 && lat <= 90) {
-      comp.set('lat', lat)
-    }
-  }
-
-  if (body.lng !== undefined) {
     const lng = typeof body.lng === 'number' ? body.lng : parseFloat(String(body.lng || ''))
-    if (!isNaN(lng) && lng >= -180 && lng <= 180) {
-      comp.set('lng', lng)
+    const coordinatesAreValid =
+      isFinite(lat) &&
+      isFinite(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180 &&
+      !(lat === 0 && lng === 0)
+    if (!coordinatesAreValid) {
+      return e.json(400, { error: 'Coordenadas (latitude e longitude) inválidas.' })
     }
+    comp.set('lat', lat)
+    comp.set('lng', lng)
   }
 
   if (body.active !== undefined) {
@@ -107,6 +111,17 @@ routerAdd('PUT', '/api/admin/company/{id}', (e) => {
       } catch (_) {}
     }
 
+    const companyLat = comp.getFloat('lat')
+    const companyLng = comp.getFloat('lng')
+    const hasConfiguredLocation =
+      isFinite(companyLat) &&
+      isFinite(companyLng) &&
+      companyLat >= -90 &&
+      companyLat <= 90 &&
+      companyLng >= -180 &&
+      companyLng <= 180 &&
+      !(companyLat === 0 && companyLng === 0)
+
     return e.json(200, {
       success: true,
       message: 'Empresa atualizada com sucesso!',
@@ -121,8 +136,8 @@ routerAdd('PUT', '/api/admin/company/{id}', (e) => {
         neighborhood: comp.getString('neighborhood'),
         cnpj: comp.getString('cnpj'),
         location: {
-          lat: comp.getFloat('lat'),
-          lng: comp.getFloat('lng'),
+          lat: hasConfiguredLocation ? companyLat : null,
+          lng: hasConfiguredLocation ? companyLng : null,
         },
         active: comp.getBool('active'),
       },

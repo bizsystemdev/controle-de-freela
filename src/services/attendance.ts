@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { hasValidCompanyCoordinates } from '@/lib/geolocation'
 
 export interface AttendanceStatusResponse {
   active: boolean
@@ -171,6 +172,11 @@ export async function registerAttendance(
         const lng = typeof payload.lng === 'number' ? payload.lng : payload.location?.lng || null
 
         const company = await pb.collection('companies').getOne(payload.companyId)
+        if (!hasValidCompanyCoordinates({ lat: company.lat, lng: company.lng })) {
+          throw new Error(
+            'A localização desta empresa ainda não foi configurada. Entre em contato com o responsável pela empresa.',
+          )
+        }
         if (Boolean(company.attendance_photo_required) && !payload.photo) {
           throw new Error('Esta empresa exige uma fotografia tirada no momento do registro.')
         }

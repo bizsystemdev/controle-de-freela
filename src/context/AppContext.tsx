@@ -26,14 +26,16 @@ import {
   isWebAuthnSupported,
   WebAuthnError,
 } from '@/lib/webauthn'
-import { getCurrentPosition, isWithinRadius, isGeolocationAvailable } from '@/lib/geolocation'
+import {
+  getCurrentPosition,
+  hasValidCompanyCoordinates,
+  isWithinRadius,
+  isGeolocationAvailable,
+  normalizeCompanyCoordinates,
+  type CompanyCoordinates,
+} from '@/lib/geolocation'
 import { logInfo, logWarn, logError } from '@/lib/logger'
 import pb from '@/lib/pocketbase/client'
-
-export interface CompanyLocation {
-  lat: number
-  lng: number
-}
 
 export interface Company {
   id: string
@@ -41,7 +43,7 @@ export interface Company {
   city: string
   state: string
   address: string
-  location: CompanyLocation
+  location: CompanyCoordinates
   attendancePhotoRequired: boolean
   initial: string
   gradient: string
@@ -186,7 +188,7 @@ function mapCompany(api: ApiCompany): Company {
     city: api.cidade,
     state: api.estado,
     address: api.endereco,
-    location: { lat: api.location?.lat || 0, lng: api.location?.lng || 0 },
+    location: normalizeCompanyCoordinates(api.location?.lat, api.location?.lng),
     attendancePhotoRequired: Boolean(api.attendancePhotoRequired),
     initial: companyInitial(api.name),
     gradient: getCompanyGradient(api.id),
@@ -630,6 +632,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         },
       })
 
+      const companyLocation = company.location
+      if (!hasValidCompanyCoordinates(companyLocation)) {
+        return {
+          ok: false,
+          reason: 'location',
+          message:
+            'A localização desta empresa ainda não foi configurada. Entre em contato com o responsável pela empresa.',
+        }
+      }
+
       if (!isGeolocationAvailable()) {
         logWarn('checkin', 'Geolocalização indisponível no dispositivo', {
           reason: 'geo-unavailable',
@@ -656,20 +668,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      const companyLat = company.location?.lat
-      const companyLng = company.location?.lng
-      if (
-        companyLat === undefined ||
-        companyLng === undefined ||
-        Number.isNaN(companyLat) ||
-        Number.isNaN(companyLng)
-      ) {
-        return {
-          ok: false,
-          reason: 'location',
-          message: 'Não foi possível validar sua localização. Tente novamente em instantes.',
-        }
-      }
+      const companyLat = companyLocation.lat
+      const companyLng = companyLocation.lng
 
       const within = isWithinRadius(coords.latitude, coords.longitude, companyLat, companyLng)
       if (!within) {
@@ -763,6 +763,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : null,
       })
 
+      if (selectedCompany && !hasValidCompanyCoordinates(selectedCompany.location)) {
+        return {
+          ok: false,
+          reason: 'location',
+          message:
+            'A localização desta empresa ainda não foi configurada. Entre em contato com o responsável pela empresa.',
+        }
+      }
+
       if (!isGeolocationAvailable()) {
         logWarn('checkout', 'Geolocalização indisponível no dispositivo', {
           reason: 'geo-unavailable',
@@ -789,16 +798,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      const companyLat = selectedCompany?.location?.lat
-      const companyLng = selectedCompany?.location?.lng
-      if (
-        companyLat !== undefined &&
-        companyLng !== undefined &&
-        !Number.isNaN(companyLat) &&
-        !Number.isNaN(companyLng) &&
-        companyLat !== 0 &&
-        companyLng !== 0
-      ) {
+      if (selectedCompany && hasValidCompanyCoordinates(selectedCompany.location)) {
+        const { lat: companyLat, lng: companyLng } = selectedCompany.location
         const within = isWithinRadius(coords.latitude, coords.longitude, companyLat, companyLng)
         if (!within) {
           logWarn('checkout', 'Check-out bloqueado: dispositivo fora do raio', {
