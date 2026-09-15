@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { AppLogo } from '@/components/AppLogo'
-import { verifyInviteToken, acceptInviteToken, VerifyInviteResponse } from '@/services/auth'
+import {
+  verifyInviteToken,
+  acceptInviteToken,
+  loginManager,
+  VerifyInviteResponse,
+} from '@/services/auth'
 import { useApp } from '@/context/AppContext'
 import {
   Lock,
@@ -77,8 +82,20 @@ export default function AdminInviteAccept() {
       const res = await acceptInviteToken(token, password)
       setSuccess(true)
 
-      // Atualiza o contexto com o token e dados do usuário
-      if (res.token && res.user) {
+      // Autenticação NATIVA do PocketBase com a senha recém-definida:
+      // Garante que o pb.authStore contenha um token de autenticação nativo e e.auth fique populado
+      // em todos os hooks e chamadas de API subsequentes (ex: histórico de presença, fotos, pagamentos).
+      const userEmail = res.user?.email || inviteData?.user.email || ''
+      if (userEmail) {
+        try {
+          await loginManager(userEmail, password)
+        } catch {
+          // Fallback de contingência caso authWithPassword falhe pontualmente
+          if (res.token && res.user) {
+            restoreManagerSession(res.token, res.user)
+          }
+        }
+      } else if (res.token && res.user) {
         restoreManagerSession(res.token, res.user)
       }
 
@@ -91,8 +108,8 @@ export default function AdminInviteAccept() {
         null
 
       const isGerenteUser =
-        res.user.profile === 'gerente' ||
-        res.user.role === 'viewer' ||
+        res.user?.profile === 'gerente' ||
+        res.user?.role === 'viewer' ||
         inviteData?.user.profile === 'gerente'
 
       const destination = targetCompany

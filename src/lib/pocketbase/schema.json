@@ -29,29 +29,21 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "profile",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "gestor",
-            "gerente"
-          ]
+          "selectValues": ["gestor", "gerente"]
         },
         {
           "name": "invite_token",
@@ -70,21 +62,14 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "pending",
-            "accepted"
-          ]
+          "selectValues": ["pending", "accepted"]
         },
         {
           "name": "role",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "superadmin",
-            "gestor",
-            "gerente"
-          ]
+          "selectValues": ["superadmin", "gestor", "gerente"]
         }
       ],
       "indexes": [
@@ -151,19 +136,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "cep",
@@ -208,9 +188,7 @@
           "system": false
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_companies_active ON companies (active)"
-      ]
+      "indexes": ["CREATE INDEX idx_companies_active ON companies (active)"]
     },
     {
       "name": "licenses",
@@ -235,22 +213,14 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "active",
-            "inactive",
-            "expired"
-          ]
+          "selectValues": ["active", "inactive", "expired"]
         },
         {
           "name": "plan",
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "free",
-            "pro",
-            "enterprise"
-          ]
+          "selectValues": ["free", "pro", "enterprise"]
         },
         {
           "name": "max_freelancers",
@@ -263,24 +233,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_licenses_company ON licenses (company_id)"
-      ]
+      "indexes": ["CREATE INDEX idx_licenses_company ON licenses (company_id)"]
     },
     {
       "name": "license_managers",
@@ -312,30 +275,21 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "owner",
-            "admin",
-            "viewer"
-          ]
+          "selectValues": ["owner", "admin", "viewer"]
         },
         {
           "name": "created",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -407,19 +361,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -463,19 +412,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -513,10 +457,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "check_in",
-            "check_out"
-          ]
+          "selectValues": ["check_in", "check_out"]
         },
         {
           "name": "timestamp",
@@ -541,19 +482,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "manual",
@@ -681,19 +617,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [

@@ -110,8 +110,9 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 
 ## Aceite de convites administrativos
 
-- O fluxo de aceite em `/admin/convite` utiliza o endpoint `POST /api/auth/invite/accept`, que valida a expiração do token (`invite_expires`), grava a senha, marca `invite_status = 'accepted'` e retorna JWT de sessão acompanhado das empresas vinculadas.
-- O frontend autentica a sessão automaticamente via `restoreManagerSession` e redireciona o usuário diretamente para o painel da empresa associada ao convite: gerentes vão para a aba de freelancers (`/admin/empresa/:id?tab=freelancers`) e gestores para a visão principal da empresa (`/admin/empresa/:id`).
+- O fluxo de aceite em `/admin/convite` utiliza o endpoint `POST /api/auth/invite/accept`, que valida a expiração do token (`invite_expires`), grava a senha, marca `invite_status = 'accepted'` e retorna os dados de confirmação acompanhados das empresas vinculadas.
+- Após o aceite bem-sucedido, o frontend realiza a autenticação nativa do PocketBase via `loginManager(email, senha)` (`pb.collection('users').authWithPassword(...)`), garantindo que o `pb.authStore` contenha um token de autenticação nativo e o contexto `e.auth` fique populado em todos os hooks e chamadas de API subsequentes (ex.: consulta de histórico de turnos, obtenção de token de foto e confirmação de pagamento).
+- O frontend mantém o redirecionamento automático do usuário diretamente para o painel da empresa associada ao convite: gerentes vão para a aba de freelancers (`/admin/empresa/:id?tab=freelancers`) e gestores para a visão principal da empresa (`/admin/empresa/:id`).
 - Nunca redirecione para rotas administrativas que não existam no roteador (por exemplo, `/admin/freelancers` não existe — a listagem e cadastro de freelancers são escopados por empresa: `/admin/empresa/:id/freelancers`).
 
 ## Convenções de implementação
