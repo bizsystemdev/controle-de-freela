@@ -417,6 +417,7 @@ export async function createAdminCompany(
           state: payload.state.toUpperCase(),
           address: fullAddress,
           active: true,
+          payment_control_enabled: true,
           cep: payload.cep || '',
           number: payload.number || '',
           neighborhood: payload.neighborhood || '',
