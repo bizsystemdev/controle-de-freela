@@ -53,7 +53,7 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - `src/main.tsx`: bootstrap React e import do CSS global.
 - `src/App.tsx`: árvore completa de rotas. Envolve a aplicação em `BrowserRouter`, `AppProvider`, `Layout` e toaster. Páginas administrativas são lazy-loaded.
 - `src/context/AppContext.tsx`: estado e orquestração centrais de autenticação, sessão, usuário/gestor, empresas, biometria WebAuthn, geolocalização e check-in/check-out. Consuma-o por `useApp()`; preserve suas transições de estado e persistência ao alterar fluxos.
-- `src/pages/`: telas do freelancer. Fluxo atual: `/` decide o redirecionamento; `/acesso` valida telefone; `/autenticar` trata WebAuthn; `/empresas` seleciona empresa; `/inicio` registra/mostra presença; `/perfil` gerencia perfil/sessão.
+- `src/pages/`: telas do freelancer e páginas gerais. Fluxo atual: `/` decide o redirecionamento; `/acesso` valida telefone; `/autenticar` trata WebAuthn; `/empresas` seleciona empresa; `/inicio` registra/mostra presença; `/perfil` gerencia perfil/sessão; `*` exibe NotFound (404).
 - `src/pages/admin/`: login e aceite de convite, layout administrativo e páginas de dashboard, empresa, freelancers e histórico. Rotas atuais: `/admin/login`, `/admin/convite`, `/admin`, `/admin/empresa/:id`, `/admin/empresa/:id/freelancers`, `/admin/empresa/:id/freelancers/novo` e `/admin/empresa/:id/historico`.
 - `src/components/`: componentes próprios compartilhados, incluindo logo, layout, modais de ponto/localização e painel de debug.
 - `src/components/ui/`: biblioteca shadcn/ui existente. Reutilize esses primitives antes de criar novos componentes ou adicionar outra biblioteca visual.
@@ -88,17 +88,31 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - A exigência de fotografia é configurada por empresa em `attendance_photo_required` e permanece desativada por padrão. Cada evento de `attendance_records` armazena sua própria evidência no campo protegido `photo`; o check-in e o checkout nunca compartilham a mesma captura.
 - Preserve obrigatoriamente a ordem do fluxo do freelancer: validações existentes, geolocalização, fotografia quando exigida e somente então persistência do ponto. A câmera não pode abrir antes da aprovação da localização e uma foto jamais substitui essa validação.
 - A captura usa `getUserMedia` e frame do vídeo, sem seletor de arquivos ou galeria. Encerre todas as tracks ao capturar, refazer, cancelar, fechar ou desmontar o componente e não persista imagens no storage ou em logs.
+- O modal de captura (`src/components/CameraCaptureModal.tsx`) centraliza a inicialização na função `startCamera`, invocada na abertura automática, no botão de reabertura e na alternância frontal/traseira. Toda troca usa token sequencial de requisição (`requestIdRef`) para descartar respostas obsoletas de `getUserMedia` e flag síncrona contra operações simultâneas; preserve esse ciclo de vida para evitar `AbortError` e condições de corrida no Safari iOS.
+- A alternância de câmera usa `facingMode` ('environment' e 'user') com fallback de compatibilidade e pré-visualização espelhada (`-scale-x-100`) na câmera frontal.
 - Fotografias de presença são privadas. O acesso às fotos é governado pelas API rules nativas da collection `attendance_records` via token de arquivo gerado para usuários autenticados.
 
 ## Autenticação e autorização administrativa
 
 - O `AppContext` usa `role: 'manager'` para o fluxo administrativo; o `AdminLayout` só aceita sessão autenticada com esse papel e um `manager` carregado.
-- No cadastro de empresa, solicite somente os dados da empresa. O backend cria a licença e vincula obrigatoriamente o gestor autenticado como `owner`; não crie outro usuário, não aceite credenciais de gestor nesse payload e não use identificadores de usuário fornecidos pelo cliente para substituir `e.auth`.
+- A collection de usuários possui o campo `role` (`'superadmin' | 'gestor' | 'gerente'`). O usuário `admin@bizcheck.com` é o superadmin do sistema.
+- Toda verificação de superadmin deve usar unificadamente `isSuperadmin()` de `src/lib/adminPermissions.ts` (que valida `role === 'superadmin'` ou o e-mail `admin@bizcheck.com`); nunca duplique essa checagem manualmente.
+- O superadmin possui visão global e lista todas as empresas ativas do sistema; gestores e gerentes comuns têm acesso estritamente restrito às empresas vinculadas via `license_managers`.
+- SOMENTE o superadmin pode criar novas empresas e definir o primeiro gestor da empresa no backend (o hook `admin_companies_create.js` rejeita outros papéis com HTTP 403).
+- SOMENTE o superadmin pode remover empresas do sistema. A remoção executa exclusão em cascata no endpoint `DELETE /api/admin/company/{id}` (`attendance_records`, `device_releases`, `freelancer_companies`, `license_managers`, `licenses` e a própria empresa em `companies`). A interface exige a digitação exata do nome da empresa para confirmar.
+- O superadmin não deve aparecer em listagens de gestores das empresas (`admin_company_managers.js`).
+- O plano da licença no formulário da empresa só é editável pelo superadmin; para demais papéis permanece desabilitado (`admin_company_update.js` e UI de detalhes da empresa).
 - Os perfis administrativos de domínio são `gestor` e `gerente`. Para compatibilidade com `license_managers`, `viewer` equivale a gerente; use `isGerente()` de `src/lib/adminPermissions.ts` em vez de duplicar essa identificação. Nos cadastros e sincronizações atuais, gerente usa `viewer` e gestor usa `owner`.
 - O gestor possui acesso integral ao dashboard e à administração das empresas às quais está vinculado, incluindo dados da empresa, gestores, freelancers e lançamentos manuais de presença.
 - O gerente fica restrito às empresas vinculadas e não acessa a visão geral do dashboard. Na empresa, suas abas permitidas são definidas por `GERENTE_ALLOWED_COMPANY_TABS`: `freelancers`, `historico` e `liberacoes`; preserve também os redirecionamentos correspondentes em `AdminLayout`.
 - O gerente pode consultar freelancers, cadastrar novos freelancers, liberar dispositivos, consultar históricos e atualizar as coordenadas da empresa. Não pode editar os demais dados da empresa, administrar gestores, editar/duplicar/remover freelancers nem lançar check-in/check-out manual.
 - Restrições de perfil devem continuar protegidas tanto na navegação/renderização quanto nos handlers aplicáveis; ocultar um botão não substitui a guarda da ação.
+
+## Aceite de convites administrativos
+
+- O fluxo de aceite em `/admin/convite` utiliza o endpoint `POST /api/auth/invite/accept`, que valida a expiração do token (`invite_expires`), grava a senha, marca `invite_status = 'accepted'` e retorna JWT de sessão acompanhado das empresas vinculadas.
+- O frontend autentica a sessão automaticamente via `restoreManagerSession` e redireciona o usuário diretamente para o painel da empresa associada ao convite: gerentes vão para a aba de freelancers (`/admin/empresa/:id?tab=freelancers`) e gestores para a visão principal da empresa (`/admin/empresa/:id`).
+- Nunca redirecione para rotas administrativas que não existam no roteador (por exemplo, `/admin/freelancers` não existe — a listagem e cadastro de freelancers são escopados por empresa: `/admin/empresa/:id/freelancers`).
 
 ## Convenções de implementação
 
