@@ -483,10 +483,9 @@ export default function AdminCompanyDetail() {
     if (!company) return
     const parsed = parseExistingAddress(company)
 
-    // Find active plan from license or allCompanies
+    // Localiza o plano ativo da licença via allCompanies (ou padrão 'pro')
     const currentAdminComp = allCompanies.find((c) => c.id === company.id)
     const currentPlan = (currentAdminComp?.license?.plan as 'free' | 'pro' | 'enterprise') || 'pro'
-
     setEditCompName(company.name || '')
     setEditCompStreet(parsed.street || '')
     setEditCompNumber(parsed.number || '')
