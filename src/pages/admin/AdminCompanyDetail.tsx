@@ -32,7 +32,7 @@ import { AttendanceShiftHistory } from '@/components/admin/AttendanceShiftHistor
 import { PaymentSettingsCard } from '@/components/admin/PaymentSettingsCard'
 import { AttendancePhotoSettingsCard } from '@/components/admin/AttendancePhotoSettingsCard'
 import { useApp } from '@/context/AppContext'
-import { isGerente } from '@/lib/adminPermissions'
+import { isGerente, isSuperadmin } from '@/lib/adminPermissions'
 import {
   getCurrentPosition,
   hasValidCompanyCoordinates,
@@ -128,6 +128,7 @@ export default function AdminCompanyDetail() {
   const navigate = useNavigate()
   const { manager } = useApp()
   const gerente = isGerente(manager)
+  const superadmin = isSuperadmin(manager)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const activeTab = searchParams.get('tab') || 'overview'
@@ -2886,9 +2887,15 @@ export default function AdminCompanyDetail() {
                   </label>
                   <Select
                     value={editCompPlan}
+                    disabled={!superadmin}
                     onValueChange={(v) => setEditCompPlan(v as 'free' | 'pro' | 'enterprise')}
                   >
-                    <SelectTrigger className="w-full h-11 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold">
+                    <SelectTrigger
+                      disabled={!superadmin}
+                      className={`w-full h-11 rounded-xl border border-slate-200 text-xs font-bold ${
+                        !superadmin ? 'bg-slate-100 opacity-75 cursor-not-allowed' : 'bg-slate-50'
+                      }`}
+                    >
                       <SelectValue placeholder="Selecione o plano" />
                     </SelectTrigger>
                     <SelectContent className="bg-white rounded-2xl border border-slate-200">
@@ -2903,6 +2910,11 @@ export default function AdminCompanyDetail() {
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                  {!superadmin && (
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Apenas o superadmin pode alterar o plano da licença.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

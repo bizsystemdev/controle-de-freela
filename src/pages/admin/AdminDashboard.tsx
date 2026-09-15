@@ -4,9 +4,11 @@ import { useApp } from '@/context/AppContext'
 import {
   getAdminCompanies,
   createAdminCompany,
+  deleteAdminCompany,
   type CompanyAdminItem,
   type CreateCompanyPayload,
 } from '@/services/admin'
+import { isSuperadmin } from '@/lib/adminPermissions'
 import { toast } from '@/hooks/use-toast'
 import {
   Building2,
@@ -20,6 +22,8 @@ import {
   CheckCircle2,
   AlertCircle,
   FileText,
+  Trash2,
+  ShieldAlert,
 } from 'lucide-react'
 import { maskAlphanumericCnpj, isValidAlphanumericCnpj, unmaskCnpj } from '@/lib/cnpj'
 import { safeDate } from '@/lib/utils'
@@ -52,6 +56,12 @@ export default function AdminDashboard() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [isLookingUpCep, setIsLookingUpCep] = useState(false)
 
+  // Delete Company Modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [companyToDelete, setCompanyToDelete] = useState<CompanyAdminItem | null>(null)
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+
   // Form Fields
   const [companyName, setCompanyName] = useState('')
   const [street, setStreet] = useState('')
@@ -62,6 +72,11 @@ export default function AdminDashboard() {
   const [cep, setCep] = useState('')
   const [cnpj, setCnpj] = useState('')
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('pro')
+  const [managerName, setManagerName] = useState('')
+  const [managerEmail, setManagerEmail] = useState('')
+  const [managerPassword, setManagerPassword] = useState('')
+
+  const userIsSuperadmin = isSuperadmin(manager)
 
   // Protect admin route
   useEffect(() => {
@@ -100,8 +115,54 @@ export default function AdminDashboard() {
     setCep('')
     setCnpj('')
     setPlan('pro')
+    setManagerName('')
+    setManagerEmail('')
+    setManagerPassword('')
     setFormErrors({})
     setCreateModalOpen(true)
+  }
+
+  const handleOpenDeleteModal = (e: React.MouseEvent, comp: CompanyAdminItem) => {
+    e.stopPropagation()
+    setCompanyToDelete(comp)
+    setDeleteConfirmInput('')
+    setDeleteModalOpen(true)
+  }
+
+  const handleDeleteCompanySubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!companyToDelete) return
+
+    if (deleteConfirmInput.trim().toLowerCase() !== companyToDelete.name.trim().toLowerCase()) {
+      toast({
+        title: 'Nome não confere',
+        description: 'Digite exatamente o nome da empresa para confirmar a exclusão.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      await deleteAdminCompany(companyToDelete.id)
+      toast({
+        title: 'Empresa removida!',
+        description: `A empresa "${companyToDelete.name}" e todos os dados relacionados foram apagados com sucesso.`,
+      })
+      setDeleteModalOpen(false)
+      setCompanyToDelete(null)
+      setDeleteConfirmInput('')
+      await loadCompanies()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao remover empresa.'
+      toast({
+        title: 'Erro ao remover empresa',
+        description: msg,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   // Consulta de CEP no ViaCEP
@@ -164,7 +225,11 @@ export default function AdminDashboard() {
     setFormErrors({})
 
     try {
-      const payload: CreateCompanyPayload = {
+      const payload: CreateCompanyPayload & {
+        managerName?: string
+        managerEmail?: string
+        managerPassword?: string
+      } = {
         name: companyName.trim(),
         street: street.trim(),
         number: number.trim(),
@@ -174,6 +239,9 @@ export default function AdminDashboard() {
         cep: cep.trim() || undefined,
         cnpj: cnpj.trim() ? unmaskCnpj(cnpj) : undefined,
         plan,
+        managerName: managerName.trim() || undefined,
+        managerEmail: managerEmail.trim() || undefined,
+        managerPassword: managerPassword.trim() || undefined,
       }
 
       const res = await createAdminCompany(payload)
@@ -262,14 +330,16 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all self-start sm:self-auto cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Nova empresa</span>
-          </button>
+          {userIsSuperadmin && (
+            <button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all self-start sm:self-auto cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Nova empresa</span>
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -289,14 +359,16 @@ export default function AdminDashboard() {
               Sua conta ainda não possui empresas cadastradas. Cadastre a primeira empresa para
               iniciar.
             </p>
-            <button
-              type="button"
-              onClick={handleOpenCreateModal}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ Nova empresa</span>
-            </button>
+            {userIsSuperadmin && (
+              <button
+                type="button"
+                onClick={handleOpenCreateModal}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Nova empresa</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -325,9 +397,21 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                      {comp.license?.plan || 'PRO'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                        {comp.license?.plan || 'PRO'}
+                      </span>
+                      {userIsSuperadmin && (
+                        <button
+                          type="button"
+                          title="Remover empresa e todos os dados"
+                          onClick={(e) => handleOpenDeleteModal(e, comp)}
+                          className="p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <p className="text-xs text-slate-600 line-clamp-1 mb-4 font-normal">
@@ -623,6 +707,59 @@ export default function AdminDashboard() {
                   </Select>
                 </div>
               </div>
+
+              {/* Primeiro Gestor da Empresa (Superadmin) */}
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Primeiro Gestor da Empresa (Opcional)
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    Cadastre o gestor responsável por gerenciar esta empresa recém-criada.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Nome do Gestor
+                    </label>
+                    <input
+                      type="text"
+                      value={managerName}
+                      onChange={(e) => setManagerName(e.target.value)}
+                      placeholder="Ex: Carlos Silva"
+                      className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      E-mail do Gestor
+                    </label>
+                    <input
+                      type="email"
+                      value={managerEmail}
+                      onChange={(e) => setManagerEmail(e.target.value)}
+                      placeholder="gestor@empresa.com"
+                      className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Senha Provisória do Gestor (opcional)
+                  </label>
+                  <input
+                    type="password"
+                    value={managerPassword}
+                    onChange={(e) => setManagerPassword(e.target.value)}
+                    placeholder="Mínimo 8 caracteres (se vazio, será gerada senha de convite)"
+                    className="w-full h-11 px-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                  />
+                </div>
+              </div>
             </div>
 
             <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
@@ -647,6 +784,88 @@ export default function AdminDashboard() {
                   <>
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Criar Empresa & Licença</span>
+                  </>
+                )}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Confirmação de Remoção de Empresa */}
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6 sm:p-7 bg-white border border-red-200 shadow-2xl">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-2">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
+              Remover Empresa
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600">
+              Esta ação é <span className="font-bold text-red-600">irreversível</span>. Todos os
+              dados desta empresa (registros de ponto, vínculos com freelancers, histórico e
+              licenças) serão permanentemente excluídos da base de dados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleDeleteCompanySubmit} className="space-y-4 pt-2">
+            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Empresa a ser excluída
+              </p>
+              <p className="text-sm font-black text-slate-900 mt-0.5">{companyToDelete?.name}</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {companyToDelete?.city} - {companyToDelete?.state}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Para confirmar, digite{' '}
+                <span className="font-mono font-black text-red-600">{companyToDelete?.name}</span>{' '}
+                abaixo:
+              </label>
+              <input
+                type="text"
+                required
+                value={deleteConfirmInput}
+                onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                placeholder="Digite o nome exato da empresa"
+                className="w-full h-11 px-3 bg-white rounded-xl border border-slate-300 text-xs font-semibold text-slate-900 focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/10"
+              />
+            </div>
+
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteModalOpen(false)
+                  setCompanyToDelete(null)
+                  setDeleteConfirmInput('')
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors order-2 sm:order-1"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  isDeleting ||
+                  deleteConfirmInput.trim().toLowerCase() !==
+                    (companyToDelete?.name || '').trim().toLowerCase()
+                }
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-red-600/20 transition-all flex items-center justify-center gap-2 order-1 sm:order-2 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Excluindo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Excluir Definitivamente</span>
                   </>
                 )}
               </button>

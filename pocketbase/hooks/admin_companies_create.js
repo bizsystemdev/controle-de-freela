@@ -1,6 +1,17 @@
 routerAdd('POST', '/api/admin/companies', (e) => {
   if (!e.auth) {
-    return e.json(401, { error: 'Autenticação de gestor obrigatória.' })
+    return e.json(401, { error: 'Autenticação obrigatória.' })
+  }
+
+  // Apenas o SUPERADMIN pode criar empresas e cadastrar o primeiro gestor
+  const userRole = e.auth.getString('role')
+  const userEmail = e.auth.getString('email').toLowerCase().trim()
+  const isSuperadmin = userRole === 'superadmin' || userEmail === 'admin@bizcheck.com'
+
+  if (!isSuperadmin) {
+    return e.json(403, {
+      error: 'Apenas o superadmin tem permissão para cadastrar novas empresas.',
+    })
   }
 
   const body = e.requestInfo().body || {}
@@ -34,6 +45,13 @@ routerAdd('POST', '/api/admin/companies', (e) => {
   // Validate plan
   const validPlans = ['free', 'pro', 'enterprise']
   const normalizedPlan = validPlans.includes(plan) ? plan : 'pro'
+
+  // Opcional: dados do primeiro gestor da empresa
+  const managerName = String(body.managerName || '').trim()
+  const managerEmail = String(body.managerEmail || '')
+    .trim()
+    .toLowerCase()
+  const managerPassword = String(body.managerPassword || '').trim()
 
   let createdCompany = null
   let createdLicense = null
@@ -70,13 +88,72 @@ routerAdd('POST', '/api/admin/companies', (e) => {
     createdLicense.set('max_freelancers', maxFreelancers)
     $app.save(createdLicense)
 
-    // 3. Link the authenticated manager to the new license
+    // 3. Link or create the initial manager for this company
     const lmCol = $app.findCollectionByNameOrId('license_managers')
-    const lm = new Record(lmCol)
-    lm.set('license_id', createdLicense.id)
-    lm.set('user_id', e.auth.id)
-    lm.set('role', 'owner')
-    $app.save(lm)
+    let linkedManager = null
+
+    if (managerEmail && managerEmail.includes('@')) {
+      let firstManagerUser = null
+      const inviteToken = $security.randomString(32)
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      const initialPass =
+        managerPassword && managerPassword.length >= 8
+          ? managerPassword
+          : 'M-' + $security.randomString(16) + 'A1!'
+
+      try {
+        firstManagerUser = $app.findAuthRecordByEmail('_pb_users_auth_', managerEmail)
+        if (managerName) firstManagerUser.set('name', managerName)
+        firstManagerUser.set('profile', 'gestor')
+        firstManagerUser.set('invite_token', inviteToken)
+        firstManagerUser.set('invite_status', 'pending')
+        firstManagerUser.set('invite_expires', expiresAt)
+        if (managerPassword && managerPassword.length >= 8) {
+          firstManagerUser.setPassword(managerPassword)
+        }
+        $app.save(firstManagerUser)
+      } catch (_) {
+        const userCol = $app.findCollectionByNameOrId('_pb_users_auth_')
+        firstManagerUser = new Record(userCol)
+        firstManagerUser.setEmail(managerEmail)
+        firstManagerUser.setPassword(initialPass)
+        firstManagerUser.setVerified(true)
+        firstManagerUser.set('name', managerName || 'Gestor')
+        firstManagerUser.set('profile', 'gestor')
+        firstManagerUser.set('role', 'gestor')
+        firstManagerUser.set('invite_token', inviteToken)
+        firstManagerUser.set('invite_status', 'pending')
+        firstManagerUser.set('invite_expires', expiresAt)
+        $app.save(firstManagerUser)
+      }
+
+      const lm = new Record(lmCol)
+      lm.set('license_id', createdLicense.id)
+      lm.set('user_id', firstManagerUser.id)
+      lm.set('role', 'owner')
+      $app.save(lm)
+
+      linkedManager = {
+        id: firstManagerUser.id,
+        name: firstManagerUser.getString('name'),
+        email: firstManagerUser.getString('email'),
+        inviteToken: inviteToken,
+        inviteLink: '/admin/convite?token=' + inviteToken,
+      }
+    } else {
+      // Se não informou gestor específico, vincula o criador inicial
+      const lm = new Record(lmCol)
+      lm.set('license_id', createdLicense.id)
+      lm.set('user_id', e.auth.id)
+      lm.set('role', 'owner')
+      $app.save(lm)
+
+      linkedManager = {
+        id: e.auth.id,
+        name: e.auth.getString('name'),
+        email: e.auth.getString('email'),
+      }
+    }
 
     return e.json(200, {
       success: true,
@@ -101,11 +178,7 @@ routerAdd('POST', '/api/admin/companies', (e) => {
           status: createdLicense.getString('status'),
           maxFreelancers: createdLicense.getInt('max_freelancers'),
         },
-        manager: {
-          id: e.auth.id,
-          name: e.auth.getString('name'),
-          email: e.auth.getString('email'),
-        },
+        manager: linkedManager,
       },
     })
   } catch (err) {

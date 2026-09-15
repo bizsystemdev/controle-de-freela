@@ -33,8 +33,9 @@ export interface ManagerUser {
   id: string
   name: string
   email: string
-  role: 'owner' | 'admin' | 'viewer'
+  role: 'owner' | 'admin' | 'viewer' | 'superadmin'
   profile?: 'gestor' | 'gerente'
+  userRole?: 'superadmin' | 'gestor' | 'gerente' | string
 }
 
 export interface ManagerLoginResponse {
@@ -347,17 +348,24 @@ export async function loginManager(email: string, password: string): Promise<Man
     // We can also authenticate with standard PB auth and verify manager role
     const authData = await pb.collection('users').authWithPassword(email, password)
 
+    const userRole = (authData.record.role as string) || ''
+    const isSuperadmin =
+      userRole === 'superadmin' ||
+      authData.record.email?.toLowerCase().trim() === 'admin@bizcheck.com'
+
     // Check if user is manager in license_managers
     const lm = await pb.collection('license_managers').getList(1, 10, {
       filter: `user_id = "${authData.record.id}"`,
     })
 
-    if (lm.items.length === 0) {
+    if (lm.items.length === 0 && !isSuperadmin) {
       pb.authStore.clear()
       throw new Error('Usuário não possui permissão de gestor.')
     }
 
-    const role = (lm.items[0].role as 'owner' | 'admin' | 'viewer') || 'admin'
+    const role = isSuperadmin
+      ? 'superadmin'
+      : (lm.items[0]?.role as 'owner' | 'admin' | 'viewer') || 'admin'
     const profile =
       (authData.record.profile as 'gestor' | 'gerente') ||
       (role === 'viewer' ? 'gerente' : 'gestor')
@@ -367,6 +375,7 @@ export async function loginManager(email: string, password: string): Promise<Man
       name: authData.record.name || (profile === 'gerente' ? 'Gerente' : 'Gestor'),
       email: authData.record.email,
       role,
+      userRole: isSuperadmin ? 'superadmin' : userRole || 'gestor',
       profile,
     }
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-15T18:24:22.807Z",
+  "generatedAt": "2026-09-15T19:10:33.750Z",
   "collections": [
     {
       "name": "users",
@@ -63,6 +63,13 @@
           "required": false,
           "system": false,
           "selectValues": ["pending", "accepted"]
+        },
+        {
+          "name": "role",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["superadmin", "gestor", "gerente"]
         }
       ],
       "indexes": [

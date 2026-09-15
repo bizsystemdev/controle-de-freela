@@ -609,6 +609,111 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
 /**
  * Atualiza os dados de uma empresa
  */
+/**
+ * Remove uma empresa e todos os dados relacionados (exclusivo para superadmin)
+ */
+export async function deleteAdminCompany(
+  companyId: string,
+): Promise<{ success: boolean; message: string; companyId: string }> {
+  try {
+    const res = await pb.send<{ success: boolean; message: string; companyId: string }>(
+      `/api/admin/company/${encodeURIComponent(companyId)}`,
+      {
+        method: 'DELETE',
+      },
+    )
+    return res
+  } catch (err: unknown) {
+    const pbErr = err as {
+      status?: number
+      data?: { error?: string; message?: string }
+      message?: string
+    }
+
+    // Fallback directly via PocketBase SDK
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      try {
+        // 1. Remover registros de ponto
+        const attRecords = await pb.collection('attendance_records').getFullList({
+          filter: `company_id = "${companyId}"`,
+        })
+        for (const att of attRecords) {
+          await pb
+            .collection('attendance_records')
+            .delete(att.id)
+            .catch(() => {})
+        }
+
+        // 2. Remover device_releases
+        try {
+          const releases = await pb.collection('device_releases').getFullList({
+            filter: `company_id = "${companyId}"`,
+          })
+          for (const rel of releases) {
+            await pb
+              .collection('device_releases')
+              .delete(rel.id)
+              .catch(() => {})
+          }
+        } catch {
+          /* intentionally ignored */
+        }
+
+        // 3. Remover vínculos com freelancers
+        const fcs = await pb.collection('freelancer_companies').getFullList({
+          filter: `company_id = "${companyId}"`,
+        })
+        for (const fc of fcs) {
+          await pb
+            .collection('freelancer_companies')
+            .delete(fc.id)
+            .catch(() => {})
+        }
+
+        // 4. Remover vínculos de licença e licenças
+        const lics = await pb.collection('licenses').getFullList({
+          filter: `company_id = "${companyId}"`,
+        })
+        for (const lic of lics) {
+          const lms = await pb.collection('license_managers').getFullList({
+            filter: `license_id = "${lic.id}"`,
+          })
+          for (const lm of lms) {
+            await pb
+              .collection('license_managers')
+              .delete(lm.id)
+              .catch(() => {})
+          }
+          await pb
+            .collection('licenses')
+            .delete(lic.id)
+            .catch(() => {})
+        }
+
+        // 5. Deletar empresa
+        await pb.collection('companies').delete(companyId)
+
+        return {
+          success: true,
+          message: 'Empresa removida com sucesso.',
+          companyId,
+        }
+      } catch (fallbackErr: unknown) {
+        const fbErr = fallbackErr as { message?: string }
+        throw new Error(fbErr?.message || 'Falha ao remover empresa.')
+      }
+    }
+
+    throw new Error(
+      pbErr?.data?.error || pbErr?.data?.message || pbErr?.message || 'Falha ao remover empresa.',
+    )
+  }
+}
+
 export async function updateAdminCompany(
   companyId: string,
   payload: UpdateCompanyPayload,
@@ -1272,7 +1377,11 @@ export async function getCompanyManagers(companyId: string): Promise<AdminManage
               user = null
             }
           }
-          if (user && !seenIds.has(user.id)) {
+          const uEmail = (user?.email || '').toLowerCase().trim()
+          const uRole = (user?.role as string) || ''
+          const isUserSuperadmin = uRole === 'superadmin' || uEmail === 'admin@bizcheck.com'
+
+          if (user && !isUserSuperadmin && !seenIds.has(user.id)) {
             seenIds.add(user.id)
             managers.push({
               id: user.id,

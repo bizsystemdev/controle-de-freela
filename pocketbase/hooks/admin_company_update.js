@@ -13,6 +13,14 @@ routerAdd('PUT', '/api/admin/company/{id}', (e) => {
     return e.json(404, { error: 'Empresa não encontrada.' })
   }
 
+  // Verifica se o usuário autenticado é superadmin
+  let isSuperadmin = false
+  if (e.auth) {
+    const userRole = e.auth.getString('role')
+    const userEmail = e.auth.getString('email').toLowerCase().trim()
+    isSuperadmin = userRole === 'superadmin' || userEmail === 'admin@bizcheck.com'
+  }
+
   const name = String(body.name || '').trim()
   const street = String(body.street || body.address || '').trim()
   const number = String(body.number || '').trim()
@@ -91,24 +99,26 @@ routerAdd('PUT', '/api/admin/company/{id}', (e) => {
   try {
     $app.save(comp)
 
-    // Se o plano foi fornecido, atualiza também a licença da empresa
+    // Se o plano foi fornecido E o usuário for superadmin, atualiza a licença da empresa
     if (plan && ['free', 'pro', 'enterprise'].includes(plan)) {
-      try {
-        const lics = $app.findRecordsByFilter(
-          'licenses',
-          `company_id = '${comp.id}'`,
-          '-created',
-          1,
-          0,
-        )
-        if (lics.length > 0) {
-          const lic = lics[0]
-          const maxFreelancers = plan === 'enterprise' ? 200 : plan === 'pro' ? 50 : 10
-          lic.set('plan', plan)
-          lic.set('max_freelancers', maxFreelancers)
-          $app.save(lic)
-        }
-      } catch (_) {}
+      if (isSuperadmin) {
+        try {
+          const lics = $app.findRecordsByFilter(
+            'licenses',
+            `company_id = '${comp.id}'`,
+            '-created',
+            1,
+            0,
+          )
+          if (lics.length > 0) {
+            const lic = lics[0]
+            const maxFreelancers = plan === 'enterprise' ? 200 : plan === 'pro' ? 50 : 10
+            lic.set('plan', plan)
+            lic.set('max_freelancers', maxFreelancers)
+            $app.save(lic)
+          }
+        } catch (_) {}
+      }
     }
 
     const companyLat = comp.getFloat('lat')

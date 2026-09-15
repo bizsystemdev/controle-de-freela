@@ -20,7 +20,11 @@ routerAdd('POST', '/api/auth/manager-login', (e) => {
     return e.json(401, { error: 'Credenciais inválidas.' })
   }
 
-  // Check if user has manager role in license_managers
+  const isSuperadmin =
+    user.getString('role') === 'superadmin' ||
+    user.getString('email').toLowerCase().trim() === 'admin@bizcheck.com'
+
+  // Check if user has manager role in license_managers, or if user is superadmin
   const mgrRecords = $app.findRecordsByFilter(
     'license_managers',
     `user_id = '${user.id}'`,
@@ -29,7 +33,7 @@ routerAdd('POST', '/api/auth/manager-login', (e) => {
     0,
   )
 
-  if (mgrRecords.length === 0) {
+  if (mgrRecords.length === 0 && !isSuperadmin) {
     return e.json(403, { error: 'Usuário não possui privilégios de gestor.' })
   }
 
@@ -40,9 +44,12 @@ routerAdd('POST', '/api/auth/manager-login', (e) => {
     60 * 60 * 24 * 7,
   )
 
-  const userProfile =
-    user.getString('profile') ||
-    (mgrRecords[0].getString('role') === 'viewer' ? 'gerente' : 'gestor')
+  let effectiveRole = isSuperadmin
+    ? 'superadmin'
+    : mgrRecords.length > 0
+      ? mgrRecords[0].getString('role') || 'admin'
+      : 'admin'
+  let userProfile = user.getString('profile') || (effectiveRole === 'viewer' ? 'gerente' : 'gestor')
 
   return e.json(200, {
     token: token,
@@ -50,7 +57,8 @@ routerAdd('POST', '/api/auth/manager-login', (e) => {
       id: user.id,
       name: user.getString('name'),
       email: user.getString('email'),
-      role: mgrRecords[0].getString('role') || 'admin',
+      role: effectiveRole,
+      userRole: isSuperadmin ? 'superadmin' : user.getString('role') || 'gestor',
       profile: userProfile,
     },
   })

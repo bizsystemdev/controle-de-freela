@@ -37,6 +37,14 @@ routerAdd('GET', '/api/admin/company/{id}/managers', (e) => {
 
     try {
       const user = $app.findRecordById('_pb_users_auth_', userId)
+      const userEmail = (user.getString('email') || '').toLowerCase().trim()
+      const userRole = user.getString('role') || ''
+
+      // REQUISITO: "Quem for superadmin NÃO deve aparecer na listagem de gestores, mesmo tendo acesso a todas empresas."
+      if (userRole === 'superadmin' || userEmail === 'admin@bizcheck.com') {
+        continue
+      }
+
       const profile =
         user.getString('profile') || (lm.getString('role') === 'viewer' ? 'gerente' : 'gestor')
       managers.push({
@@ -47,6 +55,7 @@ routerAdd('GET', '/api/admin/company/{id}/managers', (e) => {
         email: user.getString('email'),
         role: lm.getString('role') || 'owner',
         profile: profile,
+        userRole: userRole,
         inviteToken: user.getString('invite_token'),
         inviteStatus: user.getString('invite_status'),
         created: user.getString('created'),

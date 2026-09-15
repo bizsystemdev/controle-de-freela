@@ -7,92 +7,197 @@ routerAdd('GET', '/api/admin/companies', (e) => {
     targetUserId = e.auth.id
   }
 
-  let lmRecords = []
+  let isSuperadmin = false
   if (targetUserId) {
-    lmRecords = $app.findRecordsByFilter(
-      'license_managers',
-      `user_id = '${targetUserId}'`,
-      '-created',
-      100,
-      0,
-    )
-  } else {
-    // Return all companies if admin
-    lmRecords = $app.findRecordsByFilter('license_managers', '', '-created', 100, 0)
+    try {
+      const userRec = $app.findRecordById('_pb_users_auth_', targetUserId)
+      if (
+        userRec &&
+        (userRec.getString('role') === 'superadmin' ||
+          userRec.getString('email').toLowerCase().trim() === 'admin@bizcheck.com')
+      ) {
+        isSuperadmin = true
+      }
+    } catch (_) {}
+  } else if (e.auth) {
+    if (
+      e.auth.getString('role') === 'superadmin' ||
+      e.auth.getString('email').toLowerCase().trim() === 'admin@bizcheck.com'
+    ) {
+      isSuperadmin = true
+    }
   }
 
   const companiesMap = {}
-  for (let i = 0; i < lmRecords.length; i++) {
-    const licenseId = lmRecords[i].getString('license_id')
-    try {
-      const lic = $app.findRecordById('licenses', licenseId)
-      const companyId = lic.getString('company_id')
-      if (!companiesMap[companyId]) {
-        const comp = $app.findRecordById('companies', companyId)
-        if (comp && comp.getBool('active') !== false) {
-          // Count freelancers for this company
-          const fcs = $app.findRecordsByFilter(
-            'freelancer_companies',
-            `company_id = '${comp.id}' && active = true`,
-            '',
-            500,
-            0,
-          )
 
-          // Find last check-in record
-          const lastAtt = $app.findRecordsByFilter(
-            'attendance_records',
-            `company_id = '${comp.id}' && type = 'check_in'`,
-            '-timestamp',
-            1,
-            0,
-          )
+  if (isSuperadmin) {
+    // Superadmin tem acesso a TODAS as empresas ativas existentes
+    const allCompanies = $app.findRecordsByFilter('companies', 'active = true', 'name', 500, 0)
+    for (let i = 0; i < allCompanies.length; i++) {
+      const comp = allCompanies[i]
+      try {
+        const fcs = $app.findRecordsByFilter(
+          'freelancer_companies',
+          `company_id = '${comp.id}' && active = true`,
+          '',
+          500,
+          0,
+        )
 
-          const lastCheckInTime = lastAtt.length > 0 ? lastAtt[0].getString('timestamp') : null
+        const lastAtt = $app.findRecordsByFilter(
+          'attendance_records',
+          `company_id = '${comp.id}' && type = 'check_in'`,
+          '-timestamp',
+          1,
+          0,
+        )
 
-          const companyLat = comp.getFloat('lat')
-          const companyLng = comp.getFloat('lng')
-          const hasConfiguredLocation =
-            isFinite(companyLat) &&
-            isFinite(companyLng) &&
-            companyLat >= -90 &&
-            companyLat <= 90 &&
-            companyLng >= -180 &&
-            companyLng <= 180 &&
-            !(companyLat === 0 && companyLng === 0)
+        const lastCheckInTime = lastAtt.length > 0 ? lastAtt[0].getString('timestamp') : null
 
-          companiesMap[companyId] = {
-            id: comp.id,
-            name: comp.getString('name'),
-            city: comp.getString('city'),
-            state: comp.getString('state'),
-            address: comp.getString('address'),
-            cep: comp.getString('cep'),
-            number: comp.getString('number'),
-            neighborhood: comp.getString('neighborhood'),
-            cnpj: comp.getString('cnpj'),
-            location: {
-              lat: hasConfiguredLocation ? companyLat : null,
-              lng: hasConfiguredLocation ? companyLng : null,
-            },
-            freelancersCount: fcs.length,
-            lastCheckIn: lastCheckInTime,
-            attendancePhotoRequired: comp.getBool('attendance_photo_required'),
-            paymentControlEnabled: comp.getBool('payment_control_enabled'),
-            freelancerShiftBaseAmountCents:
-              comp.getInt('freelancer_shift_base_amount_cents') > 0
-                ? comp.getInt('freelancer_shift_base_amount_cents')
-                : null,
-            license: {
-              id: lic.id,
-              status: lic.getString('status'),
-              plan: lic.getString('plan'),
-              maxFreelancers: lic.getInt('max_freelancers'),
-            },
+        let lic = null
+        const lics = $app.findRecordsByFilter(
+          'licenses',
+          `company_id = '${comp.id}'`,
+          '-created',
+          1,
+          0,
+        )
+        if (lics.length > 0) {
+          lic = lics[0]
+        }
+
+        const companyLat = comp.getFloat('lat')
+        const companyLng = comp.getFloat('lng')
+        const hasConfiguredLocation =
+          isFinite(companyLat) &&
+          isFinite(companyLng) &&
+          companyLat >= -90 &&
+          companyLat <= 90 &&
+          companyLng >= -180 &&
+          companyLng <= 180 &&
+          !(companyLat === 0 && companyLng === 0)
+
+        companiesMap[comp.id] = {
+          id: comp.id,
+          name: comp.getString('name'),
+          city: comp.getString('city'),
+          state: comp.getString('state'),
+          address: comp.getString('address'),
+          cep: comp.getString('cep'),
+          number: comp.getString('number'),
+          neighborhood: comp.getString('neighborhood'),
+          cnpj: comp.getString('cnpj'),
+          location: {
+            lat: hasConfiguredLocation ? companyLat : null,
+            lng: hasConfiguredLocation ? companyLng : null,
+          },
+          freelancersCount: fcs.length,
+          lastCheckIn: lastCheckInTime,
+          attendancePhotoRequired: comp.getBool('attendance_photo_required'),
+          paymentControlEnabled: comp.getBool('payment_control_enabled'),
+          freelancerShiftBaseAmountCents:
+            comp.getInt('freelancer_shift_base_amount_cents') > 0
+              ? comp.getInt('freelancer_shift_base_amount_cents')
+              : null,
+          license: lic
+            ? {
+                id: lic.id,
+                status: lic.getString('status'),
+                plan: lic.getString('plan'),
+                maxFreelancers: lic.getInt('max_freelancers'),
+              }
+            : {
+                id: '',
+                status: 'active',
+                plan: 'pro',
+                maxFreelancers: 50,
+              },
+        }
+      } catch (_) {}
+    }
+  } else {
+    // Gestores e gerentes comuns veem apenas empresas vinculadas
+    let lmRecords = []
+    if (targetUserId) {
+      lmRecords = $app.findRecordsByFilter(
+        'license_managers',
+        `user_id = '${targetUserId}'`,
+        '-created',
+        100,
+        0,
+      )
+    }
+
+    for (let i = 0; i < lmRecords.length; i++) {
+      const licenseId = lmRecords[i].getString('license_id')
+      try {
+        const lic = $app.findRecordById('licenses', licenseId)
+        const companyId = lic.getString('company_id')
+        if (!companiesMap[companyId]) {
+          const comp = $app.findRecordById('companies', companyId)
+          if (comp && comp.getBool('active') !== false) {
+            const fcs = $app.findRecordsByFilter(
+              'freelancer_companies',
+              `company_id = '${comp.id}' && active = true`,
+              '',
+              500,
+              0,
+            )
+
+            const lastAtt = $app.findRecordsByFilter(
+              'attendance_records',
+              `company_id = '${comp.id}' && type = 'check_in'`,
+              '-timestamp',
+              1,
+              0,
+            )
+
+            const lastCheckInTime = lastAtt.length > 0 ? lastAtt[0].getString('timestamp') : null
+
+            const companyLat = comp.getFloat('lat')
+            const companyLng = comp.getFloat('lng')
+            const hasConfiguredLocation =
+              isFinite(companyLat) &&
+              isFinite(companyLng) &&
+              companyLat >= -90 &&
+              companyLat <= 90 &&
+              companyLng >= -180 &&
+              companyLng <= 180 &&
+              !(companyLat === 0 && companyLng === 0)
+
+            companiesMap[companyId] = {
+              id: comp.id,
+              name: comp.getString('name'),
+              city: comp.getString('city'),
+              state: comp.getString('state'),
+              address: comp.getString('address'),
+              cep: comp.getString('cep'),
+              number: comp.getString('number'),
+              neighborhood: comp.getString('neighborhood'),
+              cnpj: comp.getString('cnpj'),
+              location: {
+                lat: hasConfiguredLocation ? companyLat : null,
+                lng: hasConfiguredLocation ? companyLng : null,
+              },
+              freelancersCount: fcs.length,
+              lastCheckIn: lastCheckInTime,
+              attendancePhotoRequired: comp.getBool('attendance_photo_required'),
+              paymentControlEnabled: comp.getBool('payment_control_enabled'),
+              freelancerShiftBaseAmountCents:
+                comp.getInt('freelancer_shift_base_amount_cents') > 0
+                  ? comp.getInt('freelancer_shift_base_amount_cents')
+                  : null,
+              license: {
+                id: lic.id,
+                status: lic.getString('status'),
+                plan: lic.getString('plan'),
+                maxFreelancers: lic.getInt('max_freelancers'),
+              },
+            }
           }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
   }
 
   const result = []

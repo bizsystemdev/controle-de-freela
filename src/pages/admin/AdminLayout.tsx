@@ -3,7 +3,7 @@ import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-d
 import { AppLogo } from '@/components/AppLogo'
 import { useApp } from '@/context/AppContext'
 import { getAdminCompanies, type CompanyAdminItem } from '@/services/admin'
-import { isGerente, isGerenteCompanyTabAllowed } from '@/lib/adminPermissions'
+import { isGerente, isSuperadmin, isGerenteCompanyTabAllowed } from '@/lib/adminPermissions'
 import {
   Building2,
   Users,
@@ -35,6 +35,7 @@ export const AdminLayout: React.FC = () => {
   const [managerCompanies, setManagerCompanies] = useState<CompanyAdminItem[]>([])
   const [companiesLoaded, setCompaniesLoaded] = useState(false)
   const gerente = isGerente(manager)
+  const superadmin = isSuperadmin(manager)
 
   // Extract selected company ID if inside `/admin/empresa/:id/...`
   const companyIdMatch = location.pathname.match(/\/admin\/empresa\/([^/]+)/)
@@ -371,7 +372,7 @@ export const AdminLayout: React.FC = () => {
               <DropdownMenuTrigger className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-800 transition-colors focus:outline-none">
                 <div
                   className={`w-8 h-8 rounded-lg text-white font-black text-xs flex items-center justify-center shadow-sm ${
-                    gerente ? 'bg-amber-600' : 'bg-indigo-600'
+                    superadmin ? 'bg-purple-600' : gerente ? 'bg-amber-600' : 'bg-indigo-600'
                   }`}
                 >
                   {manager?.name?.charAt(0) || 'G'}
@@ -379,16 +380,19 @@ export const AdminLayout: React.FC = () => {
                 <div className="hidden sm:flex flex-col text-left">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-white truncate max-w-[140px]">
-                      {manager?.name || (gerente ? 'Gerente' : 'Gestor')}
+                      {manager?.name ||
+                        (superadmin ? 'Superadmin' : gerente ? 'Gerente' : 'Gestor')}
                     </span>
                     <span
                       className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase ${
-                        gerente
-                          ? 'bg-amber-500/20 text-amber-300'
-                          : 'bg-indigo-500/20 text-indigo-300'
+                        superadmin
+                          ? 'bg-purple-500/20 text-purple-300'
+                          : gerente
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : 'bg-indigo-500/20 text-indigo-300'
                       }`}
                     >
-                      {gerente ? 'Gerente' : 'Gestor'}
+                      {superadmin ? 'Superadmin' : gerente ? 'Gerente' : 'Gestor'}
                     </span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-medium truncate max-w-[140px]">
@@ -403,13 +407,19 @@ export const AdminLayout: React.FC = () => {
               >
                 <DropdownMenuLabel className="px-2 py-1.5">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-slate-900">{manager?.name || 'Gestor'}</p>
+                    <p className="text-xs font-bold text-slate-900">
+                      {manager?.name || (superadmin ? 'Superadmin' : 'Gestor')}
+                    </p>
                     <span
                       className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
-                        gerente ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800'
+                        superadmin
+                          ? 'bg-purple-100 text-purple-800'
+                          : gerente
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-indigo-100 text-indigo-800'
                       }`}
                     >
-                      {gerente ? 'Gerente' : 'Gestor'}
+                      {superadmin ? 'Superadmin' : gerente ? 'Gerente' : 'Gestor'}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 font-normal truncate mt-0.5">
