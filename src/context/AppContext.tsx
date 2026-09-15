@@ -603,6 +603,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [])
 
   const restoreManagerSession = useCallback((token: string, user: ManagerUser) => {
+    if (token) {
+      pb.authStore.save(token, {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.userRole || user.role,
+        profile: user.profile,
+      } as any)
+    }
     setManager(user)
     setRole('manager')
     setAuthState('authenticated')

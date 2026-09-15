@@ -65,6 +65,12 @@ export interface AcceptInviteResponse {
   message: string
   token: string
   user: ManagerUser
+  companies?: Array<{
+    id: string
+    name: string
+    city: string
+    state: string
+  }>
 }
 
 /**

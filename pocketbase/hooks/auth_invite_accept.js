@@ -42,6 +42,32 @@ routerAdd('POST', '/api/auth/invite/accept', (e) => {
   const userProfile = user.getString('profile') || 'gestor'
   const targetRole = userProfile === 'gerente' ? 'viewer' : 'owner'
 
+  // Buscar empresas vinculadas a este gestor/gerente
+  const lms = $app.findRecordsByFilter(
+    'license_managers',
+    `user_id = '${user.id}'`,
+    '-created',
+    50,
+    0,
+  )
+  const companiesList = []
+  for (let i = 0; i < lms.length; i++) {
+    const licId = lms[i].getString('license_id')
+    try {
+      const lic = $app.findRecordById('licenses', licId)
+      const compId = lic.getString('company_id')
+      const comp = $app.findRecordById('companies', compId)
+      if (comp) {
+        companiesList.push({
+          id: comp.id,
+          name: comp.getString('name'),
+          city: comp.getString('city'),
+          state: comp.getString('state'),
+        })
+      }
+    } catch (_) {}
+  }
+
   return e.json(200, {
     success: true,
     message: 'Senha cadastrada com sucesso! Bem-vindo ao Freela Check.',
@@ -53,5 +79,6 @@ routerAdd('POST', '/api/auth/invite/accept', (e) => {
       role: targetRole,
       profile: userProfile,
     },
+    companies: companiesList,
   })
 })

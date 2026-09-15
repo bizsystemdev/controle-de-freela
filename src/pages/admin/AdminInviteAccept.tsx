@@ -82,9 +82,28 @@ export default function AdminInviteAccept() {
         restoreManagerSession(res.token, res.user)
       }
 
+      // Determinar a empresa de destino
+      // 1. Das empresas retornadas na resposta do accept
+      // 2. Do inviteData previamente validado
+      const targetCompany =
+        (res.companies && res.companies.length > 0 && res.companies[0]) ||
+        (inviteData?.companies && inviteData.companies.length > 0 && inviteData.companies[0]) ||
+        null
+
+      const isGerenteUser =
+        res.user.profile === 'gerente' ||
+        res.user.role === 'viewer' ||
+        inviteData?.user.profile === 'gerente'
+
+      const destination = targetCompany
+        ? isGerenteUser
+          ? `/admin/empresa/${targetCompany.id}?tab=freelancers`
+          : `/admin/empresa/${targetCompany.id}`
+        : '/admin'
+
       setTimeout(() => {
-        navigate('/admin/freelancers')
-      }, 2000)
+        navigate(destination, { replace: true })
+      }, 1500)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Falha ao definir senha.')
     } finally {
@@ -140,17 +159,31 @@ export default function AdminInviteAccept() {
             <div>
               <h2 className="text-2xl font-black text-slate-900">Acesso Criado com Sucesso!</h2>
               <p className="text-sm text-slate-500 mt-1">
-                Sua senha foi cadastrada. Redirecionando para o painel de Gerente...
+                Sua senha foi cadastrada. Redirecionando para o painel da sua empresa...
               </p>
             </div>
             <div className="pt-2">
-              <Link
-                to="/admin/freelancers"
-                className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm transition-colors"
-              >
-                <span>Acessar Painel Agora</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              {(() => {
+                const targetCompany =
+                  inviteData?.companies && inviteData.companies.length > 0
+                    ? inviteData.companies[0]
+                    : null
+                const isGerenteUser = inviteData?.user.profile === 'gerente'
+                const dest = targetCompany
+                  ? isGerenteUser
+                    ? `/admin/empresa/${targetCompany.id}?tab=freelancers`
+                    : `/admin/empresa/${targetCompany.id}`
+                  : '/admin'
+                return (
+                  <Link
+                    to={dest}
+                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm transition-colors"
+                  >
+                    <span>Acessar Painel Agora</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                )
+              })()}
             </div>
           </div>
         )}
