@@ -52,6 +52,7 @@ routerAdd('POST', '/api/admin/companies', (e) => {
     createdCompany.set('state', state.toUpperCase())
     createdCompany.set('address', fullAddress)
     createdCompany.set('active', true)
+    createdCompany.set('payment_control_enabled', true)
     if (cep) createdCompany.set('cep', cep)
     if (number) createdCompany.set('number', number)
     if (neighborhood) createdCompany.set('neighborhood', neighborhood)
