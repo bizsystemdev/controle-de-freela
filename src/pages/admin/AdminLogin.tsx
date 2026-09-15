@@ -26,8 +26,8 @@ export default function AdminLogin() {
   const navigate = useNavigate()
   const { loginAsManager, isAuthBusy, authError, resetAuthError } = useApp()
 
-  const [email, setEmail] = useState('admin@bizcheck.com')
-  const [password, setPassword] = useState('admin123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [localError, setLocalError] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
@@ -71,13 +71,6 @@ export default function AdminLogin() {
     }
   }
 
-  const fillAdminDemo = () => {
-    setEmail('admin@bizcheck.com')
-    setPassword('admin123')
-    setLocalError('')
-    resetAuthError()
-  }
-
   const errorMessage = localError || authError
 
   return (
@@ -99,21 +92,6 @@ export default function AdminLogin() {
           <p className="text-sm text-slate-500 mt-1">
             Entre com suas credenciais de gestor ou administrador de licença.
           </p>
-        </div>
-
-        {/* Demo Fast Fill Pill */}
-        <div className="mb-6 p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-          <div className="text-xs">
-            <p className="font-bold text-slate-800">Credencial de teste:</p>
-            <p className="text-slate-500 font-mono">admin@bizcheck.com / admin123</p>
-          </div>
-          <button
-            type="button"
-            onClick={fillAdminDemo}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors active:scale-95"
-          >
-            Preencher
-          </button>
         </div>
 
         {/* Form */}
