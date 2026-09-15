@@ -33,7 +33,11 @@ import { PaymentSettingsCard } from '@/components/admin/PaymentSettingsCard'
 import { AttendancePhotoSettingsCard } from '@/components/admin/AttendancePhotoSettingsCard'
 import { useApp } from '@/context/AppContext'
 import { isGerente } from '@/lib/adminPermissions'
-import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation'
+import {
+  getCurrentPosition,
+  hasValidCompanyCoordinates,
+  isGeolocationAvailable,
+} from '@/lib/geolocation'
 import { toast } from '@/hooks/use-toast'
 import { maskAlphanumericCnpj, isValidAlphanumericCnpj, unmaskCnpj } from '@/lib/cnpj'
 import { safeDate } from '@/lib/utils'
@@ -197,8 +201,6 @@ export default function AdminCompanyDetail() {
   const [savingCompanyEdit, setSavingCompanyEdit] = useState(false)
   const [compEditErrors, setCompEditErrors] = useState<Record<string, string>>({})
   const [isLookingUpCep, setIsLookingUpCep] = useState(false)
-  const [isGeocoding, setIsGeocoding] = useState(false)
-  const [editHasCoordinates, setEditHasCoordinates] = useState(true)
 
   // Company Edit Form Fields
   const [editCompName, setEditCompName] = useState('')
@@ -209,8 +211,6 @@ export default function AdminCompanyDetail() {
   const [editCompState, setEditCompState] = useState('SC')
   const [editCompCep, setEditCompCep] = useState('')
   const [editCompCnpj, setEditCompCnpj] = useState('')
-  const [editCompLat, setEditCompLat] = useState('')
-  const [editCompLng, setEditCompLng] = useState('')
   const [editCompPlan, setEditCompPlan] = useState<'free' | 'pro' | 'enterprise'>('pro')
 
   // Managers tab state
@@ -319,15 +319,7 @@ export default function AdminCompanyDetail() {
         return
       }
 
-      const coordinatesAreValid =
-        Number.isFinite(coords.latitude) &&
-        Number.isFinite(coords.longitude) &&
-        coords.latitude >= -90 &&
-        coords.latitude <= 90 &&
-        coords.longitude >= -180 &&
-        coords.longitude <= 180
-
-      if (!coordinatesAreValid) {
+      if (!hasValidCompanyCoordinates({ lat: coords.latitude, lng: coords.longitude })) {
         toast({
           title: 'Não foi possível obter a localização',
           description: 'O dispositivo retornou uma localização inválida. Tente novamente.',
@@ -502,10 +494,7 @@ export default function AdminCompanyDetail() {
     setEditCompState(company.estado || 'SC')
     setEditCompCep(company.cep || '')
     setEditCompCnpj(company.cnpj ? maskAlphanumericCnpj(company.cnpj) : '')
-    setEditCompLat(company.location?.lat ? String(company.location.lat) : '')
-    setEditCompLng(company.location?.lng ? String(company.location.lng) : '')
     setEditCompPlan(currentPlan)
-    setEditHasCoordinates(Boolean(company.location?.lat && company.location?.lng))
     setCompEditErrors({})
     setEditCompanyModalOpen(true)
   }
@@ -547,107 +536,6 @@ export default function AdminCompanyDetail() {
     }
   }
 
-  // Geocoding during company edit
-  const performEditGeocoding = async (
-    streetVal: string,
-    numberVal: string,
-    neighborhoodVal: string,
-    cityVal: string,
-    stateVal: string,
-  ) => {
-    if (!streetVal.trim() || !numberVal.trim() || !cityVal.trim() || !stateVal.trim()) {
-      return
-    }
-
-    setIsGeocoding(true)
-    try {
-      const queryParts = [
-        streetVal.trim(),
-        numberVal.trim(),
-        neighborhoodVal.trim(),
-        cityVal.trim(),
-        stateVal.trim(),
-        'Brasil',
-      ]
-        .filter(Boolean)
-        .join(', ')
-
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryParts)}&limit=1`
-      const res = await fetch(url, {
-        headers: {
-          'Accept-Language': 'pt-BR',
-        },
-        signal: AbortSignal.timeout(6000),
-      })
-      const results = await res.json()
-
-      if (results && results.length > 0 && results[0].lat && results[0].lon) {
-        const foundLat = parseFloat(results[0].lat).toFixed(6)
-        const foundLng = parseFloat(results[0].lon).toFixed(6)
-        setEditCompLat(foundLat)
-        setEditCompLng(foundLng)
-        setEditHasCoordinates(true)
-        setCompEditErrors((prev) => ({ ...prev, coordinates: '' }))
-      } else {
-        const fallbackQuery = `${streetVal.trim()}, ${cityVal.trim()}, ${stateVal.trim()}, Brasil`
-        const fbRes = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=1`,
-          { headers: { 'Accept-Language': 'pt-BR' }, signal: AbortSignal.timeout(6000) },
-        )
-        const fbResults = await fbRes.json()
-        if (fbResults && fbResults.length > 0 && fbResults[0].lat && fbResults[0].lon) {
-          setEditCompLat(parseFloat(fbResults[0].lat).toFixed(6))
-          setEditCompLng(parseFloat(fbResults[0].lon).toFixed(6))
-          setEditHasCoordinates(true)
-          setCompEditErrors((prev) => ({ ...prev, coordinates: '' }))
-        } else {
-          setCompEditErrors((prev) => ({
-            ...prev,
-            coordinates:
-              'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.',
-          }))
-        }
-      }
-    } catch {
-      setCompEditErrors((prev) => ({
-        ...prev,
-        coordinates:
-          'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.',
-      }))
-    } finally {
-      setIsGeocoding(false)
-    }
-  }
-
-  // Trigger geocoding on edit when modal is open and address fields change
-  useEffect(() => {
-    if (
-      editCompanyModalOpen &&
-      editCompStreet.trim() &&
-      editCompNumber.trim() &&
-      editCompCity.trim() &&
-      editCompState.trim()
-    ) {
-      const timer = setTimeout(() => {
-        void performEditGeocoding(
-          editCompStreet,
-          editCompNumber,
-          editCompNeighborhood,
-          editCompCity,
-          editCompState,
-        )
-      }, 700)
-      return () => clearTimeout(timer)
-    }
-  }, [
-    editCompanyModalOpen,
-    editCompStreet,
-    editCompNumber,
-    editCompNeighborhood,
-    editCompCity,
-    editCompState,
-  ])
-
   const handleSaveCompanyEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (gerente) return
@@ -662,13 +550,6 @@ export default function AdminCompanyDetail() {
 
     if (editCompCnpj.trim() && !isValidAlphanumericCnpj(editCompCnpj)) {
       errors.cnpj = 'CNPJ inválido. Digite os 14 caracteres alfanuméricos.'
-    }
-
-    const parsedLat = parseFloat(editCompLat)
-    const parsedLng = parseFloat(editCompLng)
-    if (!editCompLat || !editCompLng || isNaN(parsedLat) || isNaN(parsedLng)) {
-      errors.coordinates =
-        'Não foi possível obter as coordenadas deste endereço. Verifique os dados e tente novamente.'
     }
 
     if (Object.keys(errors).length > 0) {
@@ -689,8 +570,6 @@ export default function AdminCompanyDetail() {
         state: editCompState.trim().toUpperCase(),
         cep: editCompCep.trim() || undefined,
         cnpj: editCompCnpj.trim() ? unmaskCnpj(editCompCnpj) : '',
-        lat: parsedLat,
-        lng: parsedLng,
         plan: editCompPlan,
       }
 
@@ -1230,6 +1109,8 @@ export default function AdminCompanyDetail() {
     )
   }
 
+  const companyLocationConfigured = hasValidCompanyCoordinates(company.location)
+
   return (
     <div className="space-y-6">
       {/* Top Company Header Bar */}
@@ -1340,6 +1221,40 @@ export default function AdminCompanyDetail() {
           )}
         </div>
       </div>
+
+      {!companyLocationConfigured && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <h2 className="text-sm font-black text-amber-900">
+                Localização da empresa ainda não configurada
+              </h2>
+              <p className="text-xs sm:text-sm text-amber-800 mt-1">
+                Para que o check-in e o check-out dos freelancers funcionem corretamente, configure
+                a localização física desta empresa usando o botão “Atualizar localização”.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleUpdateCompanyLocation()}
+            disabled={updatingCompanyLocation}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 shrink-0"
+          >
+            {updatingCompanyLocation ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <MapPin className="w-3.5 h-3.5" />
+            )}
+            <span>{updatingCompanyLocation ? 'Atualizando...' : 'Atualizar localização'}</span>
+          </button>
+        </div>
+      )}
+
       {/* Tabs Navigation Bar */}
       <div className="flex items-center gap-2 border-b border-slate-200/80 pb-3 overflow-x-auto">
         {!gerente && (
@@ -2740,7 +2655,7 @@ export default function AdminCompanyDetail() {
               Editar Empresa
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-slate-500">
-              Atualize as informações cadastrais, endereço com busca de CEP, CNPJ e coordenadas.
+              Atualize as informações cadastrais, o endereço com busca de CEP e o CNPJ.
             </DialogDescription>
           </DialogHeader>
 
@@ -2989,90 +2904,6 @@ export default function AdminCompanyDetail() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              {/* Indicador e Ajuste de Coordenadas Geográficas (Nominatim) */}
-              <div className="p-3.5 rounded-xl border transition-all duration-200 bg-slate-50 border-slate-200 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {isGeocoding ? (
-                      <Loader2 className="w-4 h-4 text-slate-500 animate-spin" />
-                    ) : editHasCoordinates ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    ) : (
-                      <MapPin className="w-4 h-4 text-slate-400" />
-                    )}
-                    <span className="text-xs font-medium">
-                      {isGeocoding ? (
-                        <span className="text-slate-600">Buscando coordenadas do endereço...</span>
-                      ) : editHasCoordinates ? (
-                        <span className="text-emerald-700 font-bold">Coordenadas obtidas ✓</span>
-                      ) : (
-                        <span className="text-slate-500">
-                          Preencha o endereço completo para calcular as coordenadas automaticamente.
-                        </span>
-                      )}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (editCompStreet && editCompNumber && editCompCity && editCompState) {
-                        void performEditGeocoding(
-                          editCompStreet,
-                          editCompNumber,
-                          editCompNeighborhood,
-                          editCompCity,
-                          editCompState,
-                        )
-                      }
-                    }}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline"
-                  >
-                    Recalcular GPS
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Latitude
-                    </label>
-                    <input
-                      type="text"
-                      value={editCompLat}
-                      onChange={(e) => {
-                        setEditCompLat(e.target.value)
-                        setEditHasCoordinates(Boolean(e.target.value && editCompLng))
-                      }}
-                      placeholder="-23.5505"
-                      className="w-full h-9 px-3 bg-white rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-indigo-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Longitude
-                    </label>
-                    <input
-                      type="text"
-                      value={editCompLng}
-                      onChange={(e) => {
-                        setEditCompLng(e.target.value)
-                        setEditHasCoordinates(Boolean(editCompLat && e.target.value))
-                      }}
-                      placeholder="-46.6333"
-                      className="w-full h-9 px-3 bg-white rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-indigo-600"
-                    />
-                  </div>
-                </div>
-
-                {compEditErrors.coordinates && (
-                  <p className="text-xs text-red-600 mt-2 flex items-center gap-1.5 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>{compEditErrors.coordinates}</span>
-                  </p>
-                )}
               </div>
             </div>
 

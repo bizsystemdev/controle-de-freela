@@ -15,9 +15,6 @@ routerAdd('POST', '/api/admin/companies', (e) => {
   const neighborhood = String(body.neighborhood || body.bairro || '').trim()
   const cnpj = String(body.cnpj || '').trim()
 
-  const lat = typeof body.lat === 'number' ? body.lat : parseFloat(String(body.lat || ''))
-  const lng = typeof body.lng === 'number' ? body.lng : parseFloat(String(body.lng || ''))
-
   const plan = String(body.plan || 'pro')
     .trim()
     .toLowerCase()
@@ -34,10 +31,6 @@ routerAdd('POST', '/api/admin/companies', (e) => {
   if (!state) {
     return e.json(400, { error: 'Estado é obrigatório.' })
   }
-  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return e.json(400, { error: 'Coordenadas (latitude e longitude) inválidas.' })
-  }
-
   // Validate plan
   const validPlans = ['free', 'pro', 'enterprise']
   const normalizedPlan = validPlans.includes(plan) ? plan : 'pro'
@@ -58,8 +51,6 @@ routerAdd('POST', '/api/admin/companies', (e) => {
     createdCompany.set('city', city)
     createdCompany.set('state', state.toUpperCase())
     createdCompany.set('address', fullAddress)
-    createdCompany.set('lat', lat)
-    createdCompany.set('lng', lng)
     createdCompany.set('active', true)
     if (cep) createdCompany.set('cep', cep)
     if (number) createdCompany.set('number', number)
@@ -100,8 +91,8 @@ routerAdd('POST', '/api/admin/companies', (e) => {
         neighborhood: createdCompany.getString('neighborhood'),
         cnpj: createdCompany.getString('cnpj'),
         location: {
-          lat: createdCompany.getFloat('lat'),
-          lng: createdCompany.getFloat('lng'),
+          lat: null,
+          lng: null,
         },
         license: {
           id: createdLicense.id,

@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { normalizeCompanyCoordinates, type CompanyCoordinates } from '@/lib/geolocation'
 
 export interface CompanyData {
   id: string
@@ -10,10 +11,7 @@ export interface CompanyData {
   number?: string
   neighborhood?: string
   cnpj?: string
-  location: {
-    lat: number
-    lng: number
-  }
+  location: CompanyCoordinates
   active: boolean
   attendancePhotoRequired: boolean
   paymentControlEnabled: boolean
@@ -36,10 +34,7 @@ export async function getCompany(id: string): Promise<CompanyData> {
       number: record.number || '',
       neighborhood: record.neighborhood || record.bairro || '',
       cnpj: record.cnpj || '',
-      location: {
-        lat: record.lat || 0,
-        lng: record.lng || 0,
-      },
+      location: normalizeCompanyCoordinates(record.lat, record.lng),
       active: record.active !== false,
       attendancePhotoRequired: Boolean(record.attendance_photo_required),
       paymentControlEnabled: Boolean(record.payment_control_enabled),
@@ -73,10 +68,7 @@ export async function listActiveCompanies(): Promise<CompanyData[]> {
       number: record.number || '',
       neighborhood: record.neighborhood || record.bairro || '',
       cnpj: record.cnpj || '',
-      location: {
-        lat: record.lat || 0,
-        lng: record.lng || 0,
-      },
+      location: normalizeCompanyCoordinates(record.lat, record.lng),
       active: record.active !== false,
       attendancePhotoRequired: Boolean(record.attendance_photo_required),
       paymentControlEnabled: Boolean(record.payment_control_enabled),
@@ -123,10 +115,7 @@ export async function getFreelancerCompanies(freelancerId: string): Promise<Comp
           number: comp.number || '',
           neighborhood: comp.neighborhood || comp.bairro || '',
           cnpj: comp.cnpj || '',
-          location: {
-            lat: comp.lat || 0,
-            lng: comp.lng || 0,
-          },
+          location: normalizeCompanyCoordinates(comp.lat, comp.lng),
           active: true,
           attendancePhotoRequired: Boolean(comp.attendance_photo_required),
           paymentControlEnabled: Boolean(comp.payment_control_enabled),

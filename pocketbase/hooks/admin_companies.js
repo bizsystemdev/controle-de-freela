@@ -50,6 +50,17 @@ routerAdd('GET', '/api/admin/companies', (e) => {
 
           const lastCheckInTime = lastAtt.length > 0 ? lastAtt[0].getString('timestamp') : null
 
+          const companyLat = comp.getFloat('lat')
+          const companyLng = comp.getFloat('lng')
+          const hasConfiguredLocation =
+            isFinite(companyLat) &&
+            isFinite(companyLng) &&
+            companyLat >= -90 &&
+            companyLat <= 90 &&
+            companyLng >= -180 &&
+            companyLng <= 180 &&
+            !(companyLat === 0 && companyLng === 0)
+
           companiesMap[companyId] = {
             id: comp.id,
             name: comp.getString('name'),
@@ -61,8 +72,8 @@ routerAdd('GET', '/api/admin/companies', (e) => {
             neighborhood: comp.getString('neighborhood'),
             cnpj: comp.getString('cnpj'),
             location: {
-              lat: comp.getFloat('lat'),
-              lng: comp.getFloat('lng'),
+              lat: hasConfiguredLocation ? companyLat : null,
+              lng: hasConfiguredLocation ? companyLng : null,
             },
             freelancersCount: fcs.length,
             lastCheckIn: lastCheckInTime,

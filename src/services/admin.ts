@@ -1,5 +1,10 @@
 import pb from '@/lib/pocketbase/client'
 import { normalizeDateIso } from '@/lib/utils'
+import {
+  hasValidCompanyCoordinates,
+  normalizeCompanyCoordinates,
+  type CompanyCoordinates,
+} from '@/lib/geolocation'
 
 export interface CompanyAdminItem {
   id: string
@@ -11,10 +16,7 @@ export interface CompanyAdminItem {
   number?: string
   neighborhood?: string
   cnpj?: string
-  location: {
-    lat: number
-    lng: number
-  }
+  location: CompanyCoordinates
   freelancersCount: number
   lastCheckIn: string | null
   attendancePhotoRequired: boolean
@@ -120,8 +122,6 @@ export interface CreateCompanyPayload {
   cep?: string
   neighborhood?: string
   cnpj?: string
-  lat: number
-  lng: number
   plan: 'free' | 'pro' | 'enterprise'
 }
 
@@ -153,10 +153,7 @@ export interface UpdateCompanyResponse {
     number?: string
     neighborhood?: string
     cnpj?: string
-    location: {
-      lat: number
-      lng: number
-    }
+    location: CompanyCoordinates
     active?: boolean
   }
 }
@@ -174,10 +171,7 @@ export interface CreateCompanyResponse {
     number?: string
     neighborhood?: string
     cnpj?: string
-    location: {
-      lat: number
-      lng: number
-    }
+    location: CompanyCoordinates
     license: {
       id: string
       plan: string
@@ -422,8 +416,6 @@ export async function createAdminCompany(
           city: payload.city,
           state: payload.state.toUpperCase(),
           address: fullAddress,
-          lat: payload.lat,
-          lng: payload.lng,
           active: true,
           cep: payload.cep || '',
           number: payload.number || '',
@@ -465,10 +457,7 @@ export async function createAdminCompany(
             number: comp.number || payload.number || '',
             neighborhood: comp.neighborhood || payload.neighborhood || '',
             cnpj: comp.cnpj || payload.cnpj || '',
-            location: {
-              lat: comp.lat || payload.lat,
-              lng: comp.lng || payload.lng,
-            },
+            location: normalizeCompanyCoordinates(comp.lat, comp.lng),
             license: {
               id: lic.id,
               plan: lic.plan,
@@ -560,10 +549,7 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
                 number: comp.number || '',
                 neighborhood: comp.neighborhood || '',
                 cnpj: comp.cnpj || '',
-                location: {
-                  lat: comp.lat || 0,
-                  lng: comp.lng || 0,
-                },
+                location: normalizeCompanyCoordinates(comp.lat, comp.lng),
                 freelancersCount: fcs.totalItems,
                 lastCheckIn: lastAtt.items[0]?.timestamp || null,
                 attendancePhotoRequired: Boolean(comp.attendance_photo_required),
@@ -602,7 +588,7 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
           number: c.number || '',
           neighborhood: c.neighborhood || '',
           cnpj: c.cnpj || '',
-          location: { lat: c.lat || 0, lng: c.lng || 0 },
+          location: normalizeCompanyCoordinates(c.lat, c.lng),
           freelancersCount: 0,
           lastCheckIn: null,
           attendancePhotoRequired: Boolean(c.attendance_photo_required),
@@ -657,8 +643,14 @@ export async function updateAdminCompany(
         if (payload.number !== undefined) updateData.number = payload.number
         if (payload.neighborhood !== undefined) updateData.neighborhood = payload.neighborhood
         if (payload.cnpj !== undefined) updateData.cnpj = payload.cnpj
-        if (payload.lat !== undefined) updateData.lat = payload.lat
-        if (payload.lng !== undefined) updateData.lng = payload.lng
+        if (payload.lat !== undefined || payload.lng !== undefined) {
+          const location = { lat: payload.lat, lng: payload.lng }
+          if (!hasValidCompanyCoordinates(location)) {
+            throw new Error('Coordenadas (latitude e longitude) inválidas.')
+          }
+          updateData.lat = location.lat
+          updateData.lng = location.lng
+        }
         if (payload.active !== undefined) updateData.active = payload.active
 
         if (
@@ -710,10 +702,7 @@ export async function updateAdminCompany(
             number: updatedComp.number || '',
             neighborhood: updatedComp.neighborhood || '',
             cnpj: updatedComp.cnpj || '',
-            location: {
-              lat: updatedComp.lat || 0,
-              lng: updatedComp.lng || 0,
-            },
+            location: normalizeCompanyCoordinates(updatedComp.lat, updatedComp.lng),
             active: updatedComp.active,
           },
         }

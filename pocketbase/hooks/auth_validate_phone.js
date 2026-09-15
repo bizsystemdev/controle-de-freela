@@ -40,6 +40,17 @@ routerAdd('POST', '/api/auth/validate-phone', (e) => {
     try {
       const comp = $app.findRecordById('companies', companyId)
       if (comp && comp.getBool('active') !== false) {
+        const companyLat = comp.getFloat('lat')
+        const companyLng = comp.getFloat('lng')
+        const hasConfiguredLocation =
+          isFinite(companyLat) &&
+          isFinite(companyLng) &&
+          companyLat >= -90 &&
+          companyLat <= 90 &&
+          companyLng >= -180 &&
+          companyLng <= 180 &&
+          !(companyLat === 0 && companyLng === 0)
+
         companies.push({
           id: comp.id,
           name: comp.getString('name'),
@@ -47,8 +58,8 @@ routerAdd('POST', '/api/auth/validate-phone', (e) => {
           estado: comp.getString('state'),
           endereco: comp.getString('address'),
           location: {
-            lat: comp.getFloat('lat'),
-            lng: comp.getFloat('lng'),
+            lat: hasConfiguredLocation ? companyLat : null,
+            lng: hasConfiguredLocation ? companyLng : null,
           },
           attendancePhotoRequired: comp.getBool('attendance_photo_required'),
         })

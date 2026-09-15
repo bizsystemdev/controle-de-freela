@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { normalizeCompanyCoordinates, type CompanyCoordinates } from '@/lib/geolocation'
 
 export interface ApiUser {
   id: string
@@ -7,10 +8,7 @@ export interface ApiUser {
   deviceId: string | null
 }
 
-export interface ApiLocation {
-  lat: number
-  lng: number
-}
+export type ApiLocation = CompanyCoordinates
 
 export interface ApiCompany {
   id: string
@@ -136,10 +134,7 @@ export async function validatePhone(
               cidade: comp.city || '',
               estado: comp.state || '',
               endereco: comp.address || '',
-              location: {
-                lat: comp.lat || 0,
-                lng: comp.lng || 0,
-              },
+              location: normalizeCompanyCoordinates(comp.lat, comp.lng),
               attendancePhotoRequired: Boolean(comp.attendance_photo_required),
             })
           }

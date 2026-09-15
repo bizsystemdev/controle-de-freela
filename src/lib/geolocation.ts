@@ -5,6 +5,36 @@ export interface GeoCoords {
   longitude: number
 }
 
+export interface CompanyCoordinates {
+  lat: number | null
+  lng: number | null
+}
+
+export function hasValidCompanyCoordinates(
+  location: { lat?: number | null; lng?: number | null } | null | undefined,
+): location is { lat: number; lng: number } {
+  if (typeof location?.lat !== 'number' || typeof location.lng !== 'number') return false
+
+  const { lat, lng } = location
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180 &&
+    !(lat === 0 && lng === 0)
+  )
+}
+
+export function normalizeCompanyCoordinates(lat: unknown, lng: unknown): CompanyCoordinates {
+  const parsedLat = typeof lat === 'number' ? lat : Number.NaN
+  const parsedLng = typeof lng === 'number' ? lng : Number.NaN
+  const location = { lat: parsedLat, lng: parsedLng }
+
+  return hasValidCompanyCoordinates(location) ? location : { lat: null, lng: null }
+}
+
 /** Tolerance radius (meters) for matching a company location on check-in. */
 export const LOCATION_RADIUS_METERS = 200
 

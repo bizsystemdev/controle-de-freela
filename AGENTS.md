@@ -75,6 +75,13 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - No checkout, `payment_required` é fotografado no check-in que representa o turno. A confirmação administrativa também pertence a esse registro, pelos campos `payment_confirmed`, `received_amount_cents`, `payment_confirmed_at`, `payment_confirmed_by` e `payment_confirmed_by_name`; nunca derive valores históricos do valor-base atual da empresa.
 - Somente gestores ou gerentes vinculados à empresa podem alterar a configuração ou confirmar recebimentos. Confirmações são únicas, exigem checkout relacionado e não possuem edição posterior na interface atual.
 
+## Localização das empresas
+
+- O endereço da empresa é apenas informação cadastral e não deve gerar, recalcular ou validar coordenadas automaticamente no cadastro ou na edição.
+- Empresas novas permanecem sem latitude/longitude até a calibração explícita no painel administrativo pelo botão `Atualizar localização`, que captura a posição atual do dispositivo sem alterar o endereço textual.
+- Coordenadas ausentes, inválidas ou equivalentes ao par não configurado `0,0` devem ser normalizadas como localização pendente. O painel da empresa deve manter um aviso visível enquanto esse estado persistir.
+- Check-in e check-out devem ser bloqueados no frontend e no backend enquanto a empresa não possuir coordenadas válidas, com orientação clara para o freelancer procurar o responsável.
+
 ## Fotografias de presença
 
 - A exigência de fotografia é configurada por empresa em `attendance_photo_required` e permanece desativada por padrão. Cada evento de `attendance_records` armazena sua própria evidência no campo protegido `photo`; o check-in e o checkout nunca compartilham a mesma captura.

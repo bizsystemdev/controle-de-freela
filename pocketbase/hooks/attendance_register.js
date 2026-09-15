@@ -61,10 +61,26 @@ routerAdd('POST', '/api/attendance/register', (e) => {
     return e.json(403, { error: 'Freelancer não está vinculado a esta empresa.' })
   }
 
-  // 3. Check geolocation distance if coordinates were sent and company has coordinates
+  // 3. A calibrated company location is required for every attendance event.
   const compLat = company.getFloat('lat')
   const compLng = company.getFloat('lng')
-  if (lat !== null && lng !== null && compLat !== 0 && compLng !== 0) {
+  const companyCoordinatesAreValid =
+    isFinite(compLat) &&
+    isFinite(compLng) &&
+    compLat >= -90 &&
+    compLat <= 90 &&
+    compLng >= -180 &&
+    compLng <= 180 &&
+    !(compLat === 0 && compLng === 0)
+
+  if (!companyCoordinatesAreValid) {
+    return e.json(400, {
+      error:
+        'A localização desta empresa ainda não foi configurada. Entre em contato com o responsável pela empresa.',
+    })
+  }
+
+  if (lat !== null && lng !== null) {
     // Haversine formula inline
     const R = 6371000 // meters
     const toRad = Math.PI / 180
