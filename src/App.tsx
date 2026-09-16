@@ -23,6 +23,7 @@ const AdminFreelancersList = lazy(() => import('./pages/admin/AdminFreelancersLi
 const AdminFreelancerNew = lazy(() => import('./pages/admin/AdminFreelancerNew'))
 const AdminAttendanceHistory = lazy(() => import('./pages/admin/AdminAttendanceHistory'))
 const AdminInviteAccept = lazy(() => import('./pages/admin/AdminInviteAccept'))
+const AdminPasswordReset = lazy(() => import('./pages/admin/AdminPasswordReset'))
 
 const AdminSuspenseFallback = () => (
   <div className="min-h-screen w-full bg-slate-900 flex flex-col items-center justify-center p-6">
@@ -92,6 +93,16 @@ export default function App() {
               element={
                 <Suspense fallback={<AdminSuspenseFallback />}>
                   <AdminInviteAccept />
+                </Suspense>
+              }
+            />
+
+            {/* Admin Redefinição de Senha */}
+            <Route
+              path="/admin/redefinir-senha"
+              element={
+                <Suspense fallback={<AdminSuspenseFallback />}>
+                  <AdminPasswordReset />
                 </Suspense>
               }
             />

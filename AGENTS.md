@@ -115,6 +115,14 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - O frontend mantém o redirecionamento automático do usuário diretamente para o painel da empresa associada ao convite: gerentes vão para a aba de freelancers (`/admin/empresa/:id?tab=freelancers`) e gestores para a visão principal da empresa (`/admin/empresa/:id`).
 - Nunca redirecione para rotas administrativas que não existam no roteador (por exemplo, `/admin/freelancers` não existe — a listagem e cadastro de freelancers são escopados por empresa: `/admin/empresa/:id/freelancers`).
 
+## Redefinição de senha ("Esqueci minha senha")
+
+- A solicitação de recuperação de senha dispara `pb.collection('users').requestPasswordReset(email)` via service `requestPasswordReset(email)` em `src/services/auth.ts`.
+- O template de e-mail de redefinição de senha da collection `users` (`resetPasswordTemplate`) é configurado via migration (`0017_update_password_reset_template.js`) com assunto "Redefinir sua senha — Freela Check" e link direcionado para `{SITE_URL}/admin/redefinir-senha?token={TOKEN}`.
+- A rota `/admin/redefinir-senha` (`src/pages/admin/AdminPasswordReset.tsx`) lê o parâmetro `token` da URL e submete a redefinição nativa através de `pb.collection('users').confirmPasswordReset(token, password, passwordConfirm)` via service `confirmPasswordReset()` em `src/services/auth.ts`.
+- Validação de senha: mínimo 6 caracteres e confirmação idêntica. Em caso de token inválido ou expirado, a tela exibe mensagem explicativa em português e formulário de reenvio com `requestPasswordReset()`.
+- Após a confirmação bem-sucedida, havendo e-mail informado, o fluxo realiza autenticação NATIVA PocketBase via `loginManager(email, password)` (`pb.collection('users').authWithPassword`), sincroniza a sessão com `restoreManagerSession` e redireciona para a empresa vinculada (`/admin/empresa/:id` para gestores ou `/admin/empresa/:id?tab=freelancers` para gerentes), ou `/admin` como fallback.
+
 ## Convenções de implementação
 
 - Use componentes funcionais e hooks React. Páginas são exports default; utilitários, serviços e componentes compartilhados normalmente usam exports nomeados.

@@ -17,7 +17,6 @@ const NotFound = () => {
   // Identifica se a rota solicitada é do contexto administrativo ou se o usuário logado é gestor/gerente
   const isAdminContext =
     location.pathname.startsWith('/admin') || (authState === 'authenticated' && role === 'manager')
-
   const isGerente = manager?.profile === 'gerente' || manager?.role === 'viewer'
   const adminHomePath = '/admin'
   const freelancerHomePath = '/'

@@ -420,6 +420,37 @@ export async function requestPasswordReset(email: string): Promise<boolean> {
 }
 
 /**
+ * Confirma a redefinição de senha com token recebido por e-mail
+ */
+export async function confirmPasswordReset(
+  token: string,
+  password: string,
+  passwordConfirm: string,
+): Promise<boolean> {
+  try {
+    await pb.collection('users').confirmPasswordReset(token, password, passwordConfirm)
+    return true
+  } catch (err: unknown) {
+    const pbErr = err as { data?: { message?: string; [key: string]: unknown }; message?: string }
+    // Trata token inválido ou expirado
+    const rawMsg = (pbErr?.data?.message || pbErr?.message || '').toLowerCase()
+    if (
+      rawMsg.includes('token') ||
+      rawMsg.includes('invalid') ||
+      rawMsg.includes('expired') ||
+      rawMsg.includes('não encontrado')
+    ) {
+      throw new Error(
+        'O link de redefinição de senha é inválido ou expirou. Solicite um novo link.',
+      )
+    }
+    throw new Error(
+      pbErr?.data?.message || pbErr?.message || 'Falha ao redefinir senha. Tente novamente.',
+    )
+  }
+}
+
+/**
  * Valida o token de convite gerado para um Gerente
  */
 export async function verifyInviteToken(token: string): Promise<VerifyInviteResponse> {
