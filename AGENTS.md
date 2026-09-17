@@ -99,6 +99,8 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 
 ## Autenticação e autorização administrativa
 
+- A migration `0020_create_admin_superuser.js` cria ou atualiza `fbcapelini@gmail.com` em `_superusers` para acesso ao painel interno do PocketBase, com a senha definida na própria migration. Essa conta é independente do superadmin do app na collection `users`; não exponha sua senha ou tokens em logs, documentação ou variáveis `VITE_*`.
+
 - O `AppContext` usa `role: 'manager'` para o fluxo administrativo; o `AdminLayout` só aceita sessão autenticada com esse papel e um `manager` carregado.
 - A collection de usuários possui o campo `role` (`'superadmin' | 'gestor' | 'gerente'`). O usuário `admin@bizcheck.com` é o superadmin do sistema.
 - Toda verificação de superadmin deve usar unificadamente `isSuperadmin()` de `src/lib/adminPermissions.ts` (que valida `role === 'superadmin'` ou o e-mail `admin@bizcheck.com`); nunca duplique essa checagem manualmente.
