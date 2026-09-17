@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T14:01:41.862Z",
+  "generatedAt": "2026-09-17T18:20:01.402Z",
   "collections": [
     {
       "name": "users",
@@ -75,7 +75,8 @@
       "indexes": [
         "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
         "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''",
-        "CREATE INDEX `idx_users_invite_token` ON `users` (invite_token)"
+        "CREATE INDEX `idx_users_invite_token` ON `users` (invite_token)",
+        "CREATE INDEX `idx_users_email_lookup` ON `users` (email)"
       ]
     },
     {
@@ -542,23 +543,20 @@
           "system": false
         },
         {
-          "name": "rating",
-          "type": "number",
-          "required": false,
-          "system": false,
-          "onlyInt": true,
-          "min": 0,
-          "max": 5
-        },
-        {
-          "name": "rating_recorded",
-          "type": "bool",
+          "name": "photo",
+          "type": "file",
           "required": false,
           "system": false
         },
         {
-          "name": "photo",
-          "type": "file",
+          "name": "rating",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rating_recorded",
+          "type": "bool",
           "required": false,
           "system": false
         }
@@ -568,7 +566,9 @@
         "CREATE INDEX idx_att_company ON attendance_records (company_id)",
         "CREATE INDEX idx_att_timestamp ON attendance_records (timestamp DESC)",
         "CREATE UNIQUE INDEX `idx_att_shift_checkout` ON `attendance_records` (shift_check_in_id) WHERE shift_check_in_id != ''",
-        "CREATE INDEX `idx_att_payment_pending` ON `attendance_records` (payment_required, payment_confirmed)"
+        "CREATE INDEX `idx_att_payment_pending` ON `attendance_records` (payment_required, payment_confirmed)",
+        "CREATE INDEX `idx_att_freelancer_timestamp` ON `attendance_records` (freelancer_id, timestamp DESC)",
+        "CREATE INDEX `idx_att_company_timestamp` ON `attendance_records` (company_id, timestamp DESC)"
       ]
     },
     {
