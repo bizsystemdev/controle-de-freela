@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { ShiftRatingInput, ShiftRatingStars } from '@/components/admin/ShiftRating'
 import { toast } from '@/hooks/use-toast'
 import { centsToBRLInput, formatBRLFromCents, parseBRLToCents } from '@/lib/money'
 import { safeDate } from '@/lib/utils'
@@ -26,6 +27,7 @@ import {
   getAttendancePhotoUrls,
   type AttendancePhotoUrls,
   type AttendanceShiftItem,
+  type ShiftRating,
 } from '@/services/admin'
 
 interface AttendanceShiftHistoryProps {
@@ -108,6 +110,7 @@ export function AttendanceShiftHistory({
 }: AttendanceShiftHistoryProps) {
   const [selectedShift, setSelectedShift] = useState<AttendanceShiftItem | null>(null)
   const [amount, setAmount] = useState('')
+  const [rating, setRating] = useState<ShiftRating>(0)
   const [amountError, setAmountError] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [photoShift, setPhotoShift] = useState<AttendanceShiftItem | null>(null)
@@ -120,6 +123,7 @@ export function AttendanceShiftHistory({
 
   const openConfirmation = (shift: AttendanceShiftItem) => {
     setSelectedShift(shift)
+    setRating(0)
     setAmount(centsToBRLInput(companyBaseAmountCents))
     setAmountError('')
   }
@@ -135,7 +139,7 @@ export function AttendanceShiftHistory({
     setConfirming(true)
     setAmountError('')
     try {
-      await confirmShiftPayment(selectedShift.checkInId, amountCents)
+      await confirmShiftPayment(selectedShift.checkInId, amountCents, rating)
       setSelectedShift(null)
       toast({
         title: 'Recebimento confirmado',
@@ -195,7 +199,7 @@ export function AttendanceShiftHistory({
     <>
       <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1040px] text-left text-xs">
+          <table className="w-full min-w-[1160px] text-left text-xs">
             <thead className="border-b border-slate-200/80 bg-slate-50 font-bold uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-5 py-3.5">Freelancer</th>
@@ -204,6 +208,7 @@ export function AttendanceShiftHistory({
                 <th className="px-4 py-3.5">Status</th>
                 <th className="px-4 py-3.5">Registro</th>
                 <th className="px-5 py-3.5">Recebimento</th>
+                <th className="px-4 py-3.5">Avaliação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -324,6 +329,9 @@ export function AttendanceShiftHistory({
                         <span className="text-[11px] italic text-slate-400">Não solicitado</span>
                       )}
                     </td>
+                    <td className="px-4 py-4">
+                      <ShiftRatingStars rating={shift.rating} />
+                    </td>
                   </tr>
                 )
               })}
@@ -334,9 +342,9 @@ export function AttendanceShiftHistory({
 
       <Dialog
         open={Boolean(selectedShift)}
-        onOpenChange={(open) => !open && setSelectedShift(null)}
+        onOpenChange={(open) => !open && !confirming && setSelectedShift(null)}
       >
-        <DialogContent className="max-w-sm rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl">
           <DialogHeader>
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
               <Banknote className="h-6 w-6" />
@@ -364,6 +372,7 @@ export function AttendanceShiftHistory({
                 type="text"
                 inputMode="decimal"
                 value={amount}
+                disabled={confirming}
                 onChange={(event) => {
                   setAmount(event.target.value)
                   setAmountError('')
@@ -380,6 +389,8 @@ export function AttendanceShiftHistory({
               </p>
             )}
           </div>
+
+          <ShiftRatingInput rating={rating} onChange={setRating} disabled={confirming} />
 
           <DialogFooter className="gap-2">
             <button

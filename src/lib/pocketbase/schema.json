@@ -542,6 +542,21 @@
           "system": false
         },
         {
+          "name": "rating",
+          "type": "number",
+          "required": false,
+          "system": false,
+          "onlyInt": true,
+          "min": 0,
+          "max": 5
+        },
+        {
+          "name": "rating_recorded",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
           "name": "photo",
           "type": "file",
           "required": false,

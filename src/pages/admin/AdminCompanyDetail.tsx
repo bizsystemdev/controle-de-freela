@@ -24,11 +24,13 @@ import {
   type AdminManager,
   type AttendanceShiftItem,
   type AttendanceShiftStatusFilter,
+  type AttendanceShiftRatingFilter,
   type DeviceReleaseItem,
   type UpdateCompanyPayload,
 } from '@/services/admin'
 import { getCompany, type CompanyData } from '@/services/companies'
 import { AttendanceShiftHistory } from '@/components/admin/AttendanceShiftHistory'
+import { ShiftRatingFilter } from '@/components/admin/ShiftRating'
 import { PaymentSettingsCard } from '@/components/admin/PaymentSettingsCard'
 import { AttendancePhotoSettingsCard } from '@/components/admin/AttendancePhotoSettingsCard'
 import { useApp } from '@/context/AppContext'
@@ -263,6 +265,7 @@ export default function AdminCompanyDetail() {
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [selectedHistFreelancerId, setSelectedHistFreelancerId] = useState('all')
   const [selectedHistStatus, setSelectedHistStatus] = useState<AttendanceShiftStatusFilter>('all')
+  const [selectedHistRating, setSelectedHistRating] = useState<AttendanceShiftRatingFilter>('all')
   const [histStartDate, setHistStartDate] = useState('')
   const [histEndDate, setHistEndDate] = useState('')
 
@@ -411,6 +414,7 @@ export default function AdminCompanyDetail() {
       const histData = await getCompanyAttendanceHistory(id, {
         freelancerId: selectedHistFreelancerId === 'all' ? undefined : selectedHistFreelancerId,
         status: selectedHistStatus,
+        rating: selectedHistRating,
         startDate: histStartDate || undefined,
         endDate: histEndDate || undefined,
       })
@@ -618,6 +622,7 @@ export default function AdminCompanyDetail() {
     activeTab,
     selectedHistFreelancerId,
     selectedHistStatus,
+    selectedHistRating,
     histStartDate,
     histEndDate,
     selectedRelFreelancerId,
@@ -2029,6 +2034,7 @@ export default function AdminCompanyDetail() {
 
               {(selectedHistFreelancerId !== 'all' ||
                 selectedHistStatus !== 'all' ||
+                selectedHistRating !== 'all' ||
                 histStartDate ||
                 histEndDate) && (
                 <button
@@ -2036,6 +2042,7 @@ export default function AdminCompanyDetail() {
                   onClick={() => {
                     setSelectedHistFreelancerId('all')
                     setSelectedHistStatus('all')
+                    setSelectedHistRating('all')
                     setHistStartDate('')
                     setHistEndDate('')
                   }}
@@ -2046,7 +2053,7 @@ export default function AdminCompanyDetail() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               {/* Freelancer Filter */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
@@ -2079,7 +2086,7 @@ export default function AdminCompanyDetail() {
               {/* Shift status filter */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                  Situação do turno
+                  Status do turno
                 </label>
                 <Select
                   value={selectedHistStatus}
@@ -2112,6 +2119,8 @@ export default function AdminCompanyDetail() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <ShiftRatingFilter value={selectedHistRating} onChange={setSelectedHistRating} />
 
               {/* Start Date */}
               <div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Filter, RefreshCw } from 'lucide-react'
 import { AttendanceShiftHistory } from '@/components/admin/AttendanceShiftHistory'
+import { ShiftRatingFilter } from '@/components/admin/ShiftRating'
 import { PaymentSettingsCard } from '@/components/admin/PaymentSettingsCard'
 import { AttendancePhotoSettingsCard } from '@/components/admin/AttendancePhotoSettingsCard'
 import {
@@ -18,6 +19,7 @@ import {
   type AdminFreelancer,
   type AttendanceShiftItem,
   type AttendanceShiftStatusFilter,
+  type AttendanceShiftRatingFilter,
 } from '@/services/admin'
 
 export default function AdminAttendanceHistory() {
@@ -28,6 +30,7 @@ export default function AdminAttendanceHistory() {
   const [loading, setLoading] = useState(true)
   const [selectedFreelancerId, setSelectedFreelancerId] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState<AttendanceShiftStatusFilter>('all')
+  const [selectedRating, setSelectedRating] = useState<AttendanceShiftRatingFilter>('all')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
@@ -41,6 +44,7 @@ export default function AdminAttendanceHistory() {
         getCompanyAttendanceHistory(id, {
           freelancerId: selectedFreelancerId === 'all' ? undefined : selectedFreelancerId,
           status: selectedStatus,
+          rating: selectedRating,
           startDate: startDate || undefined,
           endDate: endDate || undefined,
         }),
@@ -51,7 +55,7 @@ export default function AdminAttendanceHistory() {
     } finally {
       setLoading(false)
     }
-  }, [id, selectedFreelancerId, selectedStatus, startDate, endDate])
+  }, [id, selectedFreelancerId, selectedStatus, selectedRating, startDate, endDate])
 
   useEffect(() => {
     void loadData()
@@ -60,6 +64,7 @@ export default function AdminAttendanceHistory() {
   const resetFilters = () => {
     setSelectedFreelancerId('all')
     setSelectedStatus('all')
+    setSelectedRating('all')
     setStartDate('')
     setEndDate('')
   }
@@ -129,7 +134,11 @@ export default function AdminAttendanceHistory() {
               Filtros
             </span>
           </div>
-          {(selectedFreelancerId !== 'all' || selectedStatus !== 'all' || startDate || endDate) && (
+          {(selectedFreelancerId !== 'all' ||
+            selectedStatus !== 'all' ||
+            selectedRating !== 'all' ||
+            startDate ||
+            endDate) && (
             <button
               type="button"
               onClick={resetFilters}
@@ -140,7 +149,7 @@ export default function AdminAttendanceHistory() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Profissional
@@ -168,7 +177,7 @@ export default function AdminAttendanceHistory() {
 
           <div>
             <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Situação do turno
+              Status do turno
             </label>
             <Select
               value={selectedStatus}
@@ -196,6 +205,8 @@ export default function AdminAttendanceHistory() {
               </SelectContent>
             </Select>
           </div>
+
+          <ShiftRatingFilter value={selectedRating} onChange={setSelectedRating} />
 
           <div>
             <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">

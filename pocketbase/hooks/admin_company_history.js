@@ -5,12 +5,17 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
   const startDate = String(query['startDate'] || '').trim()
   const endDate = String(query['endDate'] || '').trim()
   const status = String(query['status'] || query['type'] || '').trim()
+  const rating = String(query['rating'] || '').trim()
 
   if (!e.auth) {
     return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
   }
   if (!companyId) {
     return e.json(400, { error: 'ID da empresa obrigatório.' })
+  }
+
+  if (rating && rating !== 'unrated' && !/^[0-5]$/.test(rating)) {
+    return e.json(400, { error: 'Filtro de avaliação inválido.' })
   }
 
   const managerLinks = $app.findRecordsByFilter(
@@ -123,6 +128,7 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
         paymentConfirmedAt: rawPaymentConfirmedAt ? normalizeIso(rawPaymentConfirmedAt) : null,
         paymentConfirmedBy: record.getString('payment_confirmed_by') || null,
         paymentConfirmedByName: record.getString('payment_confirmed_by_name') || null,
+        rating: record.getBool('rating_recorded') ? record.getInt('rating') : null,
       }
       shiftsByCheckInId[record.id] = shift
       legacyOpenShiftByKey[legacyKey] = shift
@@ -167,6 +173,7 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
       paymentConfirmedAt: null,
       paymentConfirmedBy: null,
       paymentConfirmedByName: null,
+      rating: null,
     })
   }
 
@@ -211,6 +218,8 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     }
     if (startMs !== null && (!referenceMs || referenceMs < startMs)) continue
     if (endMs !== null && (!referenceMs || referenceMs > endMs)) continue
+    if (rating === 'unrated' && shift.rating !== null) continue
+    if (/^[0-5]$/.test(rating) && shift.rating !== Number(rating)) continue
     if (status === 'open' && shift.status !== 'open') continue
     if (status === 'completed' && shift.status !== 'completed') continue
     if (
@@ -236,5 +245,5 @@ routerAdd('GET', '/api/admin/company/{id}/history', (e) => {
     return 0
   })
 
-  return e.json(200, { version: 4, history: filtered })
+  return e.json(200, { version: 5, history: filtered })
 })

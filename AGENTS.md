@@ -76,6 +76,11 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - No checkout, `payment_required` é fotografado no check-in que representa o turno. A confirmação administrativa também pertence a esse registro, pelos campos `payment_confirmed`, `received_amount_cents`, `payment_confirmed_at`, `payment_confirmed_by` e `payment_confirmed_by_name`; nunca derive valores históricos do valor-base atual da empresa.
 - Somente gestores ou gerentes vinculados à empresa podem alterar a configuração ou confirmar recebimentos. Confirmações são únicas, exigem checkout relacionado e não possuem edição posterior na interface atual.
 
+- A avaliação do turno é salva no check-in junto à confirmação de recebimento, na mesma transação e sem edição posterior. `rating` é inteiro de 0 a 5; `rating_recorded` distingue ausência de avaliação (false, inclusive registros antigos) de zero estrelas (true com rating 0). O histórico expõe ausência como `rating: null`; nunca use o valor numérico isolado para identificar turnos avaliados.
+- A confirmação exige uma avaliação numérica válida; preserve a validação no serviço e no endpoint e a proteção dos campos de avaliação no cadastro direto de presença.
+
+- As duas telas administrativas de histórico permitem combinar status, profissional, datas e avaliação exata de 0 a 5 estrelas, com opção separada para turnos não avaliados. Preserve a filtragem pelo endpoint e pelo fallback do SDK e a limpeza de todos os filtros.
+
 ## Localização das empresas
 
 - O endereço da empresa é apenas informação cadastral e não deve gerar, recalcular ou validar coordenadas automaticamente no cadastro ou na edição.

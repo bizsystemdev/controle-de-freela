@@ -5,5 +5,7 @@ onRecordCreateRequest((e) => {
   e.record.set('payment_confirmed_at', '')
   e.record.set('payment_confirmed_by', '')
   e.record.set('payment_confirmed_by_name', '')
+  e.record.set('rating', 0)
+  e.record.set('rating_recorded', false)
   e.next()
 }, 'attendance_records')

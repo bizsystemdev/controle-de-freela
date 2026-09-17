@@ -227,6 +227,12 @@ export interface AttendanceEventDetails {
   photoFileName?: string | null
 }
 
+export type ShiftRating = 0 | 1 | 2 | 3 | 4 | 5
+
+export function isShiftRating(value: unknown): value is ShiftRating {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 5
+}
+
 export interface AttendanceShiftItem {
   id: string
   checkInId: string | null
@@ -246,11 +252,23 @@ export interface AttendanceShiftItem {
   paymentConfirmedAt: string | null
   paymentConfirmedBy: string | null
   paymentConfirmedByName: string | null
+  rating: ShiftRating | null
 }
 
 export type AttendanceHistoryItem = AttendanceShiftItem
 
 export type AttendanceShiftStatusFilter = 'all' | 'open' | 'completed' | 'payment_pending' | 'paid'
+
+export type AttendanceShiftRatingFilter = 'all' | 'unrated' | `${ShiftRating}`
+
+function matchesShiftRatingFilter(
+  rating: ShiftRating | null,
+  filter?: AttendanceShiftRatingFilter,
+): boolean {
+  if (!filter || filter === 'all') return true
+  if (filter === 'unrated') return rating === null
+  return isShiftRating(rating) && String(rating) === filter
+}
 
 export interface DeviceReleaseItem {
   id: string
@@ -341,6 +359,7 @@ export interface HistoryFilterParams {
   startDate?: string
   endDate?: string
   status?: AttendanceShiftStatusFilter
+  rating?: AttendanceShiftRatingFilter
 }
 
 export interface PaymentSettingsPayload {
@@ -362,6 +381,7 @@ export interface PhotoSettingsResponse {
 export interface ConfirmShiftPaymentResponse {
   success: boolean
   payment: {
+    rating: ShiftRating
     amountCents: number
     confirmedAt: string
     confirmedBy: string
@@ -1834,6 +1854,8 @@ interface RawAttendanceRecord {
   payment_confirmed_at?: string
   payment_confirmed_by?: string
   payment_confirmed_by_name?: string
+  rating?: number
+  rating_recorded?: boolean
   expand?: {
     freelancer_id?: { name?: string; phone?: string; role_title?: string }
   }
@@ -1885,6 +1907,7 @@ function consolidateAttendanceRecords(
           : null,
         paymentConfirmedBy: record.payment_confirmed_by || null,
         paymentConfirmedByName: record.payment_confirmed_by_name || null,
+        rating: record.rating_recorded && isShiftRating(record.rating) ? record.rating : null,
       }
       shifts.push(shift)
       shiftsByCheckInId.set(record.id, shift)
@@ -1922,6 +1945,7 @@ function consolidateAttendanceRecords(
       paymentConfirmedAt: null,
       paymentConfirmedBy: null,
       paymentConfirmedByName: null,
+      rating: null,
     })
   }
 
@@ -1980,11 +2004,15 @@ export async function updateCompanyPhotoSettings(
 export async function confirmShiftPayment(
   checkInId: string,
   amountCents: number,
+  rating: ShiftRating,
 ): Promise<ConfirmShiftPaymentResponse> {
+  if (!isShiftRating(rating)) {
+    throw new Error('Informe uma avaliação inteira entre 0 e 5 estrelas.')
+  }
   try {
     return await pb.send<ConfirmShiftPaymentResponse>(
       `/backend/v1/admin/attendance/${encodeURIComponent(checkInId)}/confirm-payment`,
-      { method: 'POST', body: { amountCents } },
+      { method: 'POST', body: { amountCents, rating } },
     )
   } catch (err: unknown) {
     const pbErr = err as { data?: { error?: string }; message?: string }
@@ -2006,6 +2034,7 @@ export async function getCompanyAttendanceHistory(
       params.append('endDate', historyDateBoundary(filters.endDate, true))
     }
     if (filters?.status && filters.status !== 'all') params.append('status', filters.status)
+    if (filters?.rating && filters.rating !== 'all') params.append('rating', filters.rating)
 
     const queryString = params.toString() ? `?${params.toString()}` : ''
     const res = await pb.send<{ version?: number; history?: AttendanceShiftItem[] }>(
@@ -2014,6 +2043,7 @@ export async function getCompanyAttendanceHistory(
     )
     const sanitizeHistoryItem = (shift: AttendanceShiftItem): AttendanceShiftItem => ({
       ...shift,
+      rating: isShiftRating(shift.rating) ? shift.rating : null,
       checkIn: shift.checkIn
         ? { ...shift.checkIn, timestamp: normalizeDateIso(shift.checkIn.timestamp) }
         : null,
@@ -2025,7 +2055,7 @@ export async function getCompanyAttendanceHistory(
         : null,
     })
 
-    if (res?.version === 4 && Array.isArray(res.history)) {
+    if (res?.version === 5 && Array.isArray(res.history)) {
       const sanitized = (res.history as AttendanceShiftItem[]).map(sanitizeHistoryItem)
       sanitized.sort((a, b) => {
         const aT = a.checkIn?.timestamp || a.checkOut?.timestamp || ''
@@ -2034,7 +2064,7 @@ export async function getCompanyAttendanceHistory(
         if (aT > bT) return -1
         return 0
       })
-      return sanitized
+      return sanitized.filter((shift) => matchesShiftRatingFilter(shift.rating, filters?.rating))
     }
     const staleResponseError = new Error('Versão desatualizada do histórico consolidado.')
     ;(staleResponseError as Error & { status: number }).status = 404
@@ -2079,6 +2109,7 @@ export async function getCompanyAttendanceHistory(
         }
 
         shifts = shifts.filter((shift) => {
+          if (!matchesShiftRatingFilter(shift.rating, filters?.rating)) return false
           const reference = shift.checkIn?.timestamp || shift.checkOut?.timestamp || ''
           const refDate = new Date(normalizeDateIso(reference))
           const referenceMs = isNaN(refDate.getTime()) ? 0 : refDate.getTime()

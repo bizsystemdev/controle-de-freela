@@ -1,4 +1,4 @@
-// Confirmação de recebimento de turno - v2
+// Confirmação de recebimento e avaliação de turno
 routerAdd('POST', '/backend/v1/admin/attendance/{id}/confirm-payment', (e) => {
   const checkInId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
@@ -13,6 +13,11 @@ routerAdd('POST', '/backend/v1/admin/attendance/{id}/confirm-payment', (e) => {
   const amountCents = Number(body.amountCents)
   if (!Number.isInteger(amountCents) || amountCents <= 0 || amountCents > 999999999) {
     return e.json(400, { error: 'Informe um valor recebido válido.' })
+  }
+
+  const rating = body.rating
+  if (typeof rating !== 'number' || !Number.isInteger(rating) || rating < 0 || rating > 5) {
+    return e.json(400, { error: 'Informe uma avaliação inteira entre 0 e 5 estrelas.' })
   }
 
   let initialCheckIn
@@ -73,6 +78,8 @@ routerAdd('POST', '/backend/v1/admin/attendance/{id}/confirm-payment', (e) => {
       }
 
       checkIn.set('received_amount_cents', amountCents)
+      checkIn.set('rating', rating)
+      checkIn.set('rating_recorded', true)
       checkIn.set('payment_confirmed', true)
       checkIn.set('payment_confirmed_at', new Date().toISOString())
       checkIn.set('payment_confirmed_by', e.auth.id)
@@ -100,6 +107,7 @@ routerAdd('POST', '/backend/v1/admin/attendance/{id}/confirm-payment', (e) => {
   return e.json(200, {
     success: true,
     payment: {
+      rating: saved.getInt('rating'),
       amountCents: saved.getInt('received_amount_cents'),
       confirmedAt: saved.getString('payment_confirmed_at'),
       confirmedBy: saved.getString('payment_confirmed_by'),
