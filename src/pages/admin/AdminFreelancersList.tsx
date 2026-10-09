@@ -161,6 +161,7 @@ export default function AdminFreelancersList() {
         email: editEmail.trim(),
         document: editDocument.trim(),
         roleTitle: editRoleTitle.trim(),
+        companyId: id,
       })
 
       toast({

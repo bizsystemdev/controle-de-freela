@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { isSuperadmin } from '@/lib/adminPermissions'
 import { normalizeCompanyCoordinates, type CompanyCoordinates } from '@/lib/geolocation'
 
 export interface ApiUser {
@@ -355,21 +356,22 @@ export async function loginManager(email: string, password: string): Promise<Man
     const authData = await pb.collection('users').authWithPassword(email, password)
 
     const userRole = (authData.record.role as string) || ''
-    const isSuperadmin =
-      userRole === 'superadmin' ||
-      authData.record.email?.toLowerCase().trim() === 'admin@bizcheck.com'
+    const userIsSuperadmin = isSuperadmin({
+      role: userRole,
+      email: authData.record.email,
+    })
 
     // Check if user is manager in license_managers
     const lm = await pb.collection('license_managers').getList(1, 10, {
       filter: `user_id = "${authData.record.id}"`,
     })
 
-    if (lm.items.length === 0 && !isSuperadmin) {
+    if (lm.items.length === 0 && !userIsSuperadmin) {
       pb.authStore.clear()
       throw new Error('Usuário não possui permissão de gestor.')
     }
 
-    const role = isSuperadmin
+    const role = userIsSuperadmin
       ? 'superadmin'
       : (lm.items[0]?.role as 'owner' | 'admin' | 'viewer') || 'admin'
     const profile =
@@ -381,7 +383,7 @@ export async function loginManager(email: string, password: string): Promise<Man
       name: authData.record.name || (profile === 'gerente' ? 'Gerente' : 'Gestor'),
       email: authData.record.email,
       role,
-      userRole: isSuperadmin ? 'superadmin' : userRole || 'gestor',
+      userRole: userIsSuperadmin ? 'superadmin' : userRole || 'gestor',
       profile,
     }
 

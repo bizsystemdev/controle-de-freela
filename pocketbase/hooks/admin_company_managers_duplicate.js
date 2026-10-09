@@ -4,10 +4,30 @@ routerAdd('POST', '/api/admin/company/{id}/managers/{managerId}/duplicate', (e) 
   const body = e.requestInfo().body || {}
   const targetCompanyId = String(body.targetCompanyId || '').trim()
 
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
+  }
   if (!sourceCompanyId || !managerId || !targetCompanyId) {
     return e.json(400, {
       error: 'ID da empresa de origem, ID do gestor e ID da empresa de destino são obrigatórios.',
     })
+  }
+
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  const canManageSource = permissions.canAccessCompany(
+    $app,
+    e.auth,
+    sourceCompanyId,
+    permissions.COMPANY_MANAGEMENT_ROLES,
+  )
+  const canManageTarget = permissions.canAccessCompany(
+    $app,
+    e.auth,
+    targetCompanyId,
+    permissions.COMPANY_MANAGEMENT_ROLES,
+  )
+  if (!canManageSource || !canManageTarget) {
+    return e.json(403, { error: 'Usuário sem permissão para administrar estas empresas.' })
   }
 
   // 1. Verify manager exists

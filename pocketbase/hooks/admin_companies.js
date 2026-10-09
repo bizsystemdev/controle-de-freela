@@ -1,32 +1,17 @@
 routerAdd('GET', '/api/admin/companies', (e) => {
   const managerId = String(e.requestInfo().query['managerId'] || '').trim()
-
-  let targetUserId = managerId
-  // If not provided in query, check auth header/record if present
-  if (!targetUserId && e.auth) {
-    targetUserId = e.auth.id
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
   }
 
-  let isSuperadmin = false
-  if (targetUserId) {
-    try {
-      const userRec = $app.findRecordById('_pb_users_auth_', targetUserId)
-      if (
-        userRec &&
-        (userRec.getString('role') === 'superadmin' ||
-          userRec.getString('email').toLowerCase().trim() === 'admin@bizcheck.com')
-      ) {
-        isSuperadmin = true
-      }
-    } catch (_) {}
-  } else if (e.auth) {
-    if (
-      e.auth.getString('role') === 'superadmin' ||
-      e.auth.getString('email').toLowerCase().trim() === 'admin@bizcheck.com'
-    ) {
-      isSuperadmin = true
-    }
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  const isSuperadmin = permissions.isSuperadmin(e.auth)
+
+  if (managerId && managerId !== e.auth.id && !isSuperadmin) {
+    return e.json(403, { error: 'Usuário sem permissão para consultar outras empresas.' })
   }
+
+  const targetUserId = e.auth.id
 
   const companiesMap = {}
 

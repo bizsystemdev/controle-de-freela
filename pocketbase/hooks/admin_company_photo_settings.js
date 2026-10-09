@@ -9,28 +9,8 @@ routerAdd('PATCH', '/backend/v1/admin/company/{id}/photo-settings', (e) => {
     return e.json(400, { error: 'ID da empresa é obrigatório.' })
   }
 
-  const managerLinks = $app.findRecordsByFilter(
-    'license_managers',
-    `user_id = '${e.auth.id}'`,
-    '',
-    100,
-    0,
-  )
-  let hasAccess = false
-  for (let i = 0; i < managerLinks.length; i++) {
-    try {
-      const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
-      const role = managerLinks[i].getString('role')
-      if (
-        license.getString('company_id') === companyId &&
-        (role === 'owner' || role === 'admin' || role === 'viewer')
-      ) {
-        hasAccess = true
-        break
-      }
-    } catch (_) {}
-  }
-  if (!hasAccess) {
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  if (!permissions.canAccessCompany($app, e.auth, companyId)) {
     return e.json(403, { error: 'Usuário sem permissão para configurar esta empresa.' })
   }
 

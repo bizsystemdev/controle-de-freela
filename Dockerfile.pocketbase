@@ -35,6 +35,10 @@ COPY --chown=pocketbase:pocketbase pocketbase/hooks/ /tmp/pb_hooks_source/
 RUN set -eux; \
     rm -rf /pb/pb_hooks; \
     mkdir -p /pb/pb_hooks; \
+    if [ -d /tmp/pb_hooks_source/lib ]; then \
+      mkdir -p /pb/pb_hooks/lib; \
+      cp -R /tmp/pb_hooks_source/lib/. /pb/pb_hooks/lib/; \
+    fi; \
     for source in /tmp/pb_hooks_source/*.js; do \
       filename="$(basename "${source}" .js)"; \
       cp "${source}" "/pb/pb_hooks/${filename}.pb.js"; \

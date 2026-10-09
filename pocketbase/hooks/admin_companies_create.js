@@ -4,9 +4,8 @@ routerAdd('POST', '/api/admin/companies', (e) => {
   }
 
   // Apenas o SUPERADMIN pode criar empresas e cadastrar o primeiro gestor
-  const userRole = e.auth.getString('role')
-  const userEmail = e.auth.getString('email').toLowerCase().trim()
-  const isSuperadmin = userRole === 'superadmin' || userEmail === 'admin@bizcheck.com'
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  const isSuperadmin = permissions.isSuperadmin(e.auth)
 
   if (!isSuperadmin) {
     return e.json(403, {

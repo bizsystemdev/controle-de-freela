@@ -1,8 +1,16 @@
 routerAdd('GET', '/api/admin/company/{id}/freelancers', (e) => {
   const companyId = String(e.request.pathValue('id') || '').trim()
 
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
+  }
   if (!companyId) {
     return e.json(400, { error: 'ID da empresa obrigatório.' })
+  }
+
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  if (!permissions.canAccessCompany($app, e.auth, companyId)) {
+    return e.json(403, { error: 'Usuário sem permissão para consultar esta empresa.' })
   }
 
   const fcs = $app.findRecordsByFilter(

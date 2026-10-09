@@ -2,8 +2,23 @@ routerAdd('POST', '/api/admin/company/{id}/managers', (e) => {
   const companyId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
 
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
+  }
   if (!companyId) {
     return e.json(400, { error: 'ID da empresa obrigatório.' })
+  }
+
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  if (
+    !permissions.canAccessCompany(
+      $app,
+      e.auth,
+      companyId,
+      permissions.COMPANY_MANAGEMENT_ROLES,
+    )
+  ) {
+    return e.json(403, { error: 'Usuário sem permissão para administrar gestores.' })
   }
 
   const name = String(body.name || '').trim()

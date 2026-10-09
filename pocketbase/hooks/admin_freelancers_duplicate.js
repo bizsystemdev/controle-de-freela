@@ -4,6 +4,10 @@ routerAdd('POST', '/api/admin/freelancers/{id}/duplicate', (e) => {
   const singleTargetId = String(body.targetCompanyId || body.companyId || '').trim()
   const rawTargetIds = Array.isArray(body.targetCompanyIds) ? body.targetCompanyIds : []
 
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
+  }
+
   const targetCompanyIds = []
   if (singleTargetId) {
     targetCompanyIds.push(singleTargetId)
@@ -20,6 +24,32 @@ routerAdd('POST', '/api/admin/freelancers/{id}/duplicate', (e) => {
   }
   if (targetCompanyIds.length === 0) {
     return e.json(400, { error: 'Ao menos uma empresa de destino deve ser selecionada.' })
+  }
+
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  if (
+    !permissions.canAccessFreelancer(
+      $app,
+      e.auth,
+      freelancerId,
+      permissions.COMPANY_MANAGEMENT_ROLES,
+    )
+  ) {
+    return e.json(403, { error: 'Usuário sem permissão para administrar este freelancer.' })
+  }
+  for (let i = 0; i < targetCompanyIds.length; i++) {
+    if (
+      !permissions.canAccessCompany(
+        $app,
+        e.auth,
+        targetCompanyIds[i],
+        permissions.COMPANY_MANAGEMENT_ROLES,
+      )
+    ) {
+      return e.json(403, {
+        error: 'Usuário sem permissão para administrar uma das empresas de destino.',
+      })
+    }
   }
 
   // 1. Verify freelancer exists

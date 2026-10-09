@@ -1,15 +1,22 @@
-import type { ManagerUser } from '@/services/auth'
-
 export const GERENTE_ALLOWED_COMPANY_TABS = ['freelancers', 'historico', 'liberacoes'] as const
 
-export function isGerente(manager: ManagerUser | null): boolean {
+export const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+
+export interface AdminIdentity {
+  role?: string
+  userRole?: string
+  profile?: string
+  email?: string
+}
+
+export function isGerente(manager: AdminIdentity | null): boolean {
   return manager?.profile === 'gerente' || manager?.role === 'viewer'
 }
 
-export function isSuperadmin(manager: ManagerUser | null): boolean {
+export function isSuperadmin(manager: AdminIdentity | null): boolean {
   if (!manager) return false
   if (manager.role === 'superadmin' || manager.userRole === 'superadmin') return true
-  if (manager.email && manager.email.toLowerCase().trim() === 'admin@bizcheck.com') return true
+  if (manager.email && manager.email.toLowerCase().trim() === SUPERADMIN_EMAIL) return true
   return false
 }
 

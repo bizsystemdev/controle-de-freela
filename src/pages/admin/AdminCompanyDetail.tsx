@@ -666,6 +666,7 @@ export default function AdminCompanyDetail() {
         email: editFlEmail.trim(),
         document: editFlDocument.trim(),
         roleTitle: editFlRoleTitle.trim(),
+        companyId: id,
       })
 
       toast({

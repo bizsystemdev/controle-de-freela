@@ -2,8 +2,24 @@ routerAdd('PUT', '/api/admin/freelancers/{id}', (e) => {
   const freelancerId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
 
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
+  }
   if (!freelancerId) {
     return e.json(400, { error: 'ID do freelancer obrigatório.' })
+  }
+
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  const isClearDevice = body.clearDevice === true || body.clear_device === true
+  const allowedRoles = isClearDevice
+    ? permissions.COMPANY_ACCESS_ROLES
+    : permissions.COMPANY_MANAGEMENT_ROLES
+  const companyId = String(body.companyId || body.company_id || '').trim()
+  const hasAccess = companyId
+    ? permissions.canAccessCompany($app, e.auth, companyId, allowedRoles)
+    : permissions.canAccessFreelancer($app, e.auth, freelancerId, allowedRoles)
+  if (!hasAccess) {
+    return e.json(403, { error: 'Usuário sem permissão para administrar este freelancer.' })
   }
 
   let freelancer
@@ -40,7 +56,6 @@ routerAdd('PUT', '/api/admin/freelancers/{id}', (e) => {
   }
 
   // Handle clearDevice
-  const isClearDevice = body.clearDevice === true || body.clear_device === true
   let oldDeviceId = freelancer.getString('device_id') || ''
 
   if (isClearDevice) {

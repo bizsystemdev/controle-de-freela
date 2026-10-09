@@ -1,8 +1,23 @@
 routerAdd('POST', '/api/admin/managers/{id}/invite-link', (e) => {
   const managerId = String(e.request.pathValue('id') || '').trim()
 
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
+  }
   if (!managerId) {
     return e.json(400, { error: 'ID do usuário obrigatório.' })
+  }
+
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  if (
+    !permissions.canAccessManager(
+      $app,
+      e.auth,
+      managerId,
+      permissions.COMPANY_MANAGEMENT_ROLES,
+    )
+  ) {
+    return e.json(403, { error: 'Usuário sem permissão para administrar este gestor.' })
   }
 
   let user
