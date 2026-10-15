@@ -63,7 +63,7 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - `src/lib/pocketbase/schema.json`: fotografia do schema PocketBase usada como referência; mudanças de backend devem permanecer coerentes com hooks, migrations, serviços e tipos.
 - `pocketbase/migrations/`: schema e evolução das coleções (`companies`, `licenses`, `license_managers`, `freelancers`, `freelancer_companies`, `attendance_records` e `device_releases`).
 - `pocketbase/hooks/`: endpoints customizados `/api/auth/*`, `/api/attendance/*` e `/api/admin/*`. Os serviços frontend tentam esses endpoints e, em vários casos, possuem fallback direto pelo SDK quando recebem 404; preserve os dois caminhos quando modificar esse comportamento.
-- Os hooks versionados devem permanecer em `pocketbase/hooks/*.js` para compatibilidade com o Skip. Durante o build local, `Dockerfile.pocketbase` copia cada arquivo como `/pb/pb_hooks/*.pb.js`, sem alterar seu conteúdo; não renomeie os arquivos de origem nem introduza wrappers sem necessidade explícita.
+- Os hooks de rota versionados devem permanecer em `pocketbase/hooks/*.js` para compatibilidade com o Skip. Durante o build local, `Dockerfile.pocketbase` copia cada hook como `/pb/pb_hooks/*.pb.js`, sem alterar seu conteúdo; módulos compartilhados ficam em `pocketbase/hooks/lib/*.js` e preservam a extensão `.js` para uso com `require()`.
 - A migration histórica `0002_seed_initial_data.js` cria usuários, empresas, freelancers, licenças e vínculos de demonstração em bancos vazios. Preserve seu histórico e trate as credenciais documentadas no README exclusivamente como dados locais de desenvolvimento.
 
 ## Turnos e recebimentos de freelancers
@@ -74,7 +74,7 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - As empresas configuram o controle por `payment_control_enabled` e um valor-base opcional em centavos inteiros (`freelancer_shift_base_amount_cents`). Valores monetários persistidos devem continuar em centavos e ser formatados como BRL somente na interface.
 - Novas empresas devem persistir `payment_control_enabled: true` nos fluxos de criação. Nunca use fallback de leitura que converta um `false` existente em `true`; a desativação explícita deve permanecer preservada.
 - No checkout, `payment_required` é fotografado no check-in que representa o turno. A confirmação administrativa também pertence a esse registro, pelos campos `payment_confirmed`, `received_amount_cents`, `payment_confirmed_at`, `payment_confirmed_by` e `payment_confirmed_by_name`; nunca derive valores históricos do valor-base atual da empresa.
-- Somente gestores ou gerentes vinculados à empresa podem alterar a configuração ou confirmar recebimentos. Confirmações são únicas, exigem checkout relacionado e não possuem edição posterior na interface atual.
+- Além do superadmin global, somente gestores ou gerentes vinculados à empresa podem alterar a configuração ou confirmar recebimentos. Confirmações são únicas, exigem checkout relacionado e não possuem edição posterior na interface atual.
 
 - A avaliação do turno é salva no check-in junto à confirmação de recebimento, na mesma transação e sem edição posterior. `rating` é inteiro de 0 a 5; `rating_recorded` distingue ausência de avaliação (false, inclusive registros antigos) de zero estrelas (true com rating 0). O histórico expõe ausência como `rating: null`; nunca use o valor numérico isolado para identificar turnos avaliados.
 - A confirmação exige uma avaliação numérica válida; preserve a validação no serviço e no endpoint e a proteção dos campos de avaliação no cadastro direto de presença.
@@ -103,8 +103,8 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 
 - O `AppContext` usa `role: 'manager'` para o fluxo administrativo; o `AdminLayout` só aceita sessão autenticada com esse papel e um `manager` carregado.
 - A collection de usuários possui o campo `role` (`'superadmin' | 'gestor' | 'gerente'`). O usuário `admin@bizcheck.com` é o superadmin do sistema.
-- Toda verificação de superadmin deve usar unificadamente `isSuperadmin()` de `src/lib/adminPermissions.ts` (que valida `role === 'superadmin'` ou o e-mail `admin@bizcheck.com`); nunca duplique essa checagem manualmente.
-- O superadmin possui visão global e lista todas as empresas ativas do sistema; gestores e gerentes comuns têm acesso estritamente restrito às empresas vinculadas via `license_managers`.
+- Toda verificação de superadmin no frontend deve usar `isSuperadmin()` de `src/lib/adminPermissions.ts`; hooks PocketBase devem carregar `pocketbase/hooks/lib/admin_permissions.js` e reutilizar `isSuperadmin()`, `canAccessCompany()` e os papéis exportados. Ambos validam `role === 'superadmin'` ou o e-mail `admin@bizcheck.com`; nunca duplique essa checagem manualmente.
+- O superadmin possui acesso global e irrestrito a qualquer empresa e operação administrativa, sem depender de vínculo em `license_managers`. Gestores e gerentes comuns permanecem restritos às empresas vinculadas e aos papéis atuais; toda nova guarda por empresa deve conceder primeiro a exceção centralizada do superadmin.
 - SOMENTE o superadmin pode criar novas empresas e definir o primeiro gestor da empresa no backend (o hook `admin_companies_create.js` rejeita outros papéis com HTTP 403).
 - SOMENTE o superadmin pode remover empresas do sistema. A remoção executa exclusão em cascata no endpoint `DELETE /api/admin/company/{id}` (`attendance_records`, `device_releases`, `freelancer_companies`, `license_managers`, `licenses` e a própria empresa em `companies`). A interface exige a digitação exata do nome da empresa para confirmar.
 - O superadmin não deve aparecer em listagens de gestores das empresas (`admin_company_managers.js`).

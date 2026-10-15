@@ -20,9 +20,8 @@ routerAdd('POST', '/api/auth/manager-login', (e) => {
     return e.json(401, { error: 'Credenciais inválidas.' })
   }
 
-  const isSuperadmin =
-    user.getString('role') === 'superadmin' ||
-    user.getString('email').toLowerCase().trim() === 'admin@bizcheck.com'
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  const isSuperadmin = permissions.isSuperadmin(user)
 
   // Check if user has manager role in license_managers, or if user is superadmin
   const mgrRecords = $app.findRecordsByFilter(

@@ -63,9 +63,11 @@ Os hooks preservam a convenção esperada pelo Skip no repositório e recebem so
 
 ```text
 pocketbase/hooks/foo.js -> /pb/pb_hooks/foo.pb.js
+pocketbase/hooks/lib/*.js -> /pb/pb_hooks/lib/*.js
 ```
 
-O conteúdo é copiado sem transformação. Os arquivos originais nunca são renomeados e nenhum wrapper `require()` é gerado.
+O conteúdo é copiado sem transformação. Os hooks de rota recebem a extensão `.pb.js`, enquanto
+os módulos compartilhados de `hooks/lib/` preservam `.js` para serem carregados com `require()`.
 
 ## Dados de desenvolvimento criados pelas migrations
 

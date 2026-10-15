@@ -8,6 +8,10 @@ routerAdd('POST', '/api/admin/freelancers', (e) => {
   const document = String(body.document || '').trim()
   const roleTitle = String(body.roleTitle || body.role_title || '').trim()
 
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
+  }
+
   // Build unique list of target companies
   const companyIds = []
   if (companyId) {
@@ -31,6 +35,15 @@ routerAdd('POST', '/api/admin/freelancers', (e) => {
   }
   if (!document) {
     return e.json(400, { error: 'CPF / documento é obrigatório.' })
+  }
+
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  for (let i = 0; i < companyIds.length; i++) {
+    if (!permissions.canAccessCompany($app, e.auth, companyIds[i])) {
+      return e.json(403, {
+        error: 'Usuário sem permissão para cadastrar freelancer em uma das empresas.',
+      })
+    }
   }
 
   // Verify companies exist

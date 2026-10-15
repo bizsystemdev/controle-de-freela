@@ -5,6 +5,17 @@ routerAdd('GET', '/api/admin/device-releases', (e) => {
   const startDate = String(query['startDate'] || '').trim()
   const endDate = String(query['endDate'] || '').trim()
 
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
+  }
+
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  const isSuperadmin = permissions.isSuperadmin(e.auth)
+  const accessibleCompanyIds = permissions.getAccessibleCompanyIds($app, e.auth)
+  if (companyId && accessibleCompanyIds.indexOf(companyId) === -1) {
+    return e.json(403, { error: 'Usuário sem permissão para consultar esta empresa.' })
+  }
+
   let filter = 'id != ""'
 
   if (companyId) {
@@ -49,6 +60,10 @@ routerAdd('GET', '/api/admin/device-releases', (e) => {
     const flId = rec.getString('freelancer_id')
     const compId = rec.getString('company_id')
     const mgrId = rec.getString('manager_id')
+
+    if (!isSuperadmin && (!compId || accessibleCompanyIds.indexOf(compId) === -1)) {
+      continue
+    }
 
     if (flId && !flMap[flId]) {
       try {

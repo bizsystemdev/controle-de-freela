@@ -28,23 +28,15 @@ routerAdd('POST', '/api/admin/attendance/manual-register', (e) => {
     return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
   }
 
-  const managerId = e.auth.id
-  const lms = $app.findRecordsByFilter('license_managers', `user_id = '${managerId}'`, '', 100, 0)
-  let hasAccess = false
-  for (let i = 0; i < lms.length; i++) {
-    try {
-      const lic = $app.findRecordById('licenses', lms[i].getString('license_id'))
-      const role = lms[i].getString('role')
-      if (
-        lic.getString('company_id') === companyId &&
-        (role === 'owner' || role === 'admin' || role === 'viewer')
-      ) {
-        hasAccess = true
-        break
-      }
-    } catch (_) {}
-  }
-  if (!hasAccess) {
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  if (
+    !permissions.canAccessCompany(
+      $app,
+      e.auth,
+      companyId,
+      permissions.COMPANY_MANAGEMENT_ROLES,
+    )
+  ) {
     return e.json(403, { error: 'Gestor não tem permissão para gerenciar esta empresa.' })
   }
 

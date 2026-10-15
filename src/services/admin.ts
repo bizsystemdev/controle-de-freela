@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { isSuperadmin } from '@/lib/adminPermissions'
 import { normalizeDateIso } from '@/lib/utils'
 import {
   hasValidCompanyCoordinates,
@@ -504,6 +505,17 @@ export async function createAdminCompany(
 }
 
 export async function getAdminCompanies(managerId?: string): Promise<CompanyAdminItem[]> {
+  const currentAuth = pb.authStore.record
+  const currentUserIsSuperadmin = isSuperadmin(
+    currentAuth
+      ? {
+          role: String(currentAuth.role || ''),
+          userRole: String(currentAuth.userRole || ''),
+          email: String(currentAuth.email || ''),
+        }
+      : null,
+  )
+
   try {
     const query = managerId ? `?managerId=${encodeURIComponent(managerId)}` : ''
     const res = await pb.send<{ companies: CompanyAdminItem[] }>(`/api/admin/companies${query}`, {
@@ -529,7 +541,11 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
           max_freelancers: number
         }> = []
 
-        if (targetUserId) {
+        if (currentUserIsSuperadmin) {
+          licenses = await pb.collection('licenses').getFullList({
+            sort: '-created',
+          })
+        } else if (targetUserId) {
           const lms = await pb.collection('license_managers').getFullList({
             filter: `user_id = "${targetUserId}"`,
             expand: 'license_id',
@@ -594,7 +610,11 @@ export async function getAdminCompanies(managerId?: string): Promise<CompanyAdmi
 
         return companiesList
       } catch (fallbackErr) {
-        // Return active companies as last resort
+        if (!currentUserIsSuperadmin) {
+          throw fallbackErr
+        }
+
+        // Superadmin mantém a visão global mesmo se não houver licença associada.
         const allComps = await pb.collection('companies').getFullList({
           filter: 'active = true',
           sort: 'name',
@@ -1181,15 +1201,26 @@ export async function removeFreelancerFromCompany(
   companyId: string,
 ): Promise<boolean> {
   try {
-    const list = await pb.collection('freelancer_companies').getList(1, 10, {
-      filter: `freelancer_id = "${freelancerId}" && company_id = "${companyId}"`,
-    })
-    for (const item of list.items) {
-      await pb.collection('freelancer_companies').delete(item.id)
-    }
+    await pb.send(
+      `/api/admin/company/${encodeURIComponent(companyId)}/freelancers/${encodeURIComponent(freelancerId)}`,
+      { method: 'DELETE' },
+    )
     return true
   } catch (err: unknown) {
-    const pbErr = err as { data?: { error?: string }; message?: string }
+    const pbErr = err as { status?: number; data?: { error?: string }; message?: string }
+    if (
+      pbErr?.status === 404 ||
+      pbErr?.message?.includes("wasn't found") ||
+      pbErr?.message?.includes('File not found')
+    ) {
+      const list = await pb.collection('freelancer_companies').getList(1, 10, {
+        filter: `freelancer_id = "${freelancerId}" && company_id = "${companyId}"`,
+      })
+      for (const item of list.items) {
+        await pb.collection('freelancer_companies').delete(item.id)
+      }
+      return true
+    }
     throw new Error(pbErr?.data?.error || pbErr?.message || 'Falha ao desvincular freelancer.')
   }
 }
@@ -1208,6 +1239,7 @@ export async function updateFreelancer(
     role_title?: string
     active?: boolean
     clearDevice?: boolean
+    companyId?: string
   },
 ): Promise<void> {
   try {
@@ -1219,6 +1251,7 @@ export async function updateFreelancer(
       roleTitle: data.roleTitle || data.role_title,
       active: data.active,
       clearDevice: data.clearDevice,
+      companyId: data.companyId,
     }
     await pb.send(`/api/admin/freelancers/${encodeURIComponent(freelancerId)}`, {
       method: 'PUT',
@@ -1397,9 +1430,15 @@ export async function getCompanyManagers(companyId: string): Promise<AdminManage
               user = null
             }
           }
-          const uEmail = (user?.email || '').toLowerCase().trim()
-          const uRole = (user?.role as string) || ''
-          const isUserSuperadmin = uRole === 'superadmin' || uEmail === 'admin@bizcheck.com'
+          const isUserSuperadmin = isSuperadmin(
+            user
+              ? {
+                  role: String(user.role || ''),
+                  userRole: String(user.userRole || ''),
+                  email: String(user.email || ''),
+                }
+              : null,
+          )
 
           if (user && !isUserSuperadmin && !seenIds.has(user.id)) {
             seenIds.add(user.id)

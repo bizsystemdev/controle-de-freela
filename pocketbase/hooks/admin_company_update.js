@@ -2,6 +2,9 @@ routerAdd('PUT', '/api/admin/company/{id}', (e) => {
   const companyId = String(e.request.pathValue('id') || '').trim()
   const body = e.requestInfo().body || {}
 
+  if (!e.auth) {
+    return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
+  }
   if (!companyId) {
     return e.json(400, { error: 'ID da empresa é obrigatório.' })
   }
@@ -13,12 +16,21 @@ routerAdd('PUT', '/api/admin/company/{id}', (e) => {
     return e.json(404, { error: 'Empresa não encontrada.' })
   }
 
-  // Verifica se o usuário autenticado é superadmin
-  let isSuperadmin = false
-  if (e.auth) {
-    const userRole = e.auth.getString('role')
-    const userEmail = e.auth.getString('email').toLowerCase().trim()
-    isSuperadmin = userRole === 'superadmin' || userEmail === 'admin@bizcheck.com'
+  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  const isSuperadmin = permissions.isSuperadmin(e.auth)
+  const companyRole = permissions.getCompanyRole($app, e.auth, companyId)
+  if (!companyRole) {
+    return e.json(403, { error: 'Usuário sem permissão para atualizar esta empresa.' })
+  }
+
+  if (companyRole === 'viewer') {
+    const requestedFields = Object.keys(body).filter((key) => body[key] !== undefined)
+    const onlyCoordinates = requestedFields.every((key) => key === 'lat' || key === 'lng')
+    if (!onlyCoordinates) {
+      return e.json(403, {
+        error: 'Gerentes podem atualizar somente as coordenadas da empresa.',
+      })
+    }
   }
 
   const name = String(body.name || '').trim()

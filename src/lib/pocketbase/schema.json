@@ -85,9 +85,9 @@
       "apiRules": {
         "list": "",
         "view": "",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && licenses_via_company_id.license_managers_via_license_id.user_id ?= @request.auth.id",
-        "delete": "@request.auth.id != ''"
+        "create": "@request.auth.id != '' && (@request.auth.role = 'superadmin' || @request.auth.email = 'admin@bizcheck.com')",
+        "update": "@request.auth.id != '' && ((@request.auth.role = 'superadmin' || @request.auth.email = 'admin@bizcheck.com') || licenses_via_company_id.license_managers_via_license_id.user_id ?= @request.auth.id)",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'superadmin' || @request.auth.email = 'admin@bizcheck.com')"
       },
       "fields": [
         {
