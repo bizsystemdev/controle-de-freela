@@ -74,6 +74,14 @@ a execução da rota com `Invalid module`. Por isso, as verificações de autori
 permanecem inline em cada hook. Uma futura centralização deve usar somente um processo de
 empacotamento e deploy previamente validado no Skip Cloud.
 
+### Validação de localização
+
+O check-in e o checkout aceitam uma distância máxima de 50 metros das coordenadas calibradas da
+empresa. O mesmo limite é aplicado no frontend por `LOCATION_RADIUS_METERS`, em
+`src/lib/geolocation.ts`, e no backend pelo hook `pocketbase/hooks/attendance_register.js`. As duas
+validações devem permanecer sincronizadas; o backend mantém a proteção contra chamadas diretas à
+API.
+
 ## Dados de desenvolvimento criados pelas migrations
 
 A migration histórica `0002_seed_initial_data.js` cria registros quando o banco está vazio. Ela foi preservada para manter compatibilidade com o histórico do Skip e **não possui condicionamento por ambiente**. Em um novo banco local, os registros abaixo devem ser tratados exclusivamente como dados de desenvolvimento.

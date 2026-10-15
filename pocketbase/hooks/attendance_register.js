@@ -92,10 +92,10 @@ routerAdd('POST', '/api/attendance/register', (e) => {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     const distanceMeters = R * c
 
-    // Backend tolerance: 500m
-    if (distanceMeters > 500) {
+    // Backend tolerance: 50m (keep synchronized with LOCATION_RADIUS_METERS in the frontend)
+    if (distanceMeters > 50) {
       return e.json(400, {
-        error: 'Localização fora do raio permitido da empresa (limite de 500m).',
+        error: 'Localização fora do raio permitido da empresa (limite de 50m).',
         distanceMeters: Math.round(distanceMeters),
       })
     }
