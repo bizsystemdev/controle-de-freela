@@ -63,11 +63,16 @@ Os hooks preservam a convenção esperada pelo Skip no repositório e recebem so
 
 ```text
 pocketbase/hooks/foo.js -> /pb/pb_hooks/foo.pb.js
-pocketbase/hooks/lib/*.js -> /pb/pb_hooks/lib/*.js
 ```
 
-O conteúdo é copiado sem transformação. Os hooks de rota recebem a extensão `.pb.js`, enquanto
-os módulos compartilhados de `hooks/lib/` preservam `.js` para serem carregados com `require()`.
+O conteúdo é copiado sem transformação e os hooks de rota recebem a extensão `.pb.js`.
+
+Os hooks do backend devem permanecer autocontidos, sem `require()` de arquivos auxiliares ou
+subpastas de `pocketbase/hooks/`. O PocketBase suporta módulos CommonJS locais, mas o pipeline
+atual do Skip Cloud não publica ou resolve esses módulos de forma confiável, o que pode encerrar
+a execução da rota com `Invalid module`. Por isso, as verificações de autorização do backend
+permanecem inline em cada hook. Uma futura centralização deve usar somente um processo de
+empacotamento e deploy previamente validado no Skip Cloud.
 
 ## Dados de desenvolvimento criados pelas migrations
 
