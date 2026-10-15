@@ -87,7 +87,7 @@ Antes de concluir uma implementação, execute no container apenas as validaçõ
 - Empresas novas permanecem sem latitude/longitude até a calibração explícita no painel administrativo pelo botão `Atualizar localização`, que captura a posição atual do dispositivo sem alterar o endereço textual.
 - Coordenadas ausentes, inválidas ou equivalentes ao par não configurado `0,0` devem ser normalizadas como localização pendente. O painel da empresa deve manter um aviso visível enquanto esse estado persistir.
 - Check-in e check-out devem ser bloqueados no frontend e no backend enquanto a empresa não possuir coordenadas válidas, com orientação clara para o freelancer procurar o responsável.
-- O raio permitido para check-in e check-out é de 50 metros. Mantenha sincronizados `LOCATION_RADIUS_METERS` em `src/lib/geolocation.ts` e a validação de distância em `pocketbase/hooks/attendance_register.js`; a validação no backend é obrigatória mesmo quando o frontend já bloqueia a operação.
+- O raio permitido para check-in e check-out é de 100 metros. Mantenha sincronizados `LOCATION_RADIUS_METERS` em `src/lib/geolocation.ts` e a validação de distância em `pocketbase/hooks/attendance_register.js`; a validação no backend é obrigatória mesmo quando o frontend já bloqueia a operação.
 
 ## Fotografias de presença
 

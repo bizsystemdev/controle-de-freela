@@ -76,7 +76,7 @@ empacotamento e deploy previamente validado no Skip Cloud.
 
 ### Validação de localização
 
-O check-in e o checkout aceitam uma distância máxima de 50 metros das coordenadas calibradas da
+O check-in e o checkout aceitam uma distância máxima de 100 metros das coordenadas calibradas da
 empresa. O mesmo limite é aplicado no frontend por `LOCATION_RADIUS_METERS`, em
 `src/lib/geolocation.ts`, e no backend pelo hook `pocketbase/hooks/attendance_register.js`. As duas
 validações devem permanecer sincronizadas; o backend mantém a proteção contra chamadas diretas à
