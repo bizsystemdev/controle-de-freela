@@ -36,7 +36,7 @@ export function normalizeCompanyCoordinates(lat: unknown, lng: unknown): Company
 }
 
 /** Tolerance radius (meters) for matching a company location on check-in. */
-export const LOCATION_RADIUS_METERS = 200
+export const LOCATION_RADIUS_METERS = 50
 
 export function isGeolocationAvailable(): boolean {
   return typeof navigator !== 'undefined' && !!navigator.geolocation
