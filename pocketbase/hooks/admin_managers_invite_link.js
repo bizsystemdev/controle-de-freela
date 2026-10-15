@@ -10,12 +10,7 @@ routerAdd('POST', '/api/admin/managers/{id}/invite-link', (e) => {
 
   const permissions = require(`${__hooks}/lib/admin_permissions.js`)
   if (
-    !permissions.canAccessManager(
-      $app,
-      e.auth,
-      managerId,
-      permissions.COMPANY_MANAGEMENT_ROLES,
-    )
+    !permissions.canAccessManager($app, e.auth, managerId, permissions.COMPANY_MANAGEMENT_ROLES)
   ) {
     return e.json(403, { error: 'Usuário sem permissão para administrar este gestor.' })
   }

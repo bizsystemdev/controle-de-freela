@@ -11,12 +11,7 @@ routerAdd('DELETE', '/api/admin/company/{id}/managers/{managerId}', (e) => {
 
   const permissions = require(`${__hooks}/lib/admin_permissions.js`)
   if (
-    !permissions.canAccessCompany(
-      $app,
-      e.auth,
-      companyId,
-      permissions.COMPANY_MANAGEMENT_ROLES,
-    )
+    !permissions.canAccessCompany($app, e.auth, companyId, permissions.COMPANY_MANAGEMENT_ROLES)
   ) {
     return e.json(403, { error: 'Usuário sem permissão para administrar gestores.' })
   }

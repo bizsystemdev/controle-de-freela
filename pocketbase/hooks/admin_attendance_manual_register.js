@@ -30,12 +30,7 @@ routerAdd('POST', '/api/admin/attendance/manual-register', (e) => {
 
   const permissions = require(`${__hooks}/lib/admin_permissions.js`)
   if (
-    !permissions.canAccessCompany(
-      $app,
-      e.auth,
-      companyId,
-      permissions.COMPANY_MANAGEMENT_ROLES,
-    )
+    !permissions.canAccessCompany($app, e.auth, companyId, permissions.COMPANY_MANAGEMENT_ROLES)
   ) {
     return e.json(403, { error: 'Gestor não tem permissão para gerenciar esta empresa.' })
   }
