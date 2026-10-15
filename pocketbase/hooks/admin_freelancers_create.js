@@ -37,9 +37,39 @@ routerAdd('POST', '/api/admin/freelancers', (e) => {
     return e.json(400, { error: 'CPF / documento é obrigatório.' })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
+
+  const checkCanAccessCompany = (targetCompanyId) => {
+    if (isSuperadmin) return true
+    const managerLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${e.auth.id}'`,
+      '',
+      100,
+      0,
+    )
+    for (let i = 0; i < managerLinks.length; i++) {
+      const linkRole = managerLinks[i].getString('role')
+      if (linkRole !== 'owner' && linkRole !== 'admin' && linkRole !== 'viewer') continue
+      try {
+        const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+        if (license.getString('company_id') === targetCompanyId) {
+          return true
+        }
+      } catch (_) {}
+    }
+    return false
+  }
+
   for (let i = 0; i < companyIds.length; i++) {
-    if (!permissions.canAccessCompany($app, e.auth, companyIds[i])) {
+    if (!checkCanAccessCompany(companyIds[i])) {
       return e.json(403, {
         error: 'Usuário sem permissão para cadastrar freelancer em uma das empresas.',
       })

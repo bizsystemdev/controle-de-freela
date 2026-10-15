@@ -13,19 +13,39 @@ routerAdd('POST', '/api/admin/company/{id}/managers/{managerId}/duplicate', (e) 
     })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
-  const canManageSource = permissions.canAccessCompany(
-    $app,
-    e.auth,
-    sourceCompanyId,
-    permissions.COMPANY_MANAGEMENT_ROLES,
-  )
-  const canManageTarget = permissions.canAccessCompany(
-    $app,
-    e.auth,
-    targetCompanyId,
-    permissions.COMPANY_MANAGEMENT_ROLES,
-  )
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
+
+  const checkCanManageCompany = (companyId) => {
+    if (isSuperadmin) return true
+    const managerLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${e.auth.id}'`,
+      '',
+      100,
+      0,
+    )
+    for (let i = 0; i < managerLinks.length; i++) {
+      const linkRole = managerLinks[i].getString('role')
+      if (linkRole !== 'owner' && linkRole !== 'admin') continue
+      try {
+        const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+        if (license.getString('company_id') === companyId) {
+          return true
+        }
+      } catch (_) {}
+    }
+    return false
+  }
+
+  const canManageSource = checkCanManageCompany(sourceCompanyId)
+  const canManageTarget = checkCanManageCompany(targetCompanyId)
   if (!canManageSource || !canManageTarget) {
     return e.json(403, { error: 'Usuário sem permissão para administrar estas empresas.' })
   }

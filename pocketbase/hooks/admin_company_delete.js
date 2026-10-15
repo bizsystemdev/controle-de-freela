@@ -4,8 +4,14 @@ routerAdd('DELETE', '/api/admin/company/{id}', (e) => {
   }
 
   // Apenas o SUPERADMIN pode remover empresas e todos os dados
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
-  const isSuperadmin = permissions.isSuperadmin(e.auth)
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
 
   if (!isSuperadmin) {
     return e.json(403, {

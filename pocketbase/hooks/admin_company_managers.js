@@ -8,10 +8,38 @@ routerAdd('GET', '/api/admin/company/{id}/managers', (e) => {
     return e.json(400, { error: 'ID da empresa obrigatório.' })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
-  if (
-    !permissions.canAccessCompany($app, e.auth, companyId, permissions.COMPANY_MANAGEMENT_ROLES)
-  ) {
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
+
+  let canManage = isSuperadmin
+  if (!canManage) {
+    const managerLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${e.auth.id}'`,
+      '',
+      100,
+      0,
+    )
+    for (let i = 0; i < managerLinks.length; i++) {
+      const linkRole = managerLinks[i].getString('role')
+      if (linkRole !== 'owner' && linkRole !== 'admin') continue
+      try {
+        const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+        if (license.getString('company_id') === companyId) {
+          canManage = true
+          break
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (!canManage) {
     return e.json(403, { error: 'Usuário sem permissão para consultar gestores.' })
   }
 
@@ -48,7 +76,13 @@ routerAdd('GET', '/api/admin/company/{id}/managers', (e) => {
     try {
       const user = $app.findRecordById('_pb_users_auth_', userId)
       // REQUISITO: "Quem for superadmin NÃO deve aparecer na listagem de gestores, mesmo tendo acesso a todas empresas."
-      if (permissions.isSuperadmin(user)) {
+      const uRole = String(user.getString('role') || '')
+        .trim()
+        .toLowerCase()
+      const uEmail = String(user.getString('email') || '')
+        .trim()
+        .toLowerCase()
+      if (uRole === 'superadmin' || uEmail === SUPERADMIN_EMAIL) {
         continue
       }
 

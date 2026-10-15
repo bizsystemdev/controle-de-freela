@@ -8,10 +8,58 @@ routerAdd('POST', '/api/admin/managers/{id}/invite-link', (e) => {
     return e.json(400, { error: 'ID do usuário obrigatório.' })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
-  if (
-    !permissions.canAccessManager($app, e.auth, managerId, permissions.COMPANY_MANAGEMENT_ROLES)
-  ) {
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
+
+  const checkCanAccessCompany = (cId) => {
+    if (isSuperadmin) return true
+    const managerLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${e.auth.id}'`,
+      '',
+      100,
+      0,
+    )
+    for (let i = 0; i < managerLinks.length; i++) {
+      const linkRole = managerLinks[i].getString('role')
+      if (linkRole !== 'owner' && linkRole !== 'admin') continue
+      try {
+        const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+        if (license.getString('company_id') === cId) {
+          return true
+        }
+      } catch (_) {}
+    }
+    return false
+  }
+
+  const checkCanAccessManager = (targetMgrId) => {
+    if (isSuperadmin) return true
+    const targetLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${targetMgrId}'`,
+      '',
+      500,
+      0,
+    )
+    for (let i = 0; i < targetLinks.length; i++) {
+      try {
+        const license = $app.findRecordById('licenses', targetLinks[i].getString('license_id'))
+        if (checkCanAccessCompany(license.getString('company_id'))) {
+          return true
+        }
+      } catch (_) {}
+    }
+    return false
+  }
+
+  if (!checkCanAccessManager(managerId)) {
     return e.json(403, { error: 'Usuário sem permissão para administrar este gestor.' })
   }
 

@@ -9,9 +9,40 @@ routerAdd('GET', '/api/admin/device-releases', (e) => {
     return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
-  const isSuperadmin = permissions.isSuperadmin(e.auth)
-  const accessibleCompanyIds = permissions.getAccessibleCompanyIds($app, e.auth)
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
+
+  let accessibleCompanyIds = []
+  if (isSuperadmin) {
+    const allComps = $app.findRecordsByFilter('companies', 'id != ""', '', 1000, 0)
+    accessibleCompanyIds = allComps.map((comp) => comp.id)
+  } else {
+    const managerLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${e.auth.id}'`,
+      '',
+      500,
+      0,
+    )
+    for (let i = 0; i < managerLinks.length; i++) {
+      const role = managerLinks[i].getString('role')
+      if (role !== 'owner' && role !== 'admin' && role !== 'viewer') continue
+      try {
+        const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+        const cId = license.getString('company_id')
+        if (cId && accessibleCompanyIds.indexOf(cId) === -1) {
+          accessibleCompanyIds.push(cId)
+        }
+      } catch (_) {}
+    }
+  }
+
   if (companyId && accessibleCompanyIds.indexOf(companyId) === -1) {
     return e.json(403, { error: 'Usuário sem permissão para consultar esta empresa.' })
   }

@@ -16,9 +16,37 @@ routerAdd('PUT', '/api/admin/company/{id}', (e) => {
     return e.json(404, { error: 'Empresa não encontrada.' })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
-  const isSuperadmin = permissions.isSuperadmin(e.auth)
-  const companyRole = permissions.getCompanyRole($app, e.auth, companyId)
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
+
+  let companyRole = null
+  if (isSuperadmin) {
+    companyRole = 'superadmin'
+  } else {
+    const managerLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${e.auth.id}'`,
+      '',
+      100,
+      0,
+    )
+    for (let i = 0; i < managerLinks.length; i++) {
+      try {
+        const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+        if (license.getString('company_id') === companyId) {
+          companyRole = managerLinks[i].getString('role') || null
+          break
+        }
+      } catch (_) {}
+    }
+  }
+
   if (!companyRole) {
     return e.json(403, { error: 'Usuário sem permissão para atualizar esta empresa.' })
   }

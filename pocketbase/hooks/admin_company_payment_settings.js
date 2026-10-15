@@ -10,8 +10,38 @@ routerAdd('PATCH', '/backend/v1/admin/company/{id}/payment-settings', (e) => {
     return e.json(400, { error: 'ID da empresa é obrigatório.' })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
-  if (!permissions.canAccessCompany($app, e.auth, companyId)) {
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
+
+  let canAccess = isSuperadmin
+  if (!canAccess) {
+    const managerLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${e.auth.id}'`,
+      '',
+      100,
+      0,
+    )
+    for (let i = 0; i < managerLinks.length; i++) {
+      const linkRole = managerLinks[i].getString('role')
+      if (linkRole !== 'owner' && linkRole !== 'admin' && linkRole !== 'viewer') continue
+      try {
+        const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+        if (license.getString('company_id') === companyId) {
+          canAccess = true
+          break
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (!canAccess) {
     return e.json(403, { error: 'Usuário sem permissão para configurar esta empresa.' })
   }
 

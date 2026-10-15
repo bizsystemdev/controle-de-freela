@@ -9,10 +9,38 @@ routerAdd('DELETE', '/api/admin/company/{id}/managers/{managerId}', (e) => {
     return e.json(400, { error: 'ID da empresa e ID do gestor são obrigatórios.' })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
-  if (
-    !permissions.canAccessCompany($app, e.auth, companyId, permissions.COMPANY_MANAGEMENT_ROLES)
-  ) {
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
+
+  let canManage = isSuperadmin
+  if (!canManage) {
+    const managerLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${e.auth.id}'`,
+      '',
+      100,
+      0,
+    )
+    for (let i = 0; i < managerLinks.length; i++) {
+      const linkRole = managerLinks[i].getString('role')
+      if (linkRole !== 'owner' && linkRole !== 'admin') continue
+      try {
+        const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+        if (license.getString('company_id') === companyId) {
+          canManage = true
+          break
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (!canManage) {
     return e.json(403, { error: 'Usuário sem permissão para administrar gestores.' })
   }
 

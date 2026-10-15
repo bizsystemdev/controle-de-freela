@@ -9,15 +9,61 @@ routerAdd('PUT', '/api/admin/freelancers/{id}', (e) => {
     return e.json(400, { error: 'ID do freelancer obrigatório.' })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
+
   const isClearDevice = body.clearDevice === true || body.clear_device === true
-  const allowedRoles = isClearDevice
-    ? permissions.COMPANY_ACCESS_ROLES
-    : permissions.COMPANY_MANAGEMENT_ROLES
+  const allowedRoles = isClearDevice ? ['owner', 'admin', 'viewer'] : ['owner', 'admin']
   const companyId = String(body.companyId || body.company_id || '').trim()
+
+  const checkCanAccessCompany = (cId, roles) => {
+    if (isSuperadmin) return true
+    const managerLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${e.auth.id}'`,
+      '',
+      100,
+      0,
+    )
+    for (let i = 0; i < managerLinks.length; i++) {
+      const linkRole = managerLinks[i].getString('role')
+      if (roles.indexOf(linkRole) === -1) continue
+      try {
+        const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+        if (license.getString('company_id') === cId) {
+          return true
+        }
+      } catch (_) {}
+    }
+    return false
+  }
+
+  const checkCanAccessFreelancer = (fId, roles) => {
+    if (isSuperadmin) return true
+    const links = $app.findRecordsByFilter(
+      'freelancer_companies',
+      `freelancer_id = '${fId}'`,
+      '',
+      500,
+      0,
+    )
+    for (let i = 0; i < links.length; i++) {
+      if (checkCanAccessCompany(links[i].getString('company_id'), roles)) {
+        return true
+      }
+    }
+    return false
+  }
+
   const hasAccess = companyId
-    ? permissions.canAccessCompany($app, e.auth, companyId, allowedRoles)
-    : permissions.canAccessFreelancer($app, e.auth, freelancerId, allowedRoles)
+    ? checkCanAccessCompany(companyId, allowedRoles)
+    : checkCanAccessFreelancer(freelancerId, allowedRoles)
   if (!hasAccess) {
     return e.json(403, { error: 'Usuário sem permissão para administrar este freelancer.' })
   }

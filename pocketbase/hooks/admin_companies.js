@@ -4,8 +4,17 @@ routerAdd('GET', '/api/admin/companies', (e) => {
     return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
-  const isSuperadmin = permissions.isSuperadmin(e.auth)
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin = (() => {
+    if (!e.auth) return false
+    const role = String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase()
+    const email = String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase()
+    return role === 'superadmin' || email === SUPERADMIN_EMAIL
+  })()
 
   if (managerId && managerId !== e.auth.id && !isSuperadmin) {
     return e.json(403, { error: 'Usuário sem permissão para consultar outras empresas.' })

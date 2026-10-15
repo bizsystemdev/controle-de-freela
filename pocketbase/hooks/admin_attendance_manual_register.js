@@ -28,10 +28,38 @@ routerAdd('POST', '/api/admin/attendance/manual-register', (e) => {
     return e.json(401, { error: 'Autenticação administrativa obrigatória.' })
   }
 
-  const permissions = require(`${__hooks}/lib/admin_permissions.js`)
-  if (
-    !permissions.canAccessCompany($app, e.auth, companyId, permissions.COMPANY_MANAGEMENT_ROLES)
-  ) {
+  const SUPERADMIN_EMAIL = 'admin@bizcheck.com'
+  const isSuperadmin =
+    String(e.auth.getString('role') || '')
+      .trim()
+      .toLowerCase() === 'superadmin' ||
+    String(e.auth.getString('email') || '')
+      .trim()
+      .toLowerCase() === SUPERADMIN_EMAIL
+
+  let canManageCompany = isSuperadmin
+  if (!canManageCompany) {
+    const managerLinks = $app.findRecordsByFilter(
+      'license_managers',
+      `user_id = '${e.auth.id}'`,
+      '',
+      100,
+      0,
+    )
+    for (let i = 0; i < managerLinks.length; i++) {
+      const linkRole = managerLinks[i].getString('role')
+      if (linkRole !== 'owner' && linkRole !== 'admin') continue
+      try {
+        const license = $app.findRecordById('licenses', managerLinks[i].getString('license_id'))
+        if (license.getString('company_id') === companyId) {
+          canManageCompany = true
+          break
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (!canManageCompany) {
     return e.json(403, { error: 'Gestor não tem permissão para gerenciar esta empresa.' })
   }
 
