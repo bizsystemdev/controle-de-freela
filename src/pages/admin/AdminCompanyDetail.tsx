@@ -702,9 +702,9 @@ export default function AdminCompanyDetail() {
 
   const handleOpenDupFl = (fl: AdminFreelancer) => {
     if (gerente) return
+    const availableCompanies = allCompanies.filter((c) => c.id !== id)
     setSelectedDupFl(fl)
-    const others = allCompanies.filter((c) => c.id !== id)
-    setTargetDupFlCompIds(others.length > 0 ? [others[0].id] : [])
+    setTargetDupFlCompIds(availableCompanies.length === 1 ? [availableCompanies[0].id] : [])
     setDupFlModalOpen(true)
   }
 

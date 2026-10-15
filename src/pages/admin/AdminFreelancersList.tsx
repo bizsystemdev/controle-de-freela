@@ -197,8 +197,9 @@ export default function AdminFreelancersList() {
 
   const handleOpenDuplicate = (fl: AdminFreelancer) => {
     if (gerente) return
+    const availableCompanies = allCompanies.filter((c) => c.id !== id)
     setSelectedFreelancer(fl)
-    setTargetCompanyIds([])
+    setTargetCompanyIds(availableCompanies.length === 1 ? [availableCompanies[0].id] : [])
     setDuplicateModalOpen(true)
   }
 
